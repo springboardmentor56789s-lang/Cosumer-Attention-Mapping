@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import User, Role
 from ..auth import hash_password, verify_password, create_access_token
+from ..auth import require_role
+from ..auth import  get_current_user
 
 router = APIRouter()
 
@@ -50,3 +52,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": user.email, "role": user.role.name})
     return {"access_token": token, "token_type": "bearer"}
+
+@router.get("/users")
+def list_users(db: Session = Depends(get_db), user=Depends(require_role("admin"))):
+    return db.query(User).all()
+
+@router.get("/me")
+def get_me(user=Depends(get_current_user)):
+    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role.name}

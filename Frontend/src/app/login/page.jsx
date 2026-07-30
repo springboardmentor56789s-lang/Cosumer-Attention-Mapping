@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import axios from "axios";
 
 
 
@@ -191,49 +193,36 @@ export default function Login() {
 
   const [error, setError] = useState("");
 
+  const router = useRouter();
 
 
-  async function fakeLogin(email, password) {
 
-    await new Promise((r) => setTimeout(r, 900));
+async function handleSubmit(e) {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    if (!email.includes("@")) throw new Error("Enter a valid email address");
+  try {
+    const response = await axios.post("http://localhost:8000/login", { email, password });
+    const token = response.data.access_token;
+    localStorage.setItem("token", token);
 
-    if (password.length < 6) throw new Error("Incorrect email or password");
+    const decoded = JSON.parse(atob(token.split(".")[1]));
 
-    return { role: "retail_analyst" };
+    const roleRoutes = {
+      admin: "/dashboard/admin",
+      store_manager: "/dashboard/store-manager",
+      retail_analyst: "/dashboard/retail-analyst",
+      marketing_manager: "/dashboard/marketing-manager",
+    };
 
+    router.push(roleRoutes[decoded.role] || "/unauthorized");
+  } catch (err) {
+    setError(err.response?.data?.detail || "Invalid email or password");
+  } finally {
+    setLoading(false);
   }
-
-
-
-  async function handleSubmit(e) {
-
-    e.preventDefault();
-
-    setError("");
-
-    setLoading(true);
-
-    try {
-
-      // Swap fakeLogin for the real /auth/login call described above.
-
-      const result = await fakeLogin(email, password);
-
-      console.log("Signed in as", result.role);
-
-    } catch (err) {
-
-      setError(err.message || "Something went wrong. Try again.");
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  }
+}
 
 
 
