@@ -50,26 +50,26 @@
 
                 <section class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
-                        <p class="text-sm font-medium text-slate-500">Peak Audience</p>
+                        <p class="text-sm font-medium text-slate-500">Top Segment</p>
                         <p id="peakAudience" class="mt-2 text-3xl font-bold text-slate-900">-</p>
                     </div>
                     <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
-                        <p class="text-sm font-medium text-slate-500">Engagement Lift</p>
+                        <p class="text-sm font-medium text-slate-500">Profit Margin</p>
                         <p id="engagementLift" class="mt-2 text-3xl font-bold text-slate-900">0%</p>
                     </div>
                     <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
-                        <p class="text-sm font-medium text-slate-500">Campaign Reach</p>
+                        <p class="text-sm font-medium text-slate-500">Customers</p>
                         <p id="campaignReach" class="mt-2 text-3xl font-bold text-slate-900">0</p>
                     </div>
                     <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
-                        <p class="text-sm font-medium text-slate-500">Conversion Trend</p>
+                        <p class="text-sm font-medium text-slate-500">Orders</p>
                         <p id="conversionTrend" class="mt-2 text-3xl font-bold text-slate-900">-</p>
                     </div>
                 </section>
 
                 <section class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                     <div class="rounded-[24px] border border-white/50 bg-white/80 p-5 shadow-lg">
-                        <h3 class="mb-4 text-lg font-semibold text-slate-900">Weekly Engagement Trend</h3>
+                        <h3 class="mb-4 text-lg font-semibold text-slate-900">Monthly Sales Trend</h3>
                         <canvas id="trendChart" height="180"></canvas>
                     </div>
                     <div class="rounded-[24px] border border-white/50 bg-white/80 p-5 shadow-lg">
@@ -90,15 +90,15 @@
                 <section>
                     <div class="overflow-hidden rounded-[24px] border border-white/50 bg-white/80 shadow-lg">
                         <div class="p-5 sm:p-6">
-                            <h3 class="text-xl font-semibold text-slate-900">Campaign Highlights</h3>
+                            <h3 class="text-xl font-semibold text-slate-900">Segment Performance</h3>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full">
                                 <thead class="bg-slate-100/80 text-left text-sm text-slate-600">
                                     <tr>
-                                        <th class="p-3 font-semibold">Campaign</th>
-                                        <th class="p-3 font-semibold">Audience</th>
-                                        <th class="p-3 font-semibold">Results</th>
+                                        <th class="p-3 font-semibold">Segment</th>
+                                        <th class="p-3 font-semibold">Customers</th>
+                                        <th class="p-3 font-semibold">Sales</th>
                                     </tr>
                                 </thead>
                                 <tbody id="campaignTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>

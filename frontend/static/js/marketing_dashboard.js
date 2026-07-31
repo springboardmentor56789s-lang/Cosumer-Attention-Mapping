@@ -16,48 +16,25 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("welcomeText").textContent = `Welcome ${firstName} 👋`;
     }
 
-    const campaignRows = [
-        { campaign: "Weekend Promo", audience: "Young Adults", results: "+18% uplift" },
-        { campaign: "Holiday Bundle", audience: "Families", results: "+12% uplift" },
-        { campaign: "New Arrival", audience: "Tech Savvy", results: "+9% uplift" }
-    ];
-
-    const table = document.getElementById("campaignTable");
-    table.innerHTML = "";
-    campaignRows.forEach((row) => {
-        table.innerHTML += `
-            <tr class="border-b hover:bg-slate-50">
-                <td class="p-3 font-medium">${row.campaign}</td>
-                <td class="p-3">${row.audience}</td>
-                <td class="p-3">${row.results}</td>
-            </tr>
-        `;
-    });
-
-    setText("peakAudience", "Evening Shoppers");
-    setText("engagementLift", "18%");
-    setText("campaignReach", "24.8k");
-    setText("conversionTrend", "Rising");
-    setText("bestSegment", "Young Adults");
-    setText("recommendation", "Focus on digital bundles");
-
-    new Chart(document.getElementById("trendChart"), {
-        type: "bar",
-        data: {
-            labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            datasets: [{
-                label: "Engagement",
-                data: [55, 62, 70, 74, 81, 88],
-                backgroundColor: ["#f59e0b", "#fbbf24", "#fcd34d", "#fde68a", "#f59e0b", "#d97706"],
-                borderRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, max: 100 } }
-        }
-    });
+    let chart;
+    const currency = (value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+    async function loadInsights() {
+        const response = await fetch("/api/dashboard/superstore-insights", { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error("Unable to load live marketing insights");
+        const data = await response.json();
+        const summary = data.summary;
+        setText("peakAudience", summary.top_segment);
+        setText("engagementLift", `${Number(summary.profit_margin).toFixed(1)}%`);
+        setText("campaignReach", Number(summary.total_customers).toLocaleString());
+        setText("conversionTrend", Number(summary.total_orders).toLocaleString());
+        setText("bestSegment", summary.top_segment);
+        setText("recommendation", `Prioritize ${data.categories[0]?.category || "top"} campaigns`);
+        document.getElementById("campaignTable").innerHTML = data.segments.map((row) => `<tr class="border-b hover:bg-slate-50"><td class="p-3 font-medium">${row.segment}</td><td class="p-3">${Number(row.customers).toLocaleString()} customers</td><td class="p-3">${currency(row.sales)}</td></tr>`).join("");
+        if (chart) chart.destroy();
+        chart = new Chart(document.getElementById("trendChart"), { type: "bar", data: { labels: data.monthly_sales.map((row) => row.month), datasets: [{ label: "Sales", data: data.monthly_sales.map((row) => row.sales), backgroundColor: "#f59e0b", borderRadius: 8 }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+    }
+    loadInsights().catch((error) => console.error(error));
+    setInterval(() => loadInsights().catch((error) => console.error(error)), 30000);
 });
 
 document.getElementById("logoutBtn").addEventListener("click", () => {

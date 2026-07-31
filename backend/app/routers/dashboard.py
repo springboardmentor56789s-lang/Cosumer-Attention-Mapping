@@ -1,15 +1,75 @@
 from datetime import date
 from typing import List
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from app import model, schema
-from app.dependencies import require_admin, require_store_manager
+from app.dependencies import get_current_user, require_admin, require_store_manager
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
+
+
+@router.get("/superstore-insights")
+def get_superstore_insights(
+    db: Session = Depends(get_db),
+    current_user: model.User = Depends(get_current_user),
+):
+    """Return live sales insights from the CSV imported during successful login."""
+    imported = db.execute(text("""
+        SELECT dataset_name, imported_at, row_count
+        FROM dataset_imports
+        WHERE dataset_name = 'samplesuperstore.csv'
+    """)).mappings().first()
+    if not imported:
+        raise HTTPException(status_code=404, detail="Superstore dataset has not been imported yet.")
+
+    summary = db.execute(text("""
+        SELECT
+            COALESCE(SUM(sales), 0) AS total_sales,
+            COALESCE(SUM(profit), 0) AS total_profit,
+            COUNT(DISTINCT order_id) AS total_orders,
+            COUNT(DISTINCT customer_id) AS total_customers,
+            COALESCE(SUM(sales) / NULLIF(COUNT(DISTINCT order_id), 0), 0) AS average_order_value,
+            COALESCE(SUM(profit) / NULLIF(SUM(sales), 0) * 100, 0) AS profit_margin,
+            COALESCE((SELECT product_name FROM superstore_sales GROUP BY product_name ORDER BY SUM(sales) DESC LIMIT 1), 'No data') AS top_product,
+            COALESCE((SELECT region FROM superstore_sales GROUP BY region ORDER BY SUM(sales) DESC LIMIT 1), 'No data') AS top_region,
+            COALESCE((SELECT segment FROM superstore_sales GROUP BY segment ORDER BY SUM(sales) DESC LIMIT 1), 'No data') AS top_segment
+        FROM superstore_sales
+    """)).mappings().one()
+
+    monthly_sales = db.execute(text("""
+        SELECT TO_CHAR(DATE_TRUNC('month', order_date), 'Mon YYYY') AS month,
+               SUM(sales) AS sales, SUM(profit) AS profit
+        FROM superstore_sales
+        GROUP BY DATE_TRUNC('month', order_date)
+        ORDER BY DATE_TRUNC('month', order_date)
+    """)).mappings().all()
+    categories = db.execute(text("""
+        SELECT category, SUM(sales) AS sales, SUM(profit) AS profit, SUM(quantity) AS quantity
+        FROM superstore_sales GROUP BY category ORDER BY sales DESC
+    """)).mappings().all()
+    segments = db.execute(text("""
+        SELECT segment, SUM(sales) AS sales, SUM(profit) AS profit,
+               COUNT(DISTINCT customer_id) AS customers
+        FROM superstore_sales GROUP BY segment ORDER BY sales DESC
+    """)).mappings().all()
+    regions = db.execute(text("""
+        SELECT region, SUM(sales) AS sales, SUM(profit) AS profit,
+               COUNT(DISTINCT order_id) AS orders
+        FROM superstore_sales GROUP BY region ORDER BY sales DESC
+    """)).mappings().all()
+
+    return {
+        "dataset": dict(imported),
+        "summary": dict(summary),
+        "monthly_sales": [dict(row) for row in monthly_sales],
+        "categories": [dict(row) for row in categories],
+        "segments": [dict(row) for row in segments],
+        "regions": [dict(row) for row in regions],
+    }
 
 
 @router.get("/overview", response_model=schema.OverviewMetrics)

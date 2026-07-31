@@ -16,50 +16,25 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("welcomeText").textContent = `Welcome ${firstName} 👋`;
     }
 
-    const sampleRows = [
-        { shelf: "Shelf A", visitors: 182, engagement: 91 },
-        { shelf: "Shelf B", visitors: 146, engagement: 84 },
-        { shelf: "Shelf C", visitors: 128, engagement: 76 }
-    ];
-
-    const table = document.getElementById("insightTable");
-    table.innerHTML = "";
-    sampleRows.forEach((row) => {
-        table.innerHTML += `
-            <tr class="border-b hover:bg-slate-50">
-                <td class="p-3 font-medium">${row.shelf}</td>
-                <td class="p-3">${row.visitors}</td>
-                <td class="p-3">${row.engagement}%</td>
-            </tr>
-        `;
-    });
-
-    setText("topProduct", "Fresh Drinks");
-    setText("engagementScore", "91%");
-    setText("avgDwellTime", "6.4 min");
-    setText("trackedCameras", "4");
-    setText("attentionZone", "Front Left Corner");
-    setText("conversionSignal", "Strong");
-
-    new Chart(document.getElementById("attentionChart"), {
-        type: "line",
-        data: {
-            labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            datasets: [{
-                label: "Attention",
-                data: [72, 78, 85, 81, 90, 91],
-                borderColor: "#8b5cf6",
-                backgroundColor: "rgba(139, 92, 246, 0.15)",
-                tension: 0.35,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, max: 100 } }
-        }
-    });
+    let chart;
+    const currency = (value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+    async function loadInsights() {
+        const response = await fetch("/api/dashboard/superstore-insights", { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) throw new Error("Unable to load live sales insights");
+        const data = await response.json();
+        const summary = data.summary;
+        setText("topProduct", summary.top_product);
+        setText("engagementScore", `${Number(summary.profit_margin).toFixed(1)}%`);
+        setText("avgDwellTime", currency(summary.average_order_value));
+        setText("trackedCameras", Number(summary.total_orders).toLocaleString());
+        setText("attentionZone", summary.top_region);
+        setText("conversionSignal", currency(summary.total_profit));
+        document.getElementById("insightTable").innerHTML = data.categories.map((row) => `<tr class="border-b hover:bg-slate-50"><td class="p-3 font-medium">${row.category}</td><td class="p-3">${currency(row.sales)}</td><td class="p-3">${currency(row.profit)}</td></tr>`).join("");
+        if (chart) chart.destroy();
+        chart = new Chart(document.getElementById("attentionChart"), { type: "line", data: { labels: data.monthly_sales.map((row) => row.month), datasets: [{ label: "Sales", data: data.monthly_sales.map((row) => row.sales), borderColor: "#8b5cf6", backgroundColor: "rgba(139, 92, 246, 0.15)", tension: 0.35, fill: true }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
+    }
+    loadInsights().catch((error) => console.error(error));
+    setInterval(() => loadInsights().catch((error) => console.error(error)), 30000);
 });
 
 document.getElementById("logoutBtn").addEventListener("click", () => {
