@@ -1,19 +1,297 @@
-# Consumer Attention Mapping System
+# 🏗️ System Architecture
 
 ## Overview
-The Consumer Attention Mapping System is an AI-powered retail intelligence platform that uses cameras, computer vision, and behavioral analytics to understand how shoppers interact with retail shelves, products, promotional displays, and store layouts. It analyzes attention patterns, gaze direction, dwell time, product engagement, and movement paths to help retailers optimize shelf placement, improve product visibility, increase conversion rates, and enhance in-store customer experiences.
 
-The platform is designed for retail stores, supermarkets, shopping malls, FMCG companies, consumer brands, retail analytics teams, and marketing organizations.
+The **AI Consumer Attention Mapping System** is a role-based intelligent retail analytics platform that leverages **Artificial Intelligence (AI)** and **Computer Vision** to analyze customer behavior inside retail stores. The system captures live video feeds from surveillance cameras, processes them using AI models, stores analytical insights in a centralized database, and presents actionable information through role-specific dashboards.
 
-## Architecture
+The architecture follows a modular multi-tier design consisting of five major layers:
 
-The system follows a microservices architecture with the following layers:
+- **Presentation Layer**
+- **Backend API Layer**
+- **AI Processing Layer**
+- **Database Layer**
+- **External Devices Layer**
 
-- **Data Sources** — In-store cameras (IP/CCTV), depth cameras, POS systems, product master data, promotions/campaign data, and store layout/planogram data.
-- **Edge Layer (Store Level)** — Edge gateway for local video pre-processing, buffering, optional encryption, and edge inference before data reaches the cloud.
-- **API Gateway (FastAPI)** — Handles routing, authentication, rate limiting, request validation, load balancing, CORS, logging, and throttling.
-- **Microservices Layer** — Independent services for user/access management, store & shelf management, video ingestion, consumer detection & tracking, attention analysis, product interaction, behavior intelligence, heatmap generation, attractiveness scoring, recommendation & optimization, analytics & insights, and notifications & alerts.
-- **Data Processing & Intelligence Layer** — Stream ingestion (Kafka), video frame extraction, pre-processing, AI inference (detection, tracking, pose/gaze estimation), feature extraction, behavior modeling & scoring, and event correlation/storage.
-- **Data Layer** — PostgreSQL (relational data: users, stores, products, shelves, configs), MongoDB (document data: campaigns, sessions), TimescaleDB (time-series metrics, dwell time, traffic), Redis (session/tracking cache), Data Warehouse (analytics, trends, reports), Object Storage (raw video, snapshots), Vector DB (embeddings for re-identification and similarity search), and AI/ML model storage.
-- **External Services & Integrations** — Cloud storage (AWS S3/Azure Blob), external AI/ML services, notification services (FCM/SNS/SES), BI & visualization tools, identity providers (Azure AD/Okta), and integrations with ERP/inventory, CRM/loyalty systems, marketing platforms, and data warehouses.
-- **Monitoring & Observability** — Application monitoring, model performance monitoring, stream health monitoring, error tracking/logging, alerting, and audit logs.
+---
+
+## 🏛️ System Architecture
+
+```text
+                              ┌────────────────────────────┐
+                              │      Retail Cameras        │
+                              │     (IP/Web Cameras)       │
+                              └─────────────┬──────────────┘
+                                            │
+                                            ▼
+                    ┌────────────────────────────────────────────┐
+                    │          AI Processing Layer               │
+                    │────────────────────────────────────────────│
+                    │ • Video Frame Extraction                  │
+                    │ • Consumer Detection                      │
+                    │ • Consumer Tracking                       │
+                    │ • Attention Analysis                      │
+                    │ • Heatmap Generation                      │
+                    │ • Behaviour Analytics                     │
+                    └──────────────┬─────────────────────────────┘
+                                   │
+                                   ▼
+                    ┌────────────────────────────────────────────┐
+                    │          Backend API Layer                 │
+                    │────────────────────────────────────────────│
+                    │ • Authentication                          │
+                    │ • Authorization                           │
+                    │ • User Management                         │
+                    │ • Store Management                        │
+                    │ • Camera Management                       │
+                    │ • Analytics APIs                          │
+                    │ • Reports & Notifications                 │
+                    └──────────────┬─────────────────────────────┘
+                                   │
+                                   ▼
+                    ┌────────────────────────────────────────────┐
+                    │            Database Layer                  │
+                    │────────────────────────────────────────────│
+                    │ • Users                                   │
+                    │ • Roles                                   │
+                    │ • Stores                                  │
+                    │ • Cameras                                 │
+                    │ • Analytics                               │
+                    │ • Reports                                 │
+                    │ • Notifications                           │
+                    │ • System Logs                             │
+                    └──────────────┬─────────────────────────────┘
+                                   │
+                                   ▼
+                    ┌────────────────────────────────────────────┐
+                    │          Presentation Layer                │
+                    │────────────────────────────────────────────│
+                    │ • Admin Dashboard                         │
+                    │ • Store Manager Dashboard                 │
+                    │ • Retail Analyst Dashboard                │
+                    │ • Marketing Manager Dashboard             │
+                    └────────────────────────────────────────────┘
+```
+
+---
+
+# 📋 Architecture Components
+
+## 1️⃣ Presentation Layer
+
+The Presentation Layer provides a responsive, user-friendly interface developed using **Next.js**, **React**, and **Tailwind CSS**. Users are redirected to role-specific dashboards after authentication.
+
+### Admin Dashboard
+
+- User Management
+- Store Management
+- Camera Management
+- System Monitoring
+- Platform Analytics
+- Reports
+- Activity Logs
+- Notifications
+
+### Store Manager Dashboard
+
+- Store Overview
+- Shelf Performance
+- Camera Monitoring
+- Heatmap Analysis
+- Consumer Attention Metrics
+- Daily Reports
+
+### Retail Analyst Dashboard
+
+- Consumer Behaviour Analysis
+- Attention Heatmaps
+- Product Engagement
+- Customer Journey Analysis
+- Zone Performance
+- AI Insights
+
+### Marketing Manager Dashboard
+
+- Campaign Performance
+- Product Visibility
+- Customer Engagement
+- Product Rankings
+- Promotional Effectiveness
+- Marketing Reports
+
+---
+
+## 2️⃣ Backend API Layer
+
+The backend acts as the communication bridge between the frontend, AI engine, and database.
+
+### Responsibilities
+
+- JWT Authentication
+- Role-Based Authorization
+- CRUD Operations
+- REST APIs
+- Report Generation
+- Notification Services
+- Analytics APIs
+
+---
+
+## 3️⃣ AI Processing Layer
+
+The AI layer processes surveillance video to generate customer analytics.
+
+### Workflow
+
+1. Capture live video stream
+2. Extract video frames
+3. Detect customers
+4. Track customer movement
+5. Calculate attention duration
+6. Generate heatmaps
+7. Analyze consumer behaviour
+8. Store analytics in the database
+
+### AI Outputs
+
+- Consumer Detection
+- Consumer Tracking
+- Attention Score
+- Dwell Time
+- Heatmaps
+- Product Interaction
+- Behaviour Analytics
+- AI Recommendations
+
+---
+
+## 4️⃣ Database Layer
+
+Stores both operational and analytical data.
+
+### Database Tables
+
+- Users
+- Roles
+- Stores
+- Cameras
+- Analytics
+- Reports
+- Notifications
+- System Logs
+
+---
+
+## 5️⃣ External Devices Layer
+
+Retail surveillance cameras capture live video streams used for AI processing.
+
+### Responsibilities
+
+- Video Capture
+- Customer Monitoring
+- Real-time Data Collection
+- AI Input Source
+
+---
+
+# 🔐 Authentication Flow
+
+```text
+User Login
+     │
+     ▼
+Authentication
+     │
+     ▼
+JWT Token Generated
+     │
+     ▼
+Role Validation
+     │
+     ▼
+Role-Based Dashboard
+```
+
+---
+
+# 🔄 Data Flow
+
+```text
+Retail Cameras
+      │
+      ▼
+Video Frames
+      │
+      ▼
+AI Processing
+      │
+      ▼
+Analytics Generation
+      │
+      ▼
+Database
+      │
+      ▼
+Backend APIs
+      │
+      ▼
+Role-Based Dashboards
+```
+
+---
+
+# 💻 Technology Stack
+
+| Layer | Technology |
+|--------|------------|
+| Frontend | Next.js, React, Tailwind CSS |
+| Backend | Node.js, Express.js |
+| Database | PostgreSQL |
+| Authentication | JWT |
+| AI & Computer Vision | Python, OpenCV, YOLO |
+| Charts | Recharts |
+| Icons | Lucide React |
+| Deployment | Vercel (Frontend), Render/Railway (Backend) |
+
+---
+
+# ✨ Key Features
+
+- Secure JWT Authentication
+- Role-Based Access Control (RBAC)
+- Multi-Store Management
+- Camera Monitoring
+- AI Consumer Attention Analysis
+- Heatmap Visualization
+- Behaviour Analytics
+- Interactive Dashboards
+- Exportable Reports
+- Notifications & Activity Logs
+- Responsive Enterprise UI
+
+---
+
+# 📈 Scalability
+
+The modular architecture enables:
+
+- Multiple retail stores
+- Multiple surveillance cameras
+- Future AI model integration
+- Cloud deployment
+- Additional analytics modules
+- Business Intelligence integration
+
+---
+
+# 🔒 Security
+
+- JWT Authentication
+- Protected API Routes
+- Role-Based Authorization
+- Secure Password Hashing
+- Input Validation
+- Audit Logging
+- Session Management
+
+---
