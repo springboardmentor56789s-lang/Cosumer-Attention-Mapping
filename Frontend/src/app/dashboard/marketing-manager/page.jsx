@@ -268,7 +268,7 @@ export default function MarketingManagerDashboard() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 8px", marginBottom: "36px" }}>
             <div style={{ width: "10px", height: "10px", borderRadius: "3px", background: TOKENS.accent }} />
             <div>
-              <div style={{ fontFamily: fontHead, fontSize: "14px", fontWeight: 700, lineHeight: 1.1 }}>CAMS</div>
+              <div style={{ fontFamily: fontHead, fontSize: "14px", fontWeight: 700, lineHeight: 1.1 }}>Marketing Manager Dashboard</div>
               <div style={{ fontSize: "10px", color: TOKENS.muted }}>Attention Mapping System</div>
             </div>
           </div>

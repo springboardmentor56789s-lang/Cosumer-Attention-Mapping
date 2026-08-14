@@ -1,22 +1,22 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 
 // ==========================================
 // DESIGN TOKENS & STYLES
 // ==========================================
 const TOKENS = {
   bg: "#0B0F17",
-  sidebarBg: "#111827",
-  cardBg: "#1F2937",
-  cardBorder: "#374151",
-  text: "#F9FAFB",
-  muted: "#9CA3AF",
-  accent: "#6366F1",
-  accentHover: "#4F46E5",
-  success: "#10B981",
-  warning: "#F59E0B",
-  danger: "#EF4444",
-  info: "#3B82F6",
+  sidebarBg: "#131A27",
+  cardBg: "#131A27",
+  cardBorder: "#232C40",
+  text: "#EDEFF3",
+  muted: "#8A93A6",
+  accent: "#E8A33D",
+  accentHover: "#D4922F",
+  success: "#5FAE86",
+  warning: "#E8A33D",
+  danger: "#E8654F",
+  info: "#5B8DEF",
 };
 
 const cardStyle = {
@@ -46,6 +46,25 @@ const labelStyle = {
   marginBottom: "6px",
   display: "block",
 };
+
+const smallBtn = (bg, extra = {}) => ({
+  padding: "5px 10px",
+  fontSize: "11px",
+  fontWeight: "600",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+  color: "#fff",
+  backgroundColor: bg,
+  marginRight: "6px",
+  ...extra,
+});
+
+function formatDwellTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${m}m ${String(s).padStart(2, "0")}s`;
+}
 
 // ==========================================
 // MOCK DATA STORES
@@ -78,6 +97,33 @@ const INITIAL_SHELVES = [
   { id: "SH-04", name: "Apparel — Men's", store: "Metro Shopping Mall", camera: "CAM-14", people: 2 },
   { id: "SH-05", name: "Home & Kitchen", store: "Westside Plaza", camera: "CAM-03", people: 0 },
   { id: "SH-06", name: "Duty Free — Perfumes", store: "Airport Duty Free", camera: "CAM-19", people: 4 },
+];
+
+const INITIAL_USERS = [
+  { id: "U-01", name: "John Doe", email: "john.doe@cams.io", role: "Store Manager", status: "Active" },
+  { id: "U-02", name: "Alice Kumar", email: "alice.kumar@cams.io", role: "Retail Analyst", status: "Active" },
+  { id: "U-03", name: "Admin User", email: "admin@cams.io", role: "Admin", status: "Active" },
+];
+
+const INITIAL_ACTIVE_SHOPPERS = [
+  { id: "SHOPPER-101", entryTime: "10:32 AM", currentZone: "Electronics", zonesVisited: ["Entrance", "Main Aisle", "Electronics"], dwellSec: 720, store: "Downtown Flagship", posX: 48, posY: 52, color: TOKENS.accent },
+  { id: "SHOPPER-102", entryTime: "10:38 AM", currentZone: "Grocery & Snacks", zonesVisited: ["Entrance", "Grocery & Snacks"], dwellSec: 360, store: "Downtown Flagship", posX: 28, posY: 38, color: TOKENS.info },
+  { id: "SHOPPER-103", entryTime: "10:41 AM", currentZone: "Checkout", zonesVisited: ["Entrance", "Apparel", "Checkout"], dwellSec: 180, store: "Downtown Flagship", posX: 78, posY: 82, color: TOKENS.success },
+];
+
+const INITIAL_COMPLETED_JOURNEYS = [
+  { id: "SHOPPER-098", store: "Downtown Flagship", entryTime: "10:05 AM", exitTime: "10:28 AM", totalDwellSec: 1380, path: ["Entrance", "Electronics", "Checkout", "Exit"] },
+  { id: "SHOPPER-099", store: "Metro Shopping Mall", entryTime: "10:12 AM", exitTime: "10:35 AM", totalDwellSec: 1380, path: ["Entrance", "Grocery", "Checkout", "Exit"] },
+  { id: "SHOPPER-100", store: "Downtown Flagship", entryTime: "10:15 AM", exitTime: "10:39 AM", totalDwellSec: 1440, path: ["Entrance", "Apparel", "Checkout", "Exit"] },
+];
+
+const STORE_ZONES = [
+  { name: "Entrance", x: 12, y: 15, width: 22, height: 18, color: "#2B3B5C" },
+  { name: "Grocery & Snacks", x: 12, y: 38, width: 30, height: 25, color: "#1C3332" },
+  { name: "Electronics", x: 45, y: 45, width: 28, height: 28, color: "#3B2D4A" },
+  { name: "Apparel", x: 45, y: 15, width: 28, height: 25, color: "#3B382A" },
+  { name: "Checkout", x: 78, y: 72, width: 18, height: 22, color: "#1E3B2B" },
+  { name: "Exit", x: 78, y: 15, width: 18, height: 18, color: "#4A2222" },
 ];
 
 // ==========================================
@@ -126,27 +172,143 @@ export default function CAMSAdminDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [time, setTime] = useState(new Date());
 
-  // Mutable data (was const before — now stateful so Quick Actions can affect it)
   const [stores, setStores] = useState(INITIAL_STORES);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [shelves, setShelves] = useState(INITIAL_SHELVES);
+  const [users, setUsers] = useState(INITIAL_USERS);
 
-  // Quick Action modal state
-  const [activeModal, setActiveModal] = useState(null); // "user" | "store" | "camera" | null
+  const [activeShoppers, setActiveShoppers] = useState(INITIAL_ACTIVE_SHOPPERS);
+  const [completedJourneys, setCompletedJourneys] = useState(INITIAL_COMPLETED_JOURNEYS);
+  const [selectedTrackingStore, setSelectedTrackingStore] = useState(INITIAL_STORES[0].name);
+
+  const [activeModal, setActiveModal] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Form states
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingStoreId, setEditingStoreId] = useState(null);
+
   const [userForm, setUserForm] = useState({ name: "", role: "Store Manager" });
   const [storeForm, setStoreForm] = useState({ name: "", cameras: "" });
   const [cameraForm, setCameraForm] = useState({ storeId: stores[0]?.id || "", count: "" });
 
-  // Real-time System Clock
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Auto-dismiss toast
+  useEffect(() => {
+    const dwellTimer = setInterval(() => {
+      setActiveShoppers((prev) =>
+        prev.map((s) => {
+          let targetX = s.posX;
+          let targetY = s.posY;
+          let updatedZone = s.currentZone;
+          let updatedVisited = [...s.zonesVisited];
+
+          if (s.dwellSec < 12) {
+            targetX = 28;
+            targetY = 38;
+            updatedZone = "Grocery & Snacks";
+          } else if (s.dwellSec < 28) {
+            targetX = 58;
+            targetY = 55;
+            updatedZone = "Electronics";
+          } else if (s.dwellSec < 45) {
+            targetX = 82;
+            targetY = 78;
+            updatedZone = "Checkout";
+          }
+
+          if (!updatedVisited.includes(updatedZone)) {
+            updatedVisited.push(updatedZone);
+          }
+
+          const stepX = (targetX - s.posX) * 0.15 + (Math.random() - 0.5) * 0.5;
+          const stepY = (targetY - s.posY) * 0.15 + (Math.random() - 0.5) * 0.5;
+
+          return {
+            ...s,
+            dwellSec: s.dwellSec + 1,
+            currentZone: updatedZone,
+            zonesVisited: updatedVisited,
+            posX: Math.max(10, Math.min(90, s.posX + stepX)),
+            posY: Math.max(10, Math.min(90, s.posY + stepY)),
+          };
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(dwellTimer);
+  }, []);
+
+  const STORAGE_KEYS = {
+    stores: "cams_stores",
+    users: "cams_users",
+    shelves: "cams_shelves",
+    notifications: "cams_notifications",
+    activeShoppers: "cams_active_shoppers",
+    completedJourneys: "cams_completed_journeys",
+  };
+
+  useEffect(() => {
+    try {
+      const savedStores = localStorage.getItem(STORAGE_KEYS.stores);
+      if (savedStores) setStores(JSON.parse(savedStores));
+
+      const savedUsers = localStorage.getItem(STORAGE_KEYS.users);
+      if (savedUsers) setUsers(JSON.parse(savedUsers));
+
+      const savedShelves = localStorage.getItem(STORAGE_KEYS.shelves);
+      if (savedShelves) setShelves(JSON.parse(savedShelves));
+
+      const savedNotifications = localStorage.getItem(STORAGE_KEYS.notifications);
+      if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
+
+      const savedShoppers = localStorage.getItem(STORAGE_KEYS.activeShoppers);
+      if (savedShoppers) setActiveShoppers(JSON.parse(savedShoppers));
+
+      const savedJourneys = localStorage.getItem(STORAGE_KEYS.completedJourneys);
+      if (savedJourneys) setCompletedJourneys(JSON.parse(savedJourneys));
+    } catch (err) {
+      console.error("Failed to load saved CAMS data from localStorage:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.stores, JSON.stringify(stores));
+  }, [stores]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.shelves, JSON.stringify(shelves));
+  }, [shelves]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.notifications, JSON.stringify(notifications));
+  }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.activeShoppers, JSON.stringify(activeShoppers));
+  }, [activeShoppers]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.completedJourneys, JSON.stringify(completedJourneys));
+  }, [completedJourneys]);
+
+  const handleResetDemoData = () => {
+    if (!window.confirm("Reset all stores, users, shelves, tracking data, and notifications back to demo defaults?")) return;
+    setStores(INITIAL_STORES);
+    setUsers(INITIAL_USERS);
+    setShelves(INITIAL_SHELVES);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setActiveShoppers(INITIAL_ACTIVE_SHOPPERS);
+    setCompletedJourneys(INITIAL_COMPLETED_JOURNEYS);
+    setToast("Demo data restored");
+  };
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
@@ -155,6 +317,205 @@ export default function CAMSAdminDashboard() {
 
   const totalPeopleNearShelves = shelves.reduce((sum, s) => sum + s.people, 0);
   const busiestShelf = shelves.reduce((a, b) => (b.people > a.people ? b : a), shelves[0]);
+
+  // ================= CUSTOMER JOURNEY TRACKING HANDLERS =================
+  const handleSimulateNewShopper = () => {
+    const nextNum = Math.floor(104 + Math.random() * 900);
+    const newShopper = {
+      id: `SHOPPER-${nextNum}`,
+      entryTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      currentZone: "Entrance",
+      zonesVisited: ["Entrance"],
+      dwellSec: 0,
+      store: selectedTrackingStore,
+      posX: 18 + Math.random() * 8,
+      posY: 20 + Math.random() * 8,
+      color: [TOKENS.accent, TOKENS.info, TOKENS.success, TOKENS.warning][Math.floor(Math.random() * 4)],
+    };
+    setActiveShoppers((prev) => [newShopper, ...prev]);
+    pushNotification(`Shopper ${newShopper.id} entered ${selectedTrackingStore}`, "info");
+    setToast(`Shopper ${newShopper.id} tracked at ${selectedTrackingStore}`);
+  };
+
+  const handleSimulateShopperExit = (shopper) => {
+    const exitTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const journeyRecord = {
+      id: shopper.id,
+      store: shopper.store,
+      entryTime: shopper.entryTime,
+      exitTime: exitTime,
+      totalDwellSec: shopper.dwellSec,
+      path: [...shopper.zonesVisited, "Exit"],
+    };
+    setCompletedJourneys((prev) => [journeyRecord, ...prev]);
+    setActiveShoppers((prev) => prev.filter((s) => s.id !== shopper.id));
+    pushNotification(`Shopper ${shopper.id} completed journey (${formatDwellTime(shopper.dwellSec)})`, "success");
+    setToast(`Customer ${shopper.id} exited store`);
+  };
+
+  const handleExportJourneyLogsCSV = () => {
+    const rows = [
+      ["Customer Journey Logs"],
+      ["Store Filter", selectedTrackingStore],
+      [],
+      ["Shopper ID", "Store", "Entry Time", "Exit Time", "Total Dwell", "Path Journey"],
+      ...completedJourneys.map((j) => [
+        j.id,
+        j.store,
+        j.entryTime,
+        j.exitTime,
+        formatDwellTime(j.totalDwellSec),
+        j.path.join(" -> "),
+      ]),
+    ];
+    const csvContent = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `customer_journeys_${selectedTrackingStore.replace(/\s+/g, "_")}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    pushNotification("Customer Journey Report Exported", "success");
+    setToast("Journey report downloaded as CSV");
+  };
+
+  // ================= VIDEO-BASED CUSTOMER JOURNEY TRACKING =================
+  // Upload an actual store video (entrance/aisle camera footage) directly —
+  // no file-path/link needed — and generate that customer's full journey.
+  const journeyVideoRef = useRef(null);
+  const [journeyVideoFile, setJourneyVideoFile] = useState(null);
+  const [journeyVideoURL, setJourneyVideoURL] = useState(null);
+  const [journeyVideoDuration, setJourneyVideoDuration] = useState(0);
+  const [isTrackingVideo, setIsTrackingVideo] = useState(false);
+  const [trackingProgress, setTrackingProgress] = useState(0);
+  const [trackedJourney, setTrackedJourney] = useState(null);
+
+  const handleJourneyVideoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (journeyVideoURL) URL.revokeObjectURL(journeyVideoURL);
+    setJourneyVideoFile(file);
+    setJourneyVideoURL(URL.createObjectURL(file));
+    setJourneyVideoDuration(0);
+    setTrackedJourney(null);
+  };
+
+  const handleJourneyVideoLoadedMetadata = () => {
+    if (journeyVideoRef.current) setJourneyVideoDuration(journeyVideoRef.current.duration || 0);
+  };
+
+  // REAL HTTP API CUSTOMER JOURNEY TRACKING (POST /track-video)
+  // Sends the uploaded video file itself (multipart/form-data) — the backend
+  // runs person detection + re-identification across the footage and returns
+  // that customer's entrance-to-exit journey.
+  const handleRunJourneyTracking = async () => {
+    if (!journeyVideoFile || isTrackingVideo) return;
+
+    setIsTrackingVideo(true);
+    setTrackingProgress(15);
+    setTrackedJourney(null);
+
+    const formData = new FormData();
+    formData.append("file", journeyVideoFile);
+    formData.append("store", selectedTrackingStore);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/track-video", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => "");
+        throw new Error(
+          `Backend responded ${response.status} ${response.statusText}${bodyText ? ` — ${bodyText.slice(0, 200)}` : ""}`
+        );
+      }
+
+      setTrackingProgress(75);
+      const data = await response.json();
+
+      // Expected backend shape:
+      // { shopperId, entryTime, exitTime, totalDwellSec, path: ["Entrance","Electronics",...], zoneDwell: [{zone, sec}] }
+      const journeyRecord = {
+        id: data.shopperId || `SHOPPER-${Math.floor(100 + Math.random() * 900)}`,
+        store: selectedTrackingStore,
+        entryTime: data.entryTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        exitTime: data.exitTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        totalDwellSec: data.totalDwellSec ?? 0,
+        path: data.path && data.path.length ? data.path : ["Entrance", "Exit"],
+        zoneDwell: data.zoneDwell || [],
+        sourceVideo: journeyVideoFile.name,
+      };
+
+      setTrackedJourney(journeyRecord);
+      setCompletedJourneys((prev) => [journeyRecord, ...prev]);
+
+      pushNotification(
+        `Customer journey tracked from video: ${journeyRecord.id} (${formatDwellTime(journeyRecord.totalDwellSec)})`,
+        "success"
+      );
+      setToast(`Journey generated for ${journeyRecord.id} at ${selectedTrackingStore}`);
+    } catch (error) {
+      console.error("Journey tracking error:", error);
+      const isNetworkError = error instanceof TypeError;
+      setToast(
+        isNetworkError
+          ? "Can't reach the tracking backend at 127.0.0.1:8000. Is it running?"
+          : `Tracking failed: ${error.message}`
+      );
+    } finally {
+      setIsTrackingVideo(false);
+      setTrackingProgress(100);
+    }
+  };
+
+  // DEMO / SIMULATE MODE — no backend needed. Lets you test the full
+  // upload -> track -> journey UI flow before /track-video exists on the
+  // FastAPI server, or whenever the server isn't running locally.
+  const handleSimulateJourneyTracking = () => {
+    if (!journeyVideoFile || isTrackingVideo) return;
+
+    setIsTrackingVideo(true);
+    setTrackingProgress(20);
+    setTrackedJourney(null);
+
+    const zonePool = ["Entrance", "Grocery & Snacks", "Electronics", "Apparel", "Checkout", "Exit"];
+    const visitCount = 2 + Math.floor(Math.random() * 3); // 2-4 zones between entrance/exit
+    const middleZones = [];
+    while (middleZones.length < visitCount) {
+      const z = zonePool[1 + Math.floor(Math.random() * (zonePool.length - 2))];
+      if (!middleZones.includes(z)) middleZones.push(z);
+    }
+    const simulatedPath = ["Entrance", ...middleZones, "Checkout", "Exit"];
+    const simulatedDwellSec = Math.round(journeyVideoDuration > 0 ? journeyVideoDuration * (8 + Math.random() * 4) : 300 + Math.random() * 600);
+
+    setTimeout(() => {
+      const now = new Date();
+      const entry = new Date(now.getTime() - simulatedDwellSec * 1000);
+      const journeyRecord = {
+        id: `SHOPPER-${Math.floor(100 + Math.random() * 900)}`,
+        store: selectedTrackingStore,
+        entryTime: entry.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        exitTime: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        totalDwellSec: simulatedDwellSec,
+        path: simulatedPath,
+        zoneDwell: [],
+        sourceVideo: journeyVideoFile.name,
+        simulated: true,
+      };
+
+      setTrackedJourney(journeyRecord);
+      setCompletedJourneys((prev) => [journeyRecord, ...prev]);
+      pushNotification(`(Demo) Journey simulated for ${journeyRecord.id} — ${formatDwellTime(journeyRecord.totalDwellSec)}`, "info");
+      setToast(`Demo journey generated for ${journeyRecord.id} — no backend used`);
+      setIsTrackingVideo(false);
+      setTrackingProgress(100);
+    }, 900);
+  };
 
   // ================= VIDEO-BASED SHELF DETECTION =================
   const videoRef = useRef(null);
@@ -188,67 +549,63 @@ export default function CAMSAdminDashboard() {
     if (videoRef.current) setVideoDuration(videoRef.current.duration || 0);
   };
 
-  // Runs a frame-sampling people-detection pass over the uploaded video.
-  // NOTE: this front-end demo simulates the per-frame headcount so the UI/report
-  // flow can be built and tested end-to-end. In production, frames (or the video
-  // file) would be sent to the FastAPI backend, run through the YOLO detection +
-  // tracking engine per the CAMS architecture, and the real per-frame counts
-  // returned to populate this exact same table/report.
-  const handleRunDetection = () => {
+  // REAL HTTP API VIDEO ANALYSIS (POST /detect-video)
+  const handleRunDetection = async () => {
     if (!videoFile || isProcessing) return;
     const shelf = shelves.find((s) => s.id === selectedShelfId);
     if (!shelf) return;
 
     setIsProcessing(true);
-    setProgress(0);
+    setProgress(15);
     setFrameResults([]);
     setDetectionSummary(null);
 
-    const duration = videoDuration && videoDuration > 0 ? videoDuration : 20;
-    const sampleCount = Math.min(24, Math.max(6, Math.round(duration)));
-    const interval = duration / sampleCount;
+    const formData = new FormData();
+    formData.append("file", videoFile);
 
-    let frame = 0;
-    let lastCount = shelf.people;
-    const results = [];
+    try {
+      const response = await fetch("http://127.0.0.1:8000/detect-video", {
+        method: "POST",
+        body: formData,
+      });
 
-    const tick = setInterval(() => {
-      frame += 1;
-      const delta = Math.floor(Math.random() * 3) - 1; // -1, 0, +1 — smooth random walk
-      lastCount = Math.max(0, Math.min(9, lastCount + delta));
-      results.push({ timeSec: Math.min(duration, frame * interval), count: lastCount });
-      setFrameResults([...results]);
-      setProgress(Math.round((frame / sampleCount) * 100));
-
-      if (frame >= sampleCount) {
-        clearInterval(tick);
-        const counts = results.map((r) => r.count);
-        const peak = Math.max(...counts);
-        const peakFrame = results.find((r) => r.count === peak);
-        const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
-
-        const summary = {
-          shelfName: shelf.name,
-          store: shelf.store,
-          fileName: videoFile.name,
-          duration,
-          totalFrames: sampleCount,
-          avg: Math.round(avg * 10) / 10,
-          peak,
-          peakTime: peakFrame ? peakFrame.timeSec : 0,
-        };
-        setDetectionSummary(summary);
-        setShelves((prev) =>
-          prev.map((s) => (s.id === shelf.id ? { ...s, people: peak } : s))
-        );
-        pushNotification(
-          `Detection complete for ${shelf.name}: peak ${peak} people`,
-          "success"
-        );
-        setToast(`Detection finished — peak ${peak} people at ${shelf.name}`);
-        setIsProcessing(false);
+      if (!response.ok) {
+        throw new Error("Failed to process video on server");
       }
-    }, 120);
+
+      const data = await response.json();
+
+      const summary = {
+        shelfName: shelf.name,
+        store: shelf.store,
+        fileName: data.fileName,
+        duration: data.duration,
+        totalFrames: data.totalFrames,
+        avg: data.avg,
+        peak: data.peak,
+        peakTime: data.peakTime,
+        uniqueCount: data.uniqueCount,
+      };
+
+      setDetectionSummary(summary);
+      setFrameResults(data.frameResults);
+
+      setShelves((prev) =>
+        prev.map((s) => (s.id === shelf.id ? { ...s, people: data.peak } : s))
+      );
+
+      pushNotification(
+        `Video analysis complete for ${shelf.name}: ${data.uniqueCount} unique individuals detected`,
+        "success"
+      );
+      setToast(`Detected ${data.uniqueCount} unique individuals in ${data.fileName}`);
+    } catch (error) {
+      console.error("Video detection error:", error);
+      setToast("Error analyzing video file. Ensure FastAPI backend is running.");
+    } finally {
+      setIsProcessing(false);
+      setProgress(100);
+    }
   };
 
   const handleDownloadDetectionReport = () => {
@@ -260,11 +617,12 @@ export default function CAMSAdminDashboard() {
       `Source Video,${detectionSummary.fileName}`,
       `Video Duration (s),${detectionSummary.duration.toFixed(1)}`,
       `Frames Analyzed,${detectionSummary.totalFrames}`,
-      `Average People Count,${detectionSummary.avg}`,
-      `Peak People Count,${detectionSummary.peak}`,
+      `Unique Individuals Detected,${detectionSummary.uniqueCount}`,
+      `Average Concurrent People,${detectionSummary.avg}`,
+      `Peak Concurrent People,${detectionSummary.peak}`,
       `Peak Timestamp,${formatTime(detectionSummary.peakTime)}`,
       ``,
-      `Timestamp,People Count`,
+      `Timestamp,Concurrent People`,
       ...frameResults.map((r) => `${formatTime(r.timeSec)},${r.count}`),
     ];
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -288,21 +646,84 @@ export default function CAMSAdminDashboard() {
     ]);
   };
 
-  // Filtered Items for "Search Everything"
   const filteredStores = stores.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ================= QUICK ACTION HANDLERS =================
+  // ================= USERS: CRUD =================
+  const openAddUser = () => {
+    setEditingUserId(null);
+    setUserForm({ name: "", role: "Store Manager" });
+    setActiveModal("user");
+  };
+
+  const openEditUser = (user) => {
+    setEditingUserId(user.id);
+    setUserForm({ name: user.name, role: user.role });
+    setActiveModal("editUser");
+  };
+
   const handleAddUser = (e) => {
     e.preventDefault();
     if (!userForm.name.trim()) return;
+    const newUser = {
+      id: `U-${String(users.length + 1).padStart(2, "0")}`,
+      name: userForm.name,
+      email: `${userForm.name.trim().toLowerCase().replace(/\s+/g, ".")}@cams.io`,
+      role: userForm.role,
+      status: "Active",
+    };
+    setUsers((prev) => [...prev, newUser]);
     pushNotification(`New ${userForm.role} Created: ${userForm.name}`, "success");
     setToast(`User "${userForm.name}" added as ${userForm.role}`);
     setUserForm({ name: "", role: "Store Manager" });
     setActiveModal(null);
+  };
+
+  const handleUpdateUser = (e) => {
+    e.preventDefault();
+    if (!userForm.name.trim() || !editingUserId) return;
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === editingUserId ? { ...u, name: userForm.name, role: userForm.role } : u
+      )
+    );
+    pushNotification(`User Updated: ${userForm.name}`, "info");
+    setToast(`User "${userForm.name}" updated`);
+    setUserForm({ name: "", role: "Store Manager" });
+    setEditingUserId(null);
+    setActiveModal(null);
+  };
+
+  const handleDeleteUser = (user) => {
+    if (!window.confirm(`Remove user "${user.name}"? This cannot be undone.`)) return;
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    pushNotification(`User Removed: ${user.name}`, "danger");
+    setToast(`User "${user.name}" removed`);
+  };
+
+  const handleToggleUserStatus = (user) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === user.id ? { ...u, status: u.status === "Active" ? "Suspended" : "Active" } : u
+      )
+    );
+    setToast(`${user.name} is now ${user.status === "Active" ? "Suspended" : "Active"}`);
+  };
+
+  // ================= STORES: CRUD =================
+  const openAddStore = () => {
+    setEditingStoreId(null);
+    setStoreForm({ name: "", cameras: "" });
+    setActiveModal("store");
+  };
+
+  const openEditStore = (store) => {
+    setEditingStoreId(store.id);
+    setStoreForm({ name: store.name, cameras: String(store.cameras) });
+    setActiveModal("editStore");
   };
 
   const handleRegisterStore = (e) => {
@@ -324,6 +745,41 @@ export default function CAMSAdminDashboard() {
     setActiveModal(null);
   };
 
+  const handleUpdateStore = (e) => {
+    e.preventDefault();
+    if (!storeForm.name.trim() || !editingStoreId) return;
+    setStores((prev) =>
+      prev.map((s) =>
+        s.id === editingStoreId
+          ? { ...s, name: storeForm.name, cameras: Number(storeForm.cameras) || 0 }
+          : s
+      )
+    );
+    pushNotification(`Store Updated: ${storeForm.name}`, "info");
+    setToast(`Store "${storeForm.name}" updated`);
+    setStoreForm({ name: "", cameras: "" });
+    setEditingStoreId(null);
+    setActiveModal(null);
+  };
+
+  const handleDeleteStore = (store) => {
+    if (!window.confirm(`Delete store "${store.name}"? This cannot be undone.`)) return;
+    setStores((prev) => prev.filter((s) => s.id !== store.id));
+    pushNotification(`Store Removed: ${store.name}`, "danger");
+    setToast(`Store "${store.name}" deleted`);
+  };
+
+  // ================= CAMERAS: CRUD =================
+  const openAddCamera = () => {
+    setCameraForm({ storeId: stores[0]?.id || "", count: "" });
+    setActiveModal("camera");
+  };
+
+  const openEditCamera = (store) => {
+    setCameraForm({ storeId: store.id, count: String(store.cameras) });
+    setActiveModal("editCamera");
+  };
+
   const handleAddCamera = (e) => {
     e.preventDefault();
     const count = Number(cameraForm.count) || 0;
@@ -338,6 +794,28 @@ export default function CAMSAdminDashboard() {
     setToast(`${count} camera(s) added to ${store?.name || cameraForm.storeId}`);
     setCameraForm({ storeId: stores[0]?.id || "", count: "" });
     setActiveModal(null);
+  };
+
+  const handleUpdateCameraCount = (e) => {
+    e.preventDefault();
+    const count = Number(cameraForm.count);
+    if (!cameraForm.storeId || Number.isNaN(count) || count < 0) return;
+    setStores((prev) =>
+      prev.map((s) => (s.id === cameraForm.storeId ? { ...s, cameras: count } : s))
+    );
+    const store = stores.find((s) => s.id === cameraForm.storeId);
+    pushNotification(`Camera Count Updated for ${store?.name}: ${count}`, "info");
+    setToast(`${store?.name} now has ${count} camera(s)`);
+    setCameraForm({ storeId: stores[0]?.id || "", count: "" });
+    setActiveModal(null);
+  };
+
+  const handleRemoveAllCameras = (store) => {
+    if (store.cameras <= 0) return;
+    if (!window.confirm(`Remove all ${store.cameras} camera(s) from "${store.name}"?`)) return;
+    setStores((prev) => prev.map((s) => (s.id === store.id ? { ...s, cameras: 0 } : s)));
+    pushNotification(`All Cameras Removed from ${store.name}`, "danger");
+    setToast(`Cameras removed from ${store.name}`);
   };
 
   const handleGenerateReport = () => {
@@ -358,6 +836,28 @@ export default function CAMSAdminDashboard() {
     pushNotification("Analytics Report Generated & Downloaded", "success");
     setToast("Report exported as CSV");
   };
+
+  const closeModal = () => {
+    setActiveModal(null);
+    setEditingUserId(null);
+    setEditingStoreId(null);
+  };
+
+  const filteredActiveShoppers = useMemo(
+    () => activeShoppers.filter((s) => s.store === selectedTrackingStore),
+    [activeShoppers, selectedTrackingStore]
+  );
+
+  const filteredCompletedJourneys = useMemo(
+    () => completedJourneys.filter((j) => j.store === selectedTrackingStore),
+    [completedJourneys, selectedTrackingStore]
+  );
+
+  const avgStoreDwell = useMemo(() => {
+    if (filteredCompletedJourneys.length === 0) return "22m 30s";
+    const sum = filteredCompletedJourneys.reduce((acc, j) => acc + j.totalDwellSec, 0);
+    return formatDwellTime(sum / filteredCompletedJourneys.length);
+  }, [filteredCompletedJourneys]);
 
   return (
     <div style={{ backgroundColor: TOKENS.bg, color: TOKENS.text, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
@@ -392,7 +892,7 @@ export default function CAMSAdminDashboard() {
             👁️
           </div>
           <div>
-            <h1 style={{ fontSize: "16px", fontWeight: "700", margin: 0, lineHeight: 1.2 }}>CAMS AI Admin</h1>
+            <h1 style={{ fontSize: "16px", fontWeight: "700", margin: 0, lineHeight: 1.2 }}>Admin Dashboard</h1>
             <span style={{ fontSize: "11px", color: TOKENS.muted }}>Consumer Attention Mapping System</span>
           </div>
         </div>
@@ -484,7 +984,9 @@ export default function CAMSAdminDashboard() {
           <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {[
               { id: "overview", label: "Dashboard Overview", icon: "📊" },
+              { id: "journeys", label: "Customer Journey Tracking", icon: "🛣️" },
               { id: "infrastructure", label: "Infrastructure & Cameras", icon: "📹" },
+              { id: "users", label: "User Management", icon: "👤" },
               { id: "system", label: "System & API Health", icon: "⚡" },
               { id: "security", label: "Security & Permissions", icon: "🛡️" },
             ].map(tab => (
@@ -537,7 +1039,7 @@ export default function CAMSAdminDashboard() {
           {/* ================= VIEW 1: OVERVIEW ================= */}
           {activeTab === "overview" && (
             <>
-              {/* TOP HERO — Platform Health Score only (AI Pipeline + Storage panels removed) */}
+              {/* TOP HERO */}
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <div style={{ ...cardStyle, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", width: "320px" }}>
                   <span style={{ fontSize: "12px", color: TOKENS.muted, fontWeight: "600" }}>PLATFORM HEALTH SCORE</span>
@@ -549,7 +1051,7 @@ export default function CAMSAdminDashboard() {
                 </div>
               </div>
 
-              {/* Quick Action Cards — now functional */}
+              {/* Quick Action Cards */}
               <div>
                 <h3 style={{ fontSize: "14px", fontWeight: "600", color: TOKENS.muted, marginBottom: "12px" }}>QUICK ACTIONS</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
@@ -561,7 +1063,12 @@ export default function CAMSAdminDashboard() {
                   ].map((act) => (
                     <button
                       key={act.id}
-                      onClick={() => (act.id === "report" ? handleGenerateReport() : setActiveModal(act.id))}
+                      onClick={() => {
+                        if (act.id === "report") handleGenerateReport();
+                        else if (act.id === "user") openAddUser();
+                        else if (act.id === "store") openAddStore();
+                        else if (act.id === "camera") openAddCamera();
+                      }}
                       style={{ ...cardStyle, border: `1px solid ${TOKENS.cardBorder}`, cursor: "pointer", textAlign: "left", transition: "transform 0.1s", background: TOKENS.cardBg }}
                       onMouseOver={e => e.currentTarget.style.borderColor = TOKENS.accent}
                       onMouseOut={e => e.currentTarget.style.borderColor = TOKENS.cardBorder}
@@ -582,7 +1089,6 @@ export default function CAMSAdminDashboard() {
                   </p>
                 </div>
 
-                {/* Upload + config row */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
                   <div>
                     <label style={labelStyle}>Shelf / Camera</label>
@@ -609,7 +1115,6 @@ export default function CAMSAdminDashboard() {
                   </div>
                 </div>
 
-                {/* Preview + run button */}
                 {videoURL && (
                   <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap" }}>
                     <video
@@ -650,17 +1155,20 @@ export default function CAMSAdminDashboard() {
                   </div>
                 )}
 
-                {/* Results */}
                 {detectionSummary && (
                   <>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "8px" }}>
                       <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.accent }}>{detectionSummary.peak}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Peak People Count</div>
+                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.accent }}>{detectionSummary.uniqueCount}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Unique Individuals</div>
+                      </div>
+                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{detectionSummary.peak}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Peak Concurrent</div>
                       </div>
                       <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
                         <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{detectionSummary.avg}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Average Count</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Avg Concurrent</div>
                       </div>
                       <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
                         <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{formatTime(detectionSummary.peakTime)}</div>
@@ -671,13 +1179,16 @@ export default function CAMSAdminDashboard() {
                         <div style={{ fontSize: "10px", color: TOKENS.muted }}>Frames Analyzed</div>
                       </div>
                     </div>
+                    <p style={{ margin: "0 0 16px", fontSize: "10.5px", color: TOKENS.muted, fontStyle: "italic" }}>
+                      "Unique Individuals" counts each detected person once, no matter how many frames they appeared in.
+                    </p>
 
                     <div style={{ maxHeight: "160px", overflowY: "auto", border: `1px solid ${TOKENS.cardBorder}`, borderRadius: "8px", marginBottom: "16px" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                         <thead>
                           <tr style={{ position: "sticky", top: 0, backgroundColor: TOKENS.cardBg }}>
                             <th style={{ padding: "8px", textAlign: "left", color: TOKENS.muted, borderBottom: `1px solid ${TOKENS.cardBorder}` }}>Timestamp</th>
-                            <th style={{ padding: "8px", textAlign: "left", color: TOKENS.muted, borderBottom: `1px solid ${TOKENS.cardBorder}` }}>People Detected</th>
+                            <th style={{ padding: "8px", textAlign: "left", color: TOKENS.muted, borderBottom: `1px solid ${TOKENS.cardBorder}` }}>Concurrent People</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -765,102 +1276,432 @@ export default function CAMSAdminDashboard() {
                   Busiest right now: <strong style={{ color: TOKENS.text }}>{busiestShelf.name}</strong> ({busiestShelf.store}) with {busiestShelf.people} {busiestShelf.people === 1 ? "person" : "people"}
                 </div>
               </div>
+            </>
+          )}
 
-              {/* UNIQUE FEATURE: AI READINESS DASHBOARD */}
-              <div style={{ ...cardStyle, borderColor: TOKENS.accent }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          {/* ================= VIEW 2: CUSTOMER JOURNEY TRACKING ================= */}
+          {activeTab === "journeys" && (
+            <>
+              {/* Header bar controls */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h2 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>🚶 Entrance-to-Exit Customer Tracking</h2>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>
+                    Real-time multi-camera path trajectories & zone lifecycle tracking
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <select
+                    style={{ ...inputStyle, width: "auto" }}
+                    value={selectedTrackingStore}
+                    onChange={(e) => setSelectedTrackingStore(e.target.value)}
+                  >
+                    {stores.map((s) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleSimulateNewShopper}
+                    style={{ padding: "8px 14px", backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    + Simulate Entrance
+                  </button>
+                  <button
+                    onClick={handleExportJourneyLogsCSV}
+                    style={{ padding: "8px 14px", backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    ⬇ Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Video-Based Customer Journey Tracking */}
+              <div style={cardStyle}>
+                <div style={{ marginBottom: "16px" }}>
+                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🎥 Track Customer Journey from Video</h3>
+                  <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>
+                    Upload entrance/aisle footage directly — no file path needed — to detect a customer entering the store and generate their full entrance-to-exit journey
+                  </p>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🧠 AI Readiness Dashboard</h3>
-                    <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>Architectural readiness and accuracy metrics across CAMS modules</p>
+                    <label style={labelStyle}>Store</label>
+                    <select
+                      style={inputStyle}
+                      value={selectedTrackingStore}
+                      onChange={(e) => setSelectedTrackingStore(e.target.value)}
+                      disabled={isTrackingVideo}
+                    >
+                      {stores.map((s) => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "18px", fontWeight: "bold", color: TOKENS.success }}>95%</div>
-                    <div style={{ fontSize: "10px", color: TOKENS.muted }}>Overall Readiness</div>
+                  <div>
+                    <label style={labelStyle}>Upload Store Video</label>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleJourneyVideoUpload}
+                      disabled={isTrackingVideo}
+                      style={{ ...inputStyle, padding: "8px 10px" }}
+                    />
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px" }}>
-                  {[
-                    { name: "Detection Engine", score: 98 },
-                    { name: "Tracking Engine", score: 96 },
-                    { name: "Attention Analysis", score: 95 },
-                    { name: "Heatmap Generation", score: 94 },
-                    { name: "Recommendation Engine", score: 91 },
-                  ].map((m, i) => (
-                    <div key={i} style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                      <div style={{ fontSize: "11px", color: TOKENS.muted, marginBottom: "6px" }}>{m.name}</div>
-                      <div style={{ fontSize: "16px", fontWeight: "bold", color: TOKENS.text }}>✔ {m.score}%</div>
-                      <div style={{ width: "100%", height: "4px", backgroundColor: TOKENS.cardBorder, marginTop: "8px", borderRadius: "2px", overflow: "hidden" }}>
-                        <div style={{ width: `${m.score}%`, height: "100%", backgroundColor: TOKENS.success }}></div>
+                {journeyVideoURL && (
+                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap" }}>
+                    <video
+                      ref={journeyVideoRef}
+                      src={journeyVideoURL}
+                      onLoadedMetadata={handleJourneyVideoLoadedMetadata}
+                      controls
+                      muted
+                      style={{ width: "260px", borderRadius: "8px", backgroundColor: "#000" }}
+                    />
+                    <div style={{ flex: 1, minWidth: "200px" }}>
+                      <div style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "4px" }}>
+                        {journeyVideoFile?.name} {journeyVideoDuration ? `· ${formatDwellTime(journeyVideoDuration)}` : ""}
                       </div>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button
+                          onClick={handleRunJourneyTracking}
+                          disabled={isTrackingVideo}
+                          style={{
+                            padding: "10px 18px",
+                            backgroundColor: isTrackingVideo ? TOKENS.cardBorder : TOKENS.accent,
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            fontWeight: "600",
+                            fontSize: "13px",
+                            cursor: isTrackingVideo ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {isTrackingVideo ? `Tracking… ${trackingProgress}%` : "▶ Track Customer Journey"}
+                        </button>
+                        <button
+                          onClick={handleSimulateJourneyTracking}
+                          disabled={isTrackingVideo}
+                          title="Generates a journey client-side, without calling the backend — useful for testing the UI before /track-video exists"
+                          style={{
+                            padding: "10px 18px",
+                            backgroundColor: "transparent",
+                            color: isTrackingVideo ? TOKENS.muted : TOKENS.text,
+                            border: `1px solid ${TOKENS.cardBorder}`,
+                            borderRadius: "8px",
+                            fontWeight: "600",
+                            fontSize: "13px",
+                            cursor: isTrackingVideo ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          🧪 Simulate (Demo — no backend)
+                        </button>
+                      </div>
+
+                      {isTrackingVideo && (
+                        <div style={{ width: "100%", height: "6px", backgroundColor: TOKENS.bg, borderRadius: "4px", overflow: "hidden", marginTop: "10px" }}>
+                          <div style={{ width: `${trackingProgress}%`, height: "100%", backgroundColor: TOKENS.accent, transition: "width 0.15s linear" }}></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {trackedJourney && (
+                  <>
+                    {trackedJourney.simulated && (
+                      <div style={{ display: "inline-block", padding: "3px 8px", borderRadius: "999px", backgroundColor: TOKENS.info, color: "#fff", fontSize: "10px", fontWeight: "700", marginBottom: "10px" }}>
+                        🧪 DEMO — generated client-side, no backend call
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "12px" }}>
+                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.accent }}>{trackedJourney.id}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Customer ID</div>
+                      </div>
+                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.text }}>{trackedJourney.entryTime} → {trackedJourney.exitTime}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Entry → Exit</div>
+                      </div>
+                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.info }}>{formatDwellTime(trackedJourney.totalDwellSec)}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Total Dwell Time</div>
+                      </div>
+                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.success }}>{trackedJourney.path.length}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Zones Visited</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: "8px" }}>
+                      <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600, marginBottom: "8px" }}>JOURNEY PATH</div>
+                      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                        {trackedJourney.path.map((zone, i) => (
+                          <React.Fragment key={i}>
+                            <span
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: "999px",
+                                fontSize: "11px",
+                                fontWeight: "600",
+                                backgroundColor: i === 0 ? TOKENS.info : i === trackedJourney.path.length - 1 ? TOKENS.danger : TOKENS.cardBg,
+                                border: `1px solid ${TOKENS.cardBorder}`,
+                                color: TOKENS.text,
+                              }}
+                            >
+                              {zone}
+                            </span>
+                            {i < trackedJourney.path.length - 1 && (
+                              <span style={{ color: TOKENS.muted, fontSize: "12px" }}>→</span>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {!journeyVideoURL && (
+                  <div style={{ fontSize: "12px", color: TOKENS.muted }}>
+                    Select a store and upload a video clip to detect and track a customer's in-store journey.
+                  </div>
+                )}
+              </div>
+
+              {/* Top Stats Cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>ACTIVE IN-STORE SHOPPERS</div>
+                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.accent, marginTop: "6px" }}>{filteredActiveShoppers.length}</div>
+                  <div style={{ fontSize: "10px", color: TOKENS.success, marginTop: "4px" }}>● Live Trajectories Active</div>
+                </div>
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>COMPLETED JOURNEYS (TODAY)</div>
+                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.text, marginTop: "6px" }}>{filteredCompletedJourneys.length}</div>
+                  <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "4px" }}>Entrance to Exit</div>
+                </div>
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>AVG STORE DWELL TIME</div>
+                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.info, marginTop: "6px" }}>{avgStoreDwell}</div>
+                  <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "4px" }}>Across completed journeys</div>
+                </div>
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>FULL JOURNEY COMPLETION</div>
+                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.success, marginTop: "6px" }}>94.2%</div>
+                  <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "4px" }}>Checkout & Exit Verified</div>
+                </div>
+              </div>
+
+              {/* Interactive Floorplan Trajectory Map */}
+              <div style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🗺 Live Store Floorplan Trajectories</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: "11px", color: TOKENS.muted }}>
+                      Visualizing active shopper paths from entrance (left) to checkout and exit (right)
+                    </p>
+                  </div>
+                  <span style={{ fontSize: "11px", color: TOKENS.muted, backgroundColor: TOKENS.bg, padding: "4px 8px", borderRadius: "6px" }}>
+                    Showing: {selectedTrackingStore}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "360px",
+                    backgroundColor: "#070A10",
+                    borderRadius: "10px",
+                    border: `1px solid ${TOKENS.cardBorder}`,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      backgroundImage: `linear-gradient(${TOKENS.cardBorder} 1px, transparent 1px), linear-gradient(90deg, ${TOKENS.cardBorder} 1px, transparent 1px)`,
+                      backgroundSize: "36px 36px",
+                      opacity: 0.25,
+                    }}
+                  />
+
+                  {STORE_ZONES.map((zone) => (
+                    <div
+                      key={zone.name}
+                      style={{
+                        position: "absolute",
+                        left: `${zone.x}%`,
+                        top: `${zone.y}%`,
+                        width: `${zone.width}%`,
+                        height: `${zone.height}%`,
+                        backgroundColor: zone.color,
+                        border: `1px dashed ${TOKENS.cardBorder}`,
+                        borderRadius: "8px",
+                        padding: "6px",
+                        boxSizing: "border-box",
+                        opacity: 0.85,
+                      }}
+                    >
+                      <span style={{ fontSize: "10px", fontWeight: "700", color: TOKENS.muted }}>{zone.name}</span>
+                    </div>
+                  ))}
+
+                  {filteredActiveShoppers.map((shopper) => (
+                    <div
+                      key={shopper.id}
+                      style={{
+                        position: "absolute",
+                        left: `${shopper.posX}%`,
+                        top: `${shopper.posY}%`,
+                        transform: "translate(-50%, -50%)",
+                        transition: "all 0.8s ease",
+                        zIndex: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "18px",
+                          height: "18px",
+                          borderRadius: "50%",
+                          backgroundColor: shopper.color,
+                          border: "2px solid #fff",
+                          boxShadow: `0 0 12px ${shopper.color}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "9px",
+                          fontWeight: "800",
+                          color: "#1A1200",
+                        }}
+                      >
+                        🚶
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: "700",
+                          color: "#fff",
+                          backgroundColor: "rgba(0,0,0,0.75)",
+                          padding: "1px 5px",
+                          borderRadius: "4px",
+                          marginTop: "2px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {shopper.id} ({formatDwellTime(shopper.dwellSec)})
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* AI ANALYTICS SUMMARY & TOP STORES */}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "20px" }}>
+              {/* Active Shoppers Live Sessions Table */}
+              <div style={cardStyle}>
+                <h3 style={{ margin: "0 0 14px", fontSize: "15px", fontWeight: "700" }}>🟢 Active In-Store Shopper Sessions</h3>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
+                      <th style={{ padding: "8px" }}>Shopper ID</th>
+                      <th style={{ padding: "8px" }}>Store</th>
+                      <th style={{ padding: "8px" }}>Entry Time</th>
+                      <th style={{ padding: "8px" }}>Current Zone</th>
+                      <th style={{ padding: "8px" }}>Visited Path</th>
+                      <th style={{ padding: "8px" }}>Live Dwell</th>
+                      <th style={{ padding: "8px" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredActiveShoppers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ padding: "16px", color: TOKENS.muted, textAlign: "center" }}>
+                          No active shoppers being tracked in this store right now. Click "+ Simulate Entrance" to create one.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredActiveShoppers.map((s) => (
+                        <tr key={s.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                          <td style={{ padding: "12px 8px", fontWeight: "700", color: s.color }}>{s.id}</td>
+                          <td style={{ padding: "12px 8px" }}>{s.store}</td>
+                          <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>{s.entryTime}</td>
+                          <td style={{ padding: "12px 8px" }}>
+                            <span style={{ backgroundColor: TOKENS.bg, padding: "3px 8px", borderRadius: "4px", fontSize: "11px", border: `1px solid ${TOKENS.cardBorder}` }}>
+                              📍 {s.currentZone}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 8px", fontSize: "11px", color: TOKENS.muted }}>
+                            {s.zonesVisited.join(" → ")}
+                          </td>
+                          <td style={{ padding: "12px 8px", fontWeight: "700", color: TOKENS.accent, fontFamily: "monospace" }}>
+                            ⏱ {formatDwellTime(s.dwellSec)}
+                          </td>
+                          <td style={{ padding: "12px 8px" }}>
+                            <button
+                              onClick={() => handleSimulateShopperExit(s)}
+                              style={smallBtn(TOKENS.danger)}
+                            >
+                              Trigger Exit
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-                <div style={cardStyle}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Today's AI Processing Summary</h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginTop: "16px" }}>
-                    {[
-                      { label: "People Detected", val: "12,463", icon: "👥" },
-                      { label: "Heatmaps Generated", val: "41", icon: "🔥" },
-                      { label: "Product Interactions", val: "8,941", icon: "🛒" },
-                      { label: "Recommendations", val: "17", icon: "💡" },
-                    ].map((stat, i) => (
-                      <div key={i} style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px" }}>
-                        <div style={{ fontSize: "18px" }}>{stat.icon}</div>
-                        <div style={{ fontSize: "18px", fontWeight: "bold", marginTop: "4px" }}>{stat.val}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>{stat.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ marginTop: "24px" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "600", color: TOKENS.muted, marginBottom: "8px" }}>MONTHLY AI PREDICTIONS TREND</div>
-                    <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", height: "100px", padding: "10px 0", borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                      {[
-                        { label: "Week 1", val: 42 },
-                        { label: "Week 2", val: 58 },
-                        { label: "Week 3", val: 65 },
-                        { label: "Week 4", val: 81 },
-                      ].map((bar, idx) => (
-                        <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%", justifyContent: "flex-end" }}>
-                          <span style={{ fontSize: "10px", color: TOKENS.muted }}>{bar.val}k</span>
-                          <div style={{ width: "100%", height: `${bar.val}%`, backgroundColor: TOKENS.accent, borderRadius: "4px 4px 0 0" }}></div>
-                          <span style={{ fontSize: "10px", color: TOKENS.muted }}>{bar.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={cardStyle}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Top Active Stores</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
-                    {stores.slice(0, 3).map((st, idx) => (
-                      <div key={st.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", backgroundColor: TOKENS.bg, borderRadius: "8px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span style={{ fontWeight: "bold", color: TOKENS.accent }}>#{idx + 1}</span>
-                          <span style={{ fontSize: "12px" }}>{st.name}</span>
-                        </div>
-                        <span style={{ fontSize: "12px", fontWeight: "bold", color: TOKENS.success }}>{st.health}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
+              {/* Completed Journey Lifecycle Logs */}
+              <div style={cardStyle}>
+                <h3 style={{ margin: "0 0 14px", fontSize: "15px", fontWeight: "700" }}>📜 Completed Customer Journeys Log</h3>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
+                      <th style={{ padding: "8px" }}>Shopper ID</th>
+                      <th style={{ padding: "8px" }}>Store</th>
+                      <th style={{ padding: "8px" }}>Entry Time</th>
+                      <th style={{ padding: "8px" }}>Exit Time</th>
+                      <th style={{ padding: "8px" }}>Total Dwell</th>
+                      <th style={{ padding: "8px" }}>Full Trajectory Path</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCompletedJourneys.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: "16px", color: TOKENS.muted, textAlign: "center" }}>
+                          No completed journeys recorded yet for this store.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCompletedJourneys.map((j) => (
+                        <tr key={j.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                          <td style={{ padding: "12px 8px", fontWeight: "600" }}>{j.id}</td>
+                          <td style={{ padding: "12px 8px" }}>{j.store}</td>
+                          <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>{j.entryTime}</td>
+                          <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>{j.exitTime}</td>
+                          <td style={{ padding: "12px 8px", fontWeight: "700", color: TOKENS.success }}>{formatDwellTime(j.totalDwellSec)}</td>
+                          <td style={{ padding: "12px 8px", fontSize: "11px", color: TOKENS.muted }}>
+                            {j.path.join(" ➔ ")}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </>
           )}
 
-          {/* ================= VIEW 2: INFRASTRUCTURE & CAMERAS ================= */}
+          {/* ================= VIEW 3: INFRASTRUCTURE & CAMERAS ================= */}
           {activeTab === "infrastructure" && (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
-
                 <div style={cardStyle}>
                   <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Camera Connectivity</h3>
                   <div style={{ display: "flex", alignItems: "center", gap: "20px", marginTop: "20px" }}>
@@ -894,7 +1735,13 @@ export default function CAMSAdminDashboard() {
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0, marginBottom: "16px" }}>Live Infrastructure Stores & Node Status</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <h3 style={{ fontSize: "14px", fontWeight: "700", margin: 0 }}>Live Infrastructure Stores & Node Status</h3>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button onClick={openAddStore} style={smallBtn(TOKENS.accent)}>+ Add Store</button>
+                    <button onClick={openAddCamera} style={smallBtn(TOKENS.info)}>+ Add Camera</button>
+                  </div>
+                </div>
                 <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
@@ -903,6 +1750,7 @@ export default function CAMSAdminDashboard() {
                       <th style={{ padding: "8px" }}>Active Users</th>
                       <th style={{ padding: "8px" }}>AI Engine Status</th>
                       <th style={{ padding: "8px" }}>Last Sync</th>
+                      <th style={{ padding: "8px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -915,6 +1763,14 @@ export default function CAMSAdminDashboard() {
                           <span style={{ color: s.aiStatus === "Active" ? TOKENS.success : TOKENS.warning, fontWeight: "bold" }}>● {s.aiStatus}</span>
                         </td>
                         <td style={{ padding: "12px 8px", color: TOKENS.muted }}>{s.lastSync}</td>
+                        <td style={{ padding: "12px 8px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                            <button onClick={() => openEditStore(s)} style={smallBtn(TOKENS.accent, { marginRight: 0 })}>Edit</button>
+                            <button onClick={() => handleDeleteStore(s)} style={smallBtn(TOKENS.danger, { marginRight: 0 })}>Delete</button>
+                            <button onClick={() => openEditCamera(s)} style={smallBtn(TOKENS.info, { marginRight: 0 })}>Edit Cams</button>
+                            <button onClick={() => handleRemoveAllCameras(s)} style={smallBtn(TOKENS.warning, { marginRight: 0 })}>Clear Cams</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -923,10 +1779,65 @@ export default function CAMSAdminDashboard() {
             </>
           )}
 
-          {/* ================= VIEW 3: SYSTEM & API HEALTH ================= */}
+          {/* ================= VIEW 4: USER MANAGEMENT (CRUD) ================= */}
+          {activeTab === "users" && (
+            <div style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>👤 User Management</h3>
+                  <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>Create, update, suspend, or remove platform users</p>
+                </div>
+                <button onClick={openAddUser} style={smallBtn(TOKENS.accent, { padding: "8px 14px", fontSize: "12px" })}>+ Add User</button>
+              </div>
+
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
+                    <th style={{ padding: "8px" }}>Name</th>
+                    <th style={{ padding: "8px" }}>Email</th>
+                    <th style={{ padding: "8px" }}>Role</th>
+                    <th style={{ padding: "8px" }}>Status</th>
+                    <th style={{ padding: "8px" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: "16px 8px", color: TOKENS.muted, textAlign: "center" }}>
+                        No users yet — add one to get started.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((u) => (
+                      <tr key={u.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                        <td style={{ padding: "12px 8px", fontWeight: "600" }}>{u.name}</td>
+                        <td style={{ padding: "12px 8px", color: TOKENS.muted }}>{u.email}</td>
+                        <td style={{ padding: "12px 8px" }}>{u.role}</td>
+                        <td style={{ padding: "12px 8px" }}>
+                          <span style={{ color: u.status === "Active" ? TOKENS.success : TOKENS.danger, fontWeight: "bold" }}>
+                            ● {u.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 8px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                            <button onClick={() => openEditUser(u)} style={smallBtn(TOKENS.accent, { marginRight: 0 })}>Edit</button>
+                            <button onClick={() => handleToggleUserStatus(u)} style={smallBtn(TOKENS.warning, { marginRight: 0 })}>
+                              {u.status === "Active" ? "Suspend" : "Activate"}
+                            </button>
+                            <button onClick={() => handleDeleteUser(u)} style={smallBtn(TOKENS.danger, { marginRight: 0 })}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ================= VIEW 5: SYSTEM & API HEALTH ================= */}
           {activeTab === "system" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-
               <div style={cardStyle}>
                 <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>API Performance Monitor</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
@@ -959,12 +1870,10 @@ export default function CAMSAdminDashboard() {
             </div>
           )}
 
-          {/* ================= VIEW 4: SECURITY & PERMISSIONS ================= */}
+          {/* ================= VIEW 6: SECURITY & PERMISSIONS ================= */}
           {activeTab === "security" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
-
               <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-
                 <div style={cardStyle}>
                   <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Security Panel</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px", fontSize: "12px" }}>
@@ -978,12 +1887,11 @@ export default function CAMSAdminDashboard() {
                 <div style={cardStyle}>
                   <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Recent User Login Activity</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px", fontSize: "12px" }}>
-                    <div style={{ padding: "8px", backgroundColor: TOKENS.bg, borderRadius: "4px" }}>
-                      <strong>John</strong> — <span style={{ color: TOKENS.muted }}>Store Manager</span> (2 min ago)
-                    </div>
-                    <div style={{ padding: "8px", backgroundColor: TOKENS.bg, borderRadius: "4px" }}>
-                      <strong>Alice</strong> — <span style={{ color: TOKENS.muted }}>Retail Analyst</span> (7 min ago)
-                    </div>
+                    {users.slice(0, 4).map((u, i) => (
+                      <div key={u.id} style={{ padding: "8px", backgroundColor: TOKENS.bg, borderRadius: "4px" }}>
+                        <strong>{u.name}</strong> — <span style={{ color: TOKENS.muted }}>{u.role}</span> ({(i + 1) * 3} min ago)
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1017,7 +1925,6 @@ export default function CAMSAdminDashboard() {
                   </tbody>
                 </table>
               </div>
-
             </div>
           )}
 
@@ -1027,12 +1934,22 @@ export default function CAMSAdminDashboard() {
       {/* ================= SYSTEM VERSION FOOTER ================= */}
       <footer style={{ backgroundColor: TOKENS.sidebarBg, borderTop: `1px solid ${TOKENS.cardBorder}`, padding: "8px 24px", display: "flex", justifyContent: "space-between", fontSize: "11px", color: TOKENS.muted }}>
         <div>CAMS — Consumer Attention Mapping System</div>
-        <div>Version 2.4.1 | Build 235 | Updated Today</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <button
+            onClick={handleResetDemoData}
+            style={{ background: "none", border: "none", color: TOKENS.muted, fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Reset demo data
+          </button>
+          <span>Version 2.5.0 | Build 260 | Updated Today</span>
+        </div>
       </footer>
 
-      {/* ================= QUICK ACTION MODALS ================= */}
+      {/* ================= QUICK ACTION / CRUD MODALS ================= */}
+
+      {/* Add User */}
       {activeModal === "user" && (
-        <Modal title="Add New User" onClose={() => setActiveModal(null)}>
+        <Modal title="Add New User" onClose={closeModal}>
           <form onSubmit={handleAddUser}>
             <div style={{ marginBottom: "14px" }}>
               <label style={labelStyle}>Full Name</label>
@@ -1066,8 +1983,45 @@ export default function CAMSAdminDashboard() {
         </Modal>
       )}
 
+      {/* Edit User */}
+      {activeModal === "editUser" && (
+        <Modal title="Edit User" onClose={closeModal}>
+          <form onSubmit={handleUpdateUser}>
+            <div style={{ marginBottom: "14px" }}>
+              <label style={labelStyle}>Full Name</label>
+              <input
+                style={inputStyle}
+                value={userForm.name}
+                onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                placeholder="e.g. Priya Nair"
+                autoFocus
+              />
+            </div>
+            <div style={{ marginBottom: "18px" }}>
+              <label style={labelStyle}>Role</label>
+              <select
+                style={inputStyle}
+                value={userForm.role}
+                onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+              >
+                <option>Store Manager</option>
+                <option>Retail Analyst</option>
+                <option>Admin</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
+            >
+              Save Changes
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add Store */}
       {activeModal === "store" && (
-        <Modal title="Register New Store" onClose={() => setActiveModal(null)}>
+        <Modal title="Register New Store" onClose={closeModal}>
           <form onSubmit={handleRegisterStore}>
             <div style={{ marginBottom: "14px" }}>
               <label style={labelStyle}>Store Name</label>
@@ -1100,8 +2054,44 @@ export default function CAMSAdminDashboard() {
         </Modal>
       )}
 
+      {/* Edit Store */}
+      {activeModal === "editStore" && (
+        <Modal title="Edit Store" onClose={closeModal}>
+          <form onSubmit={handleUpdateStore}>
+            <div style={{ marginBottom: "14px" }}>
+              <label style={labelStyle}>Store Name</label>
+              <input
+                style={inputStyle}
+                value={storeForm.name}
+                onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
+                placeholder="e.g. Riverside Outlet"
+                autoFocus
+              />
+            </div>
+            <div style={{ marginBottom: "18px" }}>
+              <label style={labelStyle}>Camera Count</label>
+              <input
+                type="number"
+                min="0"
+                style={inputStyle}
+                value={storeForm.cameras}
+                onChange={(e) => setStoreForm({ ...storeForm, cameras: e.target.value })}
+                placeholder="e.g. 10"
+              />
+            </div>
+            <button
+              type="submit"
+              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
+            >
+              Save Changes
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add Camera(s) */}
       {activeModal === "camera" && (
-        <Modal title="Add Camera" onClose={() => setActiveModal(null)}>
+        <Modal title="Add Camera" onClose={closeModal}>
           <form onSubmit={handleAddCamera}>
             <div style={{ marginBottom: "14px" }}>
               <label style={labelStyle}>Store</label>
@@ -1132,6 +2122,40 @@ export default function CAMSAdminDashboard() {
               style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
             >
               Pair Camera(s)
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Camera Count */}
+      {activeModal === "editCamera" && (
+        <Modal title="Edit Camera Count" onClose={closeModal}>
+          <form onSubmit={handleUpdateCameraCount}>
+            <div style={{ marginBottom: "14px" }}>
+              <label style={labelStyle}>Store</label>
+              <select style={{ ...inputStyle, opacity: 0.7 }} value={cameraForm.storeId} disabled>
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: "18px" }}>
+              <label style={labelStyle}>Exact Camera Count</label>
+              <input
+                type="number"
+                min="0"
+                style={inputStyle}
+                value={cameraForm.count}
+                onChange={(e) => setCameraForm({ ...cameraForm, count: e.target.value })}
+                placeholder="e.g. 12"
+                autoFocus
+              />
+            </div>
+            <button
+              type="submit"
+              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
+            >
+              Update Count
             </button>
           </form>
         </Modal>
