@@ -1,47 +1,20 @@
+"""
+backend/app/routers/tracking.py
+Full Video Customer Tracking & Journey Extraction Router
+"""
 import os
 import tempfile
 from datetime import datetime, timedelta
-
 import cv2
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from ultralytics import YOLO
 
-# Reuse the homography transform from detection.py
-from .detection import transform_to_floorplan
+from ..services.tracking_engine import transform_to_floorplan, zone_for_point, STORE_ZONES
+from ..services.gaze_engine import estimate_head_pose, classify_gaze_target
 
 router = APIRouter()
-
-# Load standard YOLOv8 pre-trained model dedicated for Person Tracking
-# (Ensures COCO Class 0 = Person, regardless of what best.pt was trained on)
 person_model = YOLO("yolov8n.pt")
-
-STORE_ZONES = [
-    {"name": "Entrance", "x": 12, "y": 15, "width": 22, "height": 18},
-    {"name": "Grocery & Snacks", "x": 12, "y": 38, "width": 30, "height": 25},
-    {"name": "Electronics", "x": 45, "y": 45, "width": 28, "height": 28},
-    {"name": "Apparel", "x": 45, "y": 15, "width": 28, "height": 25},
-    {"name": "Checkout", "x": 78, "y": 72, "width": 18, "height": 22},
-    {"name": "Exit", "x": 78, "y": 15, "width": 18, "height": 18},
-]
-
 SAMPLE_EVERY_N_FRAMES = 3
-
-
-def zone_for_point(px_pct: float, py_pct: float) -> str:
-    """Bucket a floorplan-percentage point into the containing/nearest zone."""
-    for zone in STORE_ZONES:
-        if (
-            zone["x"] <= px_pct <= zone["x"] + zone["width"]
-            and zone["y"] <= py_pct <= zone["y"] + zone["height"]
-        ):
-            return zone["name"]
-
-    def dist(z):
-        zx, zy = z["x"] + z["width"] / 2, z["y"] + z["height"] / 2
-        return (zx - px_pct) ** 2 + (zy - py_pct) ** 2
-
-    return min(STORE_ZONES, key=dist)["name"]
-
 
 @router.post("/track-video")
 async def track_video(file: UploadFile = File(...), store: str = Form(...)):
@@ -60,11 +33,14 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
             raise HTTPException(status_code=400, detail="Could not open uploaded video")
 
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        seconds_per_sample = (SAMPLE_EVERY_N_FRAMES / fps) if fps else 0
+        frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1280
+        frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 720
+        seconds_per_sample = (SAMPLE_EVERY_N_FRAMES / fps) if fps else 0.1
 
         track_zone_sequence = {}
         track_zone_counts = {}
         track_frame_totals = {}
+        track_trajectories = {}
 
         frame_idx = 0
         analyzed_frames = 0
@@ -78,15 +54,12 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
             if frame_idx % SAMPLE_EVERY_N_FRAMES != 0:
                 continue
 
-            persist_flag = True if frame_idx > SAMPLE_EVERY_N_FRAMES else False
-
-            # Run person_model (yolov8n.pt) for human tracking with lower confidence threshold
             results = person_model.track(
                 frame,
                 tracker="bytetrack.yaml",
-                persist=persist_flag,
-                classes=[0],  # Class 0 = Person in yolov8n.pt
-                conf=0.25,    # Lower threshold to detect distant people
+                persist=True,
+                classes=[0],  # Person
+                conf=0.25,
                 verbose=False,
             )
             analyzed_frames += 1
@@ -100,7 +73,7 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
                     feet_u = (x1 + x2) / 2.0
                     feet_v = y2
 
-                    pos_x, pos_y = transform_to_floorplan(feet_u, feet_v)
+                    pos_x, pos_y = transform_to_floorplan(feet_u, feet_v, frame_w, frame_h)
                     zone = zone_for_point(pos_x, pos_y)
 
                     tid = int(track_id)
@@ -111,6 +84,9 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
                     seq = track_zone_sequence.setdefault(tid, [])
                     if not seq or seq[-1] != zone:
                         seq.append(zone)
+
+                    traj = track_trajectories.setdefault(tid, [])
+                    traj.append({"x": pos_x, "y": pos_y, "zone": zone, "frame": frame_idx})
 
         cap.release()
 
@@ -138,6 +114,17 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
         now = datetime.now()
         entry_dt = now - timedelta(seconds=person_dwell_sec)
 
+        # Multi-shopper summary list
+        all_shoppers = []
+        for tid, count in track_frame_totals.items():
+            all_shoppers.append({
+                "shopperId": f"SHOPPER-{tid:02d}",
+                "dwellSec": round(count * seconds_per_sample),
+                "zonesVisited": len(track_zone_counts.get(tid, {})),
+                "path": track_zone_sequence.get(tid, []),
+                "trajectory": track_trajectories.get(tid, [])[::2],  # downsample for UI
+            })
+
         return {
             "shopperId": f"SHOPPER-{primary_id}",
             "store": store,
@@ -148,6 +135,7 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
             "zoneDwell": zone_dwell,
             "framesAnalyzed": analyzed_frames,
             "peopleDetected": len(track_frame_totals),
+            "allShoppers": all_shoppers,
         }
 
     finally:

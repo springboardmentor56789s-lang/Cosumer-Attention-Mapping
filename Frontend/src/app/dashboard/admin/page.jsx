@@ -1,5 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import LiveCameraStream from "../../components/LiveCameraStream";
+import LiveFloorplanRadar from "../../components/LiveFloorplanRadar";
+import ShelfGazeHeatmap from "../../components/ShelfGazeHeatmap";
 
 // ==========================================
 // DESIGN TOKENS & STYLES
@@ -27,6 +30,16 @@ const cardStyle = {
   boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
 };
 
+const selectStyle = {
+  backgroundColor: TOKENS.bg,
+  border: `1px solid ${TOKENS.cardBorder}`,
+  borderRadius: "8px",
+  padding: "8px 12px",
+  color: TOKENS.text,
+  fontSize: "12px",
+  outline: "none",
+};
+
 const inputStyle = {
   width: "100%",
   backgroundColor: TOKENS.bg,
@@ -48,7 +61,7 @@ const labelStyle = {
 };
 
 const smallBtn = (bg, extra = {}) => ({
-  padding: "5px 10px",
+  padding: "6px 12px",
   fontSize: "11px",
   fontWeight: "600",
   borderRadius: "6px",
@@ -56,913 +69,244 @@ const smallBtn = (bg, extra = {}) => ({
   cursor: "pointer",
   color: "#fff",
   backgroundColor: bg,
-  marginRight: "6px",
   ...extra,
 });
 
-function formatDwellTime(totalSeconds) {
-  const m = Math.floor(totalSeconds / 60);
-  const s = Math.floor(totalSeconds % 60);
-  return `${m}m ${String(s).padStart(2, "0")}s`;
-}
-
 // ==========================================
-// MOCK DATA STORES
+// INITIAL MOCK DATA
 // ==========================================
 const INITIAL_STORES = [
-  { id: "S-01", name: "Downtown Flagship", cameras: 12, activeUsers: 8, aiStatus: "Active", lastSync: "Just now", health: 98 },
-  { id: "S-02", name: "Metro Shopping Mall", cameras: 18, activeUsers: 14, aiStatus: "Active", lastSync: "2m ago", health: 95 },
-  { id: "S-03", name: "Westside Plaza", cameras: 8, activeUsers: 3, aiStatus: "Degraded", lastSync: "12m ago", health: 78 },
-  { id: "S-04", name: "Airport Duty Free", cameras: 24, activeUsers: 19, aiStatus: "Active", lastSync: "1m ago", health: 91 },
+  { id: 1, name: "Downtown Flagship", location: "Central Avenue, Hyderabad", camerasCount: 9 },
+  { id: 2, name: "Metro Shopping Mall", location: "Jubilee Hills, Hyderabad", camerasCount: 6 },
+  { id: 3, name: "Westside Plaza", location: "Banjara Hills, Hyderabad", camerasCount: 4 },
+  { id: 4, name: "Airport Duty Free", location: "RGIA Airport Terminal 1", camerasCount: 3 },
 ];
 
-const INITIAL_LOGS = [
-  { id: "L1", time: "10:44 AM", device: "Camera CAM-07", event: "Reconnected", status: "success" },
-  { id: "L2", time: "10:40 AM", device: "Camera CAM-07", event: "Disconnected", status: "danger" },
-  { id: "L3", time: "10:20 AM", device: "Camera CAM-02", event: "Connected", status: "success" },
-  { id: "L4", time: "09:15 AM", device: "YOLO Engine v4", event: "Model Retrained", status: "info" },
-];
-
-const INITIAL_NOTIFICATIONS = [
-  { id: 1, title: "New Store Added", time: "15 minutes ago", type: "info" },
-  { id: 2, title: "Camera CAM-04 Offline", time: "23 minutes ago", type: "danger" },
-  { id: 3, title: "New Marketing Manager Created", time: "1 hour ago", type: "success" },
-  { id: 4, title: "Database Auto-Backup Finished", time: "2 hours ago", type: "info" },
-];
-
-const INITIAL_SHELVES = [
-  { id: "SH-01", name: "Snacks & Beverages", store: "Downtown Flagship", camera: "CAM-02", people: 3 },
-  { id: "SH-02", name: "Personal Care", store: "Downtown Flagship", camera: "CAM-05", people: 1 },
-  { id: "SH-03", name: "Electronics Accessories", store: "Metro Shopping Mall", camera: "CAM-11", people: 5 },
-  { id: "SH-04", name: "Apparel — Men's", store: "Metro Shopping Mall", camera: "CAM-14", people: 2 },
-  { id: "SH-05", name: "Home & Kitchen", store: "Westside Plaza", camera: "CAM-03", people: 0 },
-  { id: "SH-06", name: "Duty Free — Perfumes", store: "Airport Duty Free", camera: "CAM-19", people: 4 },
+const INITIAL_CAMERAS = [
+  { id: "CAM-01", name: "Entrance Overhead PTZ", store: "Downtown Flagship", zone: "Entrance", resolution: "4K (3840x2160)", fps: 30, ip: "192.168.1.101", status: "Online" },
+  { id: "CAM-02", name: "Aisle 1 Beverage Wall", store: "Downtown Flagship", zone: "Grocery & Snacks", resolution: "4K (3840x2160)", fps: 30, ip: "192.168.1.102", status: "Online" },
+  { id: "CAM-03", name: "Aisle 2 Snacks Endcap", store: "Downtown Flagship", zone: "Grocery & Snacks", resolution: "1080p (1920x1080)", fps: 25, ip: "192.168.1.103", status: "Degraded" },
+  { id: "CAM-04", name: "Electronics Display A", store: "Downtown Flagship", zone: "Electronics", resolution: "4K (3840x2160)", fps: 30, ip: "192.168.1.104", status: "Online" },
+  { id: "CAM-05", name: "Checkout 1-4 Overheads", store: "Downtown Flagship", zone: "Checkout", resolution: "4K (3840x2160)", fps: 30, ip: "192.168.1.108", status: "Online" },
+  { id: "CAM-06", name: "Main East Gate", store: "Metro Shopping Mall", zone: "Entrance", resolution: "4K (3840x2160)", fps: 30, ip: "192.168.2.101", status: "Online" },
 ];
 
 const INITIAL_USERS = [
-  { id: "U-01", name: "John Doe", email: "john.doe@cams.io", role: "Store Manager", status: "Active" },
-  { id: "U-02", name: "Alice Kumar", email: "alice.kumar@cams.io", role: "Retail Analyst", status: "Active" },
-  { id: "U-03", name: "Admin User", email: "admin@cams.io", role: "Admin", status: "Active" },
+  { id: "USR-001", name: "Sarah Jenkins", email: "sarah.j@retailai.corp", role: "Store Manager", store: "Downtown Flagship", status: "Active" },
+  { id: "USR-002", name: "Raj Patel", email: "raj.p@retailai.corp", role: "Retail Analyst", store: "All Stores", status: "Active" },
+  { id: "USR-003", name: "Elena Rostova", email: "elena.r@retailai.corp", role: "Marketing Manager", store: "All Stores", status: "Active" },
+  { id: "USR-004", name: "Marcus Chen", email: "marcus.c@retailai.corp", role: "Administrator", store: "System-Wide", status: "Active" },
 ];
 
-const INITIAL_ACTIVE_SHOPPERS = [
-  { id: "SHOPPER-101", entryTime: "10:32 AM", currentZone: "Electronics", zonesVisited: ["Entrance", "Main Aisle", "Electronics"], dwellSec: 720, store: "Downtown Flagship", posX: 48, posY: 52, color: TOKENS.accent },
-  { id: "SHOPPER-102", entryTime: "10:38 AM", currentZone: "Grocery & Snacks", zonesVisited: ["Entrance", "Grocery & Snacks"], dwellSec: 360, store: "Downtown Flagship", posX: 28, posY: 38, color: TOKENS.info },
-  { id: "SHOPPER-103", entryTime: "10:41 AM", currentZone: "Checkout", zonesVisited: ["Entrance", "Apparel", "Checkout"], dwellSec: 180, store: "Downtown Flagship", posX: 78, posY: 82, color: TOKENS.success },
+const SAMPLE_JOURNEYS = [
+  {
+    id: "SHOPPER-4821",
+    store: "Downtown Flagship",
+    entryTime: "10:14 AM",
+    exitTime: "10:27 AM",
+    totalDwellSec: 780,
+    path: ["Entrance", "Grocery & Snacks", "Electronics", "Checkout", "Exit"],
+    zoneDwell: [
+      { zone: "Entrance", sec: 45 },
+      { zone: "Grocery & Snacks", sec: 240 },
+      { zone: "Electronics", sec: 320 },
+      { zone: "Checkout", sec: 145 },
+      { zone: "Exit", sec: 30 },
+    ],
+  },
 ];
 
-const INITIAL_COMPLETED_JOURNEYS = [
-  { id: "SHOPPER-098", store: "Downtown Flagship", entryTime: "10:05 AM", exitTime: "10:28 AM", totalDwellSec: 1380, path: ["Entrance", "Electronics", "Checkout", "Exit"] },
-  { id: "SHOPPER-099", store: "Metro Shopping Mall", entryTime: "10:12 AM", exitTime: "10:35 AM", totalDwellSec: 1380, path: ["Entrance", "Grocery", "Checkout", "Exit"] },
-  { id: "SHOPPER-100", store: "Downtown Flagship", entryTime: "10:15 AM", exitTime: "10:39 AM", totalDwellSec: 1440, path: ["Entrance", "Apparel", "Checkout", "Exit"] },
-];
-
-const STORE_ZONES = [
-  { name: "Entrance", x: 12, y: 15, width: 22, height: 18, color: "#2B3B5C" },
-  { name: "Grocery & Snacks", x: 12, y: 38, width: 30, height: 25, color: "#1C3332" },
-  { name: "Electronics", x: 45, y: 45, width: 28, height: 28, color: "#3B2D4A" },
-  { name: "Apparel", x: 45, y: 15, width: 28, height: 25, color: "#3B382A" },
-  { name: "Checkout", x: 78, y: 72, width: 18, height: 22, color: "#1E3B2B" },
-  { name: "Exit", x: 78, y: 15, width: 18, height: 18, color: "#4A2222" },
-];
-
-// ==========================================
-// MODAL WRAPPER
-// ==========================================
-function Modal({ title, onClose, children }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 2000,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          ...cardStyle,
-          width: "380px",
-          maxWidth: "90vw",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>{title}</h3>
-          <button
-            onClick={onClose}
-            style={{ background: "none", border: "none", color: TOKENS.muted, cursor: "pointer", fontSize: "16px" }}
-          >
-            ✕
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-export default function CAMSAdminDashboard() {
+export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [isNotifyOpen, setIsNotifyOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [time, setTime] = useState(new Date());
-
-  const [stores, setStores] = useState(INITIAL_STORES);
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
-  const [shelves, setShelves] = useState(INITIAL_SHELVES);
-  const [users, setUsers] = useState(INITIAL_USERS);
-
-  const [activeShoppers, setActiveShoppers] = useState(INITIAL_ACTIVE_SHOPPERS);
-  const [completedJourneys, setCompletedJourneys] = useState(INITIAL_COMPLETED_JOURNEYS);
-  const [selectedTrackingStore, setSelectedTrackingStore] = useState(INITIAL_STORES[0].name);
-
-  const [activeModal, setActiveModal] = useState(null);
+  const [selectedStore, setSelectedStore] = useState("All Stores");
   const [toast, setToast] = useState(null);
 
-  const [editingUserId, setEditingUserId] = useState(null);
-  const [editingStoreId, setEditingStoreId] = useState(null);
-
-  const [userForm, setUserForm] = useState({ name: "", role: "Store Manager" });
-  const [storeForm, setStoreForm] = useState({ name: "", cameras: "" });
-  const [cameraForm, setCameraForm] = useState({ storeId: stores[0]?.id || "", count: "" });
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const dwellTimer = setInterval(() => {
-      setActiveShoppers((prev) =>
-        prev.map((s) => {
-          let targetX = s.posX;
-          let targetY = s.posY;
-          let updatedZone = s.currentZone;
-          let updatedVisited = [...s.zonesVisited];
-
-          if (s.dwellSec < 12) {
-            targetX = 28;
-            targetY = 38;
-            updatedZone = "Grocery & Snacks";
-          } else if (s.dwellSec < 28) {
-            targetX = 58;
-            targetY = 55;
-            updatedZone = "Electronics";
-          } else if (s.dwellSec < 45) {
-            targetX = 82;
-            targetY = 78;
-            updatedZone = "Checkout";
-          }
-
-          if (!updatedVisited.includes(updatedZone)) {
-            updatedVisited.push(updatedZone);
-          }
-
-          const stepX = (targetX - s.posX) * 0.15 + (Math.random() - 0.5) * 0.5;
-          const stepY = (targetY - s.posY) * 0.15 + (Math.random() - 0.5) * 0.5;
-
-          return {
-            ...s,
-            dwellSec: s.dwellSec + 1,
-            currentZone: updatedZone,
-            zonesVisited: updatedVisited,
-            posX: Math.max(10, Math.min(90, s.posX + stepX)),
-            posY: Math.max(10, Math.min(90, s.posY + stepY)),
-          };
-        })
-      );
-    }, 1000);
-
-    return () => clearInterval(dwellTimer);
-  }, []);
-
-  const STORAGE_KEYS = {
-    stores: "cams_stores",
-    users: "cams_users",
-    shelves: "cams_shelves",
-    notifications: "cams_notifications",
-    activeShoppers: "cams_active_shoppers",
-    completedJourneys: "cams_completed_journeys",
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
   };
 
-  useEffect(() => {
-    try {
-      const savedStores = localStorage.getItem(STORAGE_KEYS.stores);
-      if (savedStores) setStores(JSON.parse(savedStores));
+  // NOTIFICATIONS
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: "Camera CAM-03 (Snacks) Degraded FPS", time: "10m ago" },
+    { id: 2, title: "High Congestion in Entrance Zone", time: "25m ago" },
+  ]);
+  const [isNotifyOpen, setIsNotifyOpen] = useState(false);
 
-      const savedUsers = localStorage.getItem(STORAGE_KEYS.users);
-      if (savedUsers) setUsers(JSON.parse(savedUsers));
+  // CRUD DATA STATES
+  const [stores, setStores] = useState(INITIAL_STORES);
+  const [cameras, setCameras] = useState(INITIAL_CAMERAS);
+  const [users, setUsers] = useState(INITIAL_USERS);
+  const [completedJourneys, setCompletedJourneys] = useState(SAMPLE_JOURNEYS);
+  const [selectedJourney, setSelectedJourney] = useState(SAMPLE_JOURNEYS[0]);
 
-      const savedShelves = localStorage.getItem(STORAGE_KEYS.shelves);
-      if (savedShelves) setShelves(JSON.parse(savedShelves));
+  // MODAL STATES FOR CRUD
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+  const [editingStore, setEditingStore] = useState(null);
+  const [storeForm, setStoreForm] = useState({ name: "", location: "" });
 
-      const savedNotifications = localStorage.getItem(STORAGE_KEYS.notifications);
-      if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
+  const [isCamModalOpen, setIsCamModalOpen] = useState(false);
+  const [editingCam, setEditingCam] = useState(null);
+  const [camForm, setCamForm] = useState({ id: "", name: "", store: "Downtown Flagship", zone: "Entrance", resolution: "4K (3840x2160)", ip: "", status: "Online" });
 
-      const savedShoppers = localStorage.getItem(STORAGE_KEYS.activeShoppers);
-      if (savedShoppers) setActiveShoppers(JSON.parse(savedShoppers));
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState({ name: "", email: "", role: "Store Manager", store: "Downtown Flagship", status: "Active" });
 
-      const savedJourneys = localStorage.getItem(STORAGE_KEYS.completedJourneys);
-      if (savedJourneys) setCompletedJourneys(JSON.parse(savedJourneys));
-    } catch (err) {
-      console.error("Failed to load saved CAMS data from localStorage:", err);
+  // ==========================================
+  // STORE CRUD HANDLERS
+  // ==========================================
+  const handleOpenStoreModal = (store = null) => {
+    if (store) {
+      setEditingStore(store);
+      setStoreForm({ name: store.name, location: store.location });
+    } else {
+      setEditingStore(null);
+      setStoreForm({ name: "", location: "" });
     }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.stores, JSON.stringify(stores));
-  }, [stores]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.shelves, JSON.stringify(shelves));
-  }, [shelves]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.notifications, JSON.stringify(notifications));
-  }, [notifications]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.activeShoppers, JSON.stringify(activeShoppers));
-  }, [activeShoppers]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.completedJourneys, JSON.stringify(completedJourneys));
-  }, [completedJourneys]);
-
-  const handleResetDemoData = () => {
-    if (!window.confirm("Reset all stores, users, shelves, tracking data, and notifications back to demo defaults?")) return;
-    setStores(INITIAL_STORES);
-    setUsers(INITIAL_USERS);
-    setShelves(INITIAL_SHELVES);
-    setNotifications(INITIAL_NOTIFICATIONS);
-    setActiveShoppers(INITIAL_ACTIVE_SHOPPERS);
-    setCompletedJourneys(INITIAL_COMPLETED_JOURNEYS);
-    setToast("Demo data restored");
+    setIsStoreModalOpen(true);
   };
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const totalPeopleNearShelves = shelves.reduce((sum, s) => sum + s.people, 0);
-  const busiestShelf = shelves.reduce((a, b) => (b.people > a.people ? b : a), shelves[0]);
-
-  // ================= CUSTOMER JOURNEY TRACKING HANDLERS =================
-  const handleSimulateNewShopper = () => {
-    const nextNum = Math.floor(104 + Math.random() * 900);
-    const newShopper = {
-      id: `SHOPPER-${nextNum}`,
-      entryTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      currentZone: "Entrance",
-      zonesVisited: ["Entrance"],
-      dwellSec: 0,
-      store: selectedTrackingStore,
-      posX: 18 + Math.random() * 8,
-      posY: 20 + Math.random() * 8,
-      color: [TOKENS.accent, TOKENS.info, TOKENS.success, TOKENS.warning][Math.floor(Math.random() * 4)],
-    };
-    setActiveShoppers((prev) => [newShopper, ...prev]);
-    pushNotification(`Shopper ${newShopper.id} entered ${selectedTrackingStore}`, "info");
-    setToast(`Shopper ${newShopper.id} tracked at ${selectedTrackingStore}`);
-  };
-
-  const handleSimulateShopperExit = (shopper) => {
-    const exitTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const journeyRecord = {
-      id: shopper.id,
-      store: shopper.store,
-      entryTime: shopper.entryTime,
-      exitTime: exitTime,
-      totalDwellSec: shopper.dwellSec,
-      path: [...shopper.zonesVisited, "Exit"],
-    };
-    setCompletedJourneys((prev) => [journeyRecord, ...prev]);
-    setActiveShoppers((prev) => prev.filter((s) => s.id !== shopper.id));
-    pushNotification(`Shopper ${shopper.id} completed journey (${formatDwellTime(shopper.dwellSec)})`, "success");
-    setToast(`Customer ${shopper.id} exited store`);
-  };
-
-  const handleExportJourneyLogsCSV = () => {
-    const rows = [
-      ["Customer Journey Logs"],
-      ["Store Filter", selectedTrackingStore],
-      [],
-      ["Shopper ID", "Store", "Entry Time", "Exit Time", "Total Dwell", "Path Journey"],
-      ...completedJourneys.map((j) => [
-        j.id,
-        j.store,
-        j.entryTime,
-        j.exitTime,
-        formatDwellTime(j.totalDwellSec),
-        j.path.join(" -> "),
-      ]),
-    ];
-    const csvContent = rows.map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `customer_journeys_${selectedTrackingStore.replace(/\s+/g, "_")}_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    pushNotification("Customer Journey Report Exported", "success");
-    setToast("Journey report downloaded as CSV");
-  };
-
-  // ================= VIDEO-BASED CUSTOMER JOURNEY TRACKING =================
-  // Upload an actual store video (entrance/aisle camera footage) directly —
-  // no file-path/link needed — and generate that customer's full journey.
-  const journeyVideoRef = useRef(null);
-  const [journeyVideoFile, setJourneyVideoFile] = useState(null);
-  const [journeyVideoURL, setJourneyVideoURL] = useState(null);
-  const [journeyVideoDuration, setJourneyVideoDuration] = useState(0);
-  const [isTrackingVideo, setIsTrackingVideo] = useState(false);
-  const [trackingProgress, setTrackingProgress] = useState(0);
-  const [trackedJourney, setTrackedJourney] = useState(null);
-
-  const handleJourneyVideoUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (journeyVideoURL) URL.revokeObjectURL(journeyVideoURL);
-    setJourneyVideoFile(file);
-    setJourneyVideoURL(URL.createObjectURL(file));
-    setJourneyVideoDuration(0);
-    setTrackedJourney(null);
-  };
-
-  const handleJourneyVideoLoadedMetadata = () => {
-    if (journeyVideoRef.current) setJourneyVideoDuration(journeyVideoRef.current.duration || 0);
-  };
-
-  // REAL HTTP API CUSTOMER JOURNEY TRACKING (POST /track-video)
-  // Sends the uploaded video file itself (multipart/form-data) — the backend
-  // runs person detection + re-identification across the footage and returns
-  // that customer's entrance-to-exit journey.
-  const handleRunJourneyTracking = async () => {
-    if (!journeyVideoFile || isTrackingVideo) return;
-
-    setIsTrackingVideo(true);
-    setTrackingProgress(15);
-    setTrackedJourney(null);
-
-    const formData = new FormData();
-    formData.append("file", journeyVideoFile);
-    formData.append("store", selectedTrackingStore);
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/track-video", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const bodyText = await response.text().catch(() => "");
-        throw new Error(
-          `Backend responded ${response.status} ${response.statusText}${bodyText ? ` — ${bodyText.slice(0, 200)}` : ""}`
-        );
-      }
-
-      setTrackingProgress(75);
-      const data = await response.json();
-
-      // Expected backend shape:
-      // { shopperId, entryTime, exitTime, totalDwellSec, path: ["Entrance","Electronics",...], zoneDwell: [{zone, sec}] }
-      const journeyRecord = {
-        id: data.shopperId || `SHOPPER-${Math.floor(100 + Math.random() * 900)}`,
-        store: selectedTrackingStore,
-        entryTime: data.entryTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        exitTime: data.exitTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        totalDwellSec: data.totalDwellSec ?? 0,
-        path: data.path && data.path.length ? data.path : ["Entrance", "Exit"],
-        zoneDwell: data.zoneDwell || [],
-        sourceVideo: journeyVideoFile.name,
-      };
-
-      setTrackedJourney(journeyRecord);
-      setCompletedJourneys((prev) => [journeyRecord, ...prev]);
-
-      pushNotification(
-        `Customer journey tracked from video: ${journeyRecord.id} (${formatDwellTime(journeyRecord.totalDwellSec)})`,
-        "success"
-      );
-      setToast(`Journey generated for ${journeyRecord.id} at ${selectedTrackingStore}`);
-    } catch (error) {
-      console.error("Journey tracking error:", error);
-      const isNetworkError = error instanceof TypeError;
-      setToast(
-        isNetworkError
-          ? "Can't reach the tracking backend at 127.0.0.1:8000. Is it running?"
-          : `Tracking failed: ${error.message}`
-      );
-    } finally {
-      setIsTrackingVideo(false);
-      setTrackingProgress(100);
-    }
-  };
-
-  // DEMO / SIMULATE MODE — no backend needed. Lets you test the full
-  // upload -> track -> journey UI flow before /track-video exists on the
-  // FastAPI server, or whenever the server isn't running locally.
-  const handleSimulateJourneyTracking = () => {
-    if (!journeyVideoFile || isTrackingVideo) return;
-
-    setIsTrackingVideo(true);
-    setTrackingProgress(20);
-    setTrackedJourney(null);
-
-    const zonePool = ["Entrance", "Grocery & Snacks", "Electronics", "Apparel", "Checkout", "Exit"];
-    const visitCount = 2 + Math.floor(Math.random() * 3); // 2-4 zones between entrance/exit
-    const middleZones = [];
-    while (middleZones.length < visitCount) {
-      const z = zonePool[1 + Math.floor(Math.random() * (zonePool.length - 2))];
-      if (!middleZones.includes(z)) middleZones.push(z);
-    }
-    const simulatedPath = ["Entrance", ...middleZones, "Checkout", "Exit"];
-    const simulatedDwellSec = Math.round(journeyVideoDuration > 0 ? journeyVideoDuration * (8 + Math.random() * 4) : 300 + Math.random() * 600);
-
-    setTimeout(() => {
-      const now = new Date();
-      const entry = new Date(now.getTime() - simulatedDwellSec * 1000);
-      const journeyRecord = {
-        id: `SHOPPER-${Math.floor(100 + Math.random() * 900)}`,
-        store: selectedTrackingStore,
-        entryTime: entry.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        exitTime: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        totalDwellSec: simulatedDwellSec,
-        path: simulatedPath,
-        zoneDwell: [],
-        sourceVideo: journeyVideoFile.name,
-        simulated: true,
-      };
-
-      setTrackedJourney(journeyRecord);
-      setCompletedJourneys((prev) => [journeyRecord, ...prev]);
-      pushNotification(`(Demo) Journey simulated for ${journeyRecord.id} — ${formatDwellTime(journeyRecord.totalDwellSec)}`, "info");
-      setToast(`Demo journey generated for ${journeyRecord.id} — no backend used`);
-      setIsTrackingVideo(false);
-      setTrackingProgress(100);
-    }, 900);
-  };
-
-  // ================= VIDEO-BASED SHELF DETECTION =================
-  const videoRef = useRef(null);
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoURL, setVideoURL] = useState(null);
-  const [videoDuration, setVideoDuration] = useState(0);
-  const [selectedShelfId, setSelectedShelfId] = useState(shelves[0]?.id || "");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [frameResults, setFrameResults] = useState([]);
-  const [detectionSummary, setDetectionSummary] = useState(null);
-
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, "0");
-    const s = Math.floor(secs % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  };
-
-  const handleVideoUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (videoURL) URL.revokeObjectURL(videoURL);
-    setVideoFile(file);
-    setVideoURL(URL.createObjectURL(file));
-    setVideoDuration(0);
-    setFrameResults([]);
-    setDetectionSummary(null);
-  };
-
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) setVideoDuration(videoRef.current.duration || 0);
-  };
-
-  // REAL HTTP API VIDEO ANALYSIS (POST /detect-video)
-  const handleRunDetection = async () => {
-    if (!videoFile || isProcessing) return;
-    const shelf = shelves.find((s) => s.id === selectedShelfId);
-    if (!shelf) return;
-
-    setIsProcessing(true);
-    setProgress(15);
-    setFrameResults([]);
-    setDetectionSummary(null);
-
-    const formData = new FormData();
-    formData.append("file", videoFile);
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/detect-video", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to process video on server");
-      }
-
-      const data = await response.json();
-
-      const summary = {
-        shelfName: shelf.name,
-        store: shelf.store,
-        fileName: data.fileName,
-        duration: data.duration,
-        totalFrames: data.totalFrames,
-        avg: data.avg,
-        peak: data.peak,
-        peakTime: data.peakTime,
-        uniqueCount: data.uniqueCount,
-      };
-
-      setDetectionSummary(summary);
-      setFrameResults(data.frameResults);
-
-      setShelves((prev) =>
-        prev.map((s) => (s.id === shelf.id ? { ...s, people: data.peak } : s))
-      );
-
-      pushNotification(
-        `Video analysis complete for ${shelf.name}: ${data.uniqueCount} unique individuals detected`,
-        "success"
-      );
-      setToast(`Detected ${data.uniqueCount} unique individuals in ${data.fileName}`);
-    } catch (error) {
-      console.error("Video detection error:", error);
-      setToast("Error analyzing video file. Ensure FastAPI backend is running.");
-    } finally {
-      setIsProcessing(false);
-      setProgress(100);
-    }
-  };
-
-  const handleDownloadDetectionReport = () => {
-    if (!detectionSummary || frameResults.length === 0) return;
-    const lines = [
-      `CAMS Shelf Attention Detection Report`,
-      `Shelf,${detectionSummary.shelfName}`,
-      `Store,${detectionSummary.store}`,
-      `Source Video,${detectionSummary.fileName}`,
-      `Video Duration (s),${detectionSummary.duration.toFixed(1)}`,
-      `Frames Analyzed,${detectionSummary.totalFrames}`,
-      `Unique Individuals Detected,${detectionSummary.uniqueCount}`,
-      `Average Concurrent People,${detectionSummary.avg}`,
-      `Peak Concurrent People,${detectionSummary.peak}`,
-      `Peak Timestamp,${formatTime(detectionSummary.peakTime)}`,
-      ``,
-      `Timestamp,Concurrent People`,
-      ...frameResults.map((r) => `${formatTime(r.timeSec)},${r.count}`),
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute(
-      "download",
-      `shelf_detection_report_${detectionSummary.shelfName.replace(/\s+/g, "_")}_${Date.now()}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const pushNotification = (title, type = "info") => {
-    setNotifications((prev) => [
-      { id: Date.now(), title, time: "Just now", type },
-      ...prev,
-    ]);
-  };
-
-  const filteredStores = stores.filter(
-    (s) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // ================= USERS: CRUD =================
-  const openAddUser = () => {
-    setEditingUserId(null);
-    setUserForm({ name: "", role: "Store Manager" });
-    setActiveModal("user");
-  };
-
-  const openEditUser = (user) => {
-    setEditingUserId(user.id);
-    setUserForm({ name: user.name, role: user.role });
-    setActiveModal("editUser");
-  };
-
-  const handleAddUser = (e) => {
-    e.preventDefault();
-    if (!userForm.name.trim()) return;
-    const newUser = {
-      id: `U-${String(users.length + 1).padStart(2, "0")}`,
-      name: userForm.name,
-      email: `${userForm.name.trim().toLowerCase().replace(/\s+/g, ".")}@cams.io`,
-      role: userForm.role,
-      status: "Active",
-    };
-    setUsers((prev) => [...prev, newUser]);
-    pushNotification(`New ${userForm.role} Created: ${userForm.name}`, "success");
-    setToast(`User "${userForm.name}" added as ${userForm.role}`);
-    setUserForm({ name: "", role: "Store Manager" });
-    setActiveModal(null);
-  };
-
-  const handleUpdateUser = (e) => {
-    e.preventDefault();
-    if (!userForm.name.trim() || !editingUserId) return;
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === editingUserId ? { ...u, name: userForm.name, role: userForm.role } : u
-      )
-    );
-    pushNotification(`User Updated: ${userForm.name}`, "info");
-    setToast(`User "${userForm.name}" updated`);
-    setUserForm({ name: "", role: "Store Manager" });
-    setEditingUserId(null);
-    setActiveModal(null);
-  };
-
-  const handleDeleteUser = (user) => {
-    if (!window.confirm(`Remove user "${user.name}"? This cannot be undone.`)) return;
-    setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    pushNotification(`User Removed: ${user.name}`, "danger");
-    setToast(`User "${user.name}" removed`);
-  };
-
-  const handleToggleUserStatus = (user) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === user.id ? { ...u, status: u.status === "Active" ? "Suspended" : "Active" } : u
-      )
-    );
-    setToast(`${user.name} is now ${user.status === "Active" ? "Suspended" : "Active"}`);
-  };
-
-  // ================= STORES: CRUD =================
-  const openAddStore = () => {
-    setEditingStoreId(null);
-    setStoreForm({ name: "", cameras: "" });
-    setActiveModal("store");
-  };
-
-  const openEditStore = (store) => {
-    setEditingStoreId(store.id);
-    setStoreForm({ name: store.name, cameras: String(store.cameras) });
-    setActiveModal("editStore");
-  };
-
-  const handleRegisterStore = (e) => {
+  const handleSaveStore = (e) => {
     e.preventDefault();
     if (!storeForm.name.trim()) return;
-    const newStore = {
-      id: `S-${String(stores.length + 1).padStart(2, "0")}`,
-      name: storeForm.name,
-      cameras: Number(storeForm.cameras) || 0,
-      activeUsers: 0,
-      aiStatus: "Active",
-      lastSync: "Just now",
-      health: 100,
-    };
-    setStores((prev) => [...prev, newStore]);
-    pushNotification(`New Store Registered: ${newStore.name}`, "info");
-    setToast(`Store "${newStore.name}" registered`);
-    setStoreForm({ name: "", cameras: "" });
-    setActiveModal(null);
+
+    if (editingStore) {
+      setStores(prev => prev.map(s => s.id === editingStore.id ? { ...s, name: storeForm.name, location: storeForm.location } : s));
+      showToast(`Store "${storeForm.name}" updated successfully!`);
+    } else {
+      const newStore = { id: Date.now(), name: storeForm.name, location: storeForm.location || "Hyderabad", camerasCount: 0 };
+      setStores(prev => [...prev, newStore]);
+      showToast(`New store "${storeForm.name}" created!`);
+    }
+    setIsStoreModalOpen(false);
   };
 
-  const handleUpdateStore = (e) => {
+  const handleDeleteStore = (storeId, storeName) => {
+    if (confirm(`Are you sure you want to delete store "${storeName}"?`)) {
+      setStores(prev => prev.filter(s => s.id !== storeId));
+      showToast(`Store "${storeName}" removed.`);
+    }
+  };
+
+  // ==========================================
+  // CAMERA CRUD HANDLERS
+  // ==========================================
+  const handleOpenCamModal = (cam = null) => {
+    if (cam) {
+      setEditingCam(cam);
+      setCamForm({ ...cam });
+    } else {
+      setEditingCam(null);
+      setCamForm({ id: `CAM-${Math.floor(10 + Math.random() * 90)}`, name: "", store: stores[0]?.name || "Downtown Flagship", zone: "Entrance", resolution: "4K (3840x2160)", ip: "192.168.1.100", status: "Online" });
+    }
+    setIsCamModalOpen(true);
+  };
+
+  const handleSaveCamera = (e) => {
     e.preventDefault();
-    if (!storeForm.name.trim() || !editingStoreId) return;
-    setStores((prev) =>
-      prev.map((s) =>
-        s.id === editingStoreId
-          ? { ...s, name: storeForm.name, cameras: Number(storeForm.cameras) || 0 }
-          : s
-      )
-    );
-    pushNotification(`Store Updated: ${storeForm.name}`, "info");
-    setToast(`Store "${storeForm.name}" updated`);
-    setStoreForm({ name: "", cameras: "" });
-    setEditingStoreId(null);
-    setActiveModal(null);
+    if (!camForm.name.trim()) return;
+
+    if (editingCam) {
+      setCameras(prev => prev.map(c => c.id === editingCam.id ? { ...camForm } : c));
+      showToast(`Camera ${camForm.id} updated!`);
+    } else {
+      setCameras(prev => [...prev, { ...camForm, fps: 30 }]);
+      showToast(`Camera ${camForm.id} added!`);
+    }
+    setIsCamModalOpen(false);
   };
 
-  const handleDeleteStore = (store) => {
-    if (!window.confirm(`Delete store "${store.name}"? This cannot be undone.`)) return;
-    setStores((prev) => prev.filter((s) => s.id !== store.id));
-    pushNotification(`Store Removed: ${store.name}`, "danger");
-    setToast(`Store "${store.name}" deleted`);
+  const handleDeleteCamera = (camId) => {
+    if (confirm(`Delete camera ${camId}?`)) {
+      setCameras(prev => prev.filter(c => c.id !== camId));
+      showToast(`Camera ${camId} deleted.`);
+    }
   };
 
-  // ================= CAMERAS: CRUD =================
-  const openAddCamera = () => {
-    setCameraForm({ storeId: stores[0]?.id || "", count: "" });
-    setActiveModal("camera");
+  // ==========================================
+  // USER CRUD HANDLERS
+  // ==========================================
+  const handleOpenUserModal = (user = null) => {
+    if (user) {
+      setEditingUser(user);
+      setUserForm({ ...user });
+    } else {
+      setEditingUser(null);
+      setUserForm({ name: "", email: "", role: "Store Manager", store: stores[0]?.name || "Downtown Flagship", status: "Active" });
+    }
+    setIsUserModalOpen(true);
   };
 
-  const openEditCamera = (store) => {
-    setCameraForm({ storeId: store.id, count: String(store.cameras) });
-    setActiveModal("editCamera");
-  };
-
-  const handleAddCamera = (e) => {
+  const handleSaveUser = (e) => {
     e.preventDefault();
-    const count = Number(cameraForm.count) || 0;
-    if (!cameraForm.storeId || count <= 0) return;
-    setStores((prev) =>
-      prev.map((s) =>
-        s.id === cameraForm.storeId ? { ...s, cameras: s.cameras + count } : s
-      )
-    );
-    const store = stores.find((s) => s.id === cameraForm.storeId);
-    pushNotification(`${count} Camera(s) Paired to ${store?.name || cameraForm.storeId}`, "success");
-    setToast(`${count} camera(s) added to ${store?.name || cameraForm.storeId}`);
-    setCameraForm({ storeId: stores[0]?.id || "", count: "" });
-    setActiveModal(null);
+    if (!userForm.name.trim() || !userForm.email.trim()) return;
+
+    if (editingUser) {
+      setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...userForm } : u));
+      showToast(`User ${userForm.name} updated!`);
+    } else {
+      const newUser = { id: `USR-00${users.length + 1}`, ...userForm };
+      setUsers(prev => [...prev, newUser]);
+      showToast(`User ${userForm.name} created!`);
+    }
+    setIsUserModalOpen(false);
   };
 
-  const handleUpdateCameraCount = (e) => {
-    e.preventDefault();
-    const count = Number(cameraForm.count);
-    if (!cameraForm.storeId || Number.isNaN(count) || count < 0) return;
-    setStores((prev) =>
-      prev.map((s) => (s.id === cameraForm.storeId ? { ...s, cameras: count } : s))
-    );
-    const store = stores.find((s) => s.id === cameraForm.storeId);
-    pushNotification(`Camera Count Updated for ${store?.name}: ${count}`, "info");
-    setToast(`${store?.name} now has ${count} camera(s)`);
-    setCameraForm({ storeId: stores[0]?.id || "", count: "" });
-    setActiveModal(null);
+  const handleDeleteUser = (userId, userName) => {
+    if (confirm(`Remove user ${userName}?`)) {
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      showToast(`User ${userName} removed.`);
+    }
   };
-
-  const handleRemoveAllCameras = (store) => {
-    if (store.cameras <= 0) return;
-    if (!window.confirm(`Remove all ${store.cameras} camera(s) from "${store.name}"?`)) return;
-    setStores((prev) => prev.map((s) => (s.id === store.id ? { ...s, cameras: 0 } : s)));
-    pushNotification(`All Cameras Removed from ${store.name}`, "danger");
-    setToast(`Cameras removed from ${store.name}`);
-  };
-
-  const handleGenerateReport = () => {
-    const rows = [
-      ["Store ID", "Store Name", "Cameras", "Active Users", "AI Status", "Last Sync"],
-      ...stores.map((s) => [s.id, s.name, s.cameras, s.activeUsers, s.aiStatus, s.lastSync]),
-    ];
-    const csvContent = rows.map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `cams_analytics_report_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    pushNotification("Analytics Report Generated & Downloaded", "success");
-    setToast("Report exported as CSV");
-  };
-
-  const closeModal = () => {
-    setActiveModal(null);
-    setEditingUserId(null);
-    setEditingStoreId(null);
-  };
-
-  const filteredActiveShoppers = useMemo(
-    () => activeShoppers.filter((s) => s.store === selectedTrackingStore),
-    [activeShoppers, selectedTrackingStore]
-  );
-
-  const filteredCompletedJourneys = useMemo(
-    () => completedJourneys.filter((j) => j.store === selectedTrackingStore),
-    [completedJourneys, selectedTrackingStore]
-  );
-
-  const avgStoreDwell = useMemo(() => {
-    if (filteredCompletedJourneys.length === 0) return "22m 30s";
-    const sum = filteredCompletedJourneys.reduce((acc, j) => acc + j.totalDwellSec, 0);
-    return formatDwellTime(sum / filteredCompletedJourneys.length);
-  }, [filteredCompletedJourneys]);
 
   return (
-    <div style={{ backgroundColor: TOKENS.bg, color: TOKENS.text, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
-
-      {/* ================= TOAST ================= */}
+    <div style={{ backgroundColor: TOKENS.bg, minHeight: "100vh", color: TOKENS.text, fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
+      
+      {/* TOAST NOTIFICATION */}
       {toast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            backgroundColor: TOKENS.cardBg,
-            border: `1px solid ${TOKENS.success}`,
-            color: TOKENS.text,
-            padding: "12px 18px",
-            borderRadius: "8px",
-            fontSize: "13px",
-            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.5)",
-            zIndex: 3000,
-          }}
-        >
-          ✅ {toast}
+        <div style={{ position: "fixed", bottom: "24px", right: "24px", backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.success}`, color: TOKENS.text, padding: "12px 20px", borderRadius: "8px", zIndex: 9999, boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>
+          {toast}
         </div>
       )}
 
-      {/* ================= HEADER BAR ================= */}
-      <header style={{ backgroundColor: TOKENS.sidebarBg, borderBottom: `1px solid ${TOKENS.cardBorder}`, padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 50 }}>
-
-        {/* Brand */}
+      {/* HEADER BAR */}
+      <header style={{ height: "64px", backgroundColor: TOKENS.sidebarBg, borderBottom: `1px solid ${TOKENS.cardBorder}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={{ width: "32px", height: "32px", borderRadius: "8px", backgroundColor: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: "16px" }}>
-            👁️
+          <div style={{ width: "32px", height: "32px", borderRadius: "8px", backgroundColor: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#1A1200" }}>
+            AI
           </div>
           <div>
-            <h1 style={{ fontSize: "16px", fontWeight: "700", margin: 0, lineHeight: 1.2 }}>Admin Dashboard</h1>
-            <span style={{ fontSize: "11px", color: TOKENS.muted }}>Consumer Attention Mapping System</span>
+            <div style={{ fontWeight: "700", fontSize: "15px" }}>Consumer Attention Mapping System</div>
+            <div style={{ fontSize: "11px", color: TOKENS.muted }}>ADMINISTRATOR CONTROL CONSOLE</div>
           </div>
         </div>
 
-        {/* Search Everything */}
-        <div style={{ position: "relative", width: "360px" }}>
-          <input
-            type="text"
-            placeholder="Search everything (Users, Stores, Cameras, Logs)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: "100%",
-              backgroundColor: TOKENS.bg,
-              border: `1px solid ${TOKENS.cardBorder}`,
-              borderRadius: "8px",
-              padding: "8px 12px 8px 36px",
-              color: TOKENS.text,
-              fontSize: "13px",
-              outline: "none"
-            }}
-          />
-          <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: TOKENS.muted, fontSize: "14px" }}>🔍</span>
-
-          {searchQuery && (
-            <div style={{ position: "absolute", top: "42px", left: 0, right: 0, backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.cardBorder}`, borderRadius: "8px", padding: "12px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.5)", zIndex: 100 }}>
-              <div style={{ fontSize: "11px", color: TOKENS.muted, marginBottom: "8px", fontWeight: "600" }}>STORES & INFRASTRUCTURE MATCHES</div>
-              {filteredStores.length === 0 ? (
-                <div style={{ fontSize: "12px", color: TOKENS.muted }}>No matching entities found.</div>
-              ) : (
-                filteredStores.map(s => (
-                  <div key={s.id} style={{ padding: "6px", borderRadius: "4px", backgroundColor: TOKENS.bg, marginBottom: "4px", fontSize: "12px", display: "flex", justifyContent: "space-between" }}>
-                    <span><strong>{s.name}</strong> ({s.id})</span>
-                    <span style={{ color: TOKENS.success }}>{s.cameras} Cameras</span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Right Header Items */}
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-
-          <div style={{ textAlign: "right", borderRight: `1px solid ${TOKENS.cardBorder}`, paddingRight: "16px" }}>
-            <div suppressHydrationWarning style={{ fontSize: "13px", fontWeight: "600", fontFamily: "monospace" }}>
-              {time.toLocaleTimeString()}
-            </div>
-            <div suppressHydrationWarning style={{ fontSize: "10px", color: TOKENS.muted }}>
-              {time.toLocaleDateString()}
-            </div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} style={selectStyle}>
+            <option value="All Stores">All Stores</option>
+            {stores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </select>
 
           <button
             onClick={() => setIsNotifyOpen(!isNotifyOpen)}
-            style={{ position: "relative", background: "none", border: "none", cursor: "pointer", fontSize: "18px", color: TOKENS.text }}
+            style={{ position: "relative", background: "none", border: `1px solid ${TOKENS.cardBorder}`, borderRadius: "8px", padding: "8px 12px", color: TOKENS.text, cursor: "pointer" }}
           >
             🔔
-            <span style={{ position: "absolute", top: "-2px", right: "-2px", backgroundColor: TOKENS.danger, color: "#fff", fontSize: "9px", borderRadius: "50%", width: "14px", height: "14px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" }}>
-              {notifications.length}
-            </span>
+            {notifications.length > 0 && (
+              <span style={{ position: "absolute", top: "-4px", right: "-4px", backgroundColor: TOKENS.danger, color: "#fff", borderRadius: "50%", width: "16px", height: "16px", fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {notifications.length}
+              </span>
+            )}
           </button>
         </div>
       </header>
 
-      {/* ================= NOTIFICATION DRAWER ================= */}
+      {/* NOTIFICATION DRAWER */}
       {isNotifyOpen && (
-        <div style={{ position: "fixed", top: "60px", right: "20px", width: "320px", backgroundColor: TOKENS.sidebarBg, border: `1px solid ${TOKENS.cardBorder}`, borderRadius: "12px", padding: "16px", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)", zIndex: 1000, maxHeight: "70vh", overflowY: "auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: `1px solid ${TOKENS.cardBorder}`, paddingBottom: "8px" }}>
-            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>Notifications Center</h3>
+        <div style={{ position: "fixed", top: "64px", right: "24px", width: "300px", backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.cardBorder}`, borderRadius: "8px", padding: "16px", zIndex: 1000 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontWeight: "700" }}>
+            <span>System Alerts</span>
             <button onClick={() => setIsNotifyOpen(false)} style={{ background: "none", border: "none", color: TOKENS.muted, cursor: "pointer" }}>✕</button>
           </div>
           <div>
@@ -984,9 +328,10 @@ export default function CAMSAdminDashboard() {
           <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {[
               { id: "overview", label: "Dashboard Overview", icon: "📊" },
+              { id: "live-ai", label: "Live AI Video & Gaze HUD", icon: "🔴" },
               { id: "journeys", label: "Customer Journey Tracking", icon: "🛣️" },
-              { id: "infrastructure", label: "Infrastructure & Cameras", icon: "📹" },
-              { id: "users", label: "User Management", icon: "👤" },
+              { id: "infrastructure", label: "Stores & Cameras (CRUD)", icon: "📹" },
+              { id: "users", label: "User Management (CRUD)", icon: "👤" },
               { id: "system", label: "System & API Health", icon: "⚡" },
               { id: "security", label: "Security & Permissions", icon: "🛡️" },
             ].map(tab => (
@@ -1001,10 +346,10 @@ export default function CAMSAdminDashboard() {
                   borderRadius: "8px",
                   border: "none",
                   backgroundColor: activeTab === tab.id ? TOKENS.accent : "transparent",
-                  color: activeTab === tab.id ? "#fff" : TOKENS.muted,
+                  color: activeTab === tab.id ? "#1A1200" : TOKENS.muted,
                   cursor: "pointer",
                   fontSize: "13px",
-                  fontWeight: "500",
+                  fontWeight: activeTab === tab.id ? "700" : "500",
                   textAlign: "left",
                   transition: "all 0.2s"
                 }}
@@ -1014,761 +359,338 @@ export default function CAMSAdminDashboard() {
               </button>
             ))}
           </nav>
-
-          <div style={{ ...cardStyle, padding: "12px", backgroundColor: TOKENS.bg }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{ width: "36px", height: "36px", borderRadius: "50%", backgroundColor: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" }}>
-                AD
-              </div>
-              <div>
-                <div style={{ fontSize: "12px", fontWeight: "600" }}>Administrator</div>
-                <div style={{ fontSize: "10px", color: TOKENS.success, display: "flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: TOKENS.success }}></span> Online
-                </div>
-              </div>
-            </div>
-            <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "8px", paddingTop: "8px", borderTop: `1px solid ${TOKENS.cardBorder}` }}>
-              Last Login: Today at 10:14 AM
-            </div>
-          </div>
         </aside>
 
         {/* BODY DASHBOARD PANEL */}
         <main style={{ flex: 1, padding: "24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}>
 
-          {/* ================= VIEW 1: OVERVIEW ================= */}
+          {/* ================= VIEW 1: COMPREHENSIVE ENTERPRISE OVERVIEW ================= */}
           {activeTab === "overview" && (
-            <>
-              {/* TOP HERO */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <div style={{ ...cardStyle, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", width: "320px" }}>
-                  <span style={{ fontSize: "12px", color: TOKENS.muted, fontWeight: "600" }}>PLATFORM HEALTH SCORE</span>
-                  <div style={{ fontSize: "48px", fontWeight: "800", color: TOKENS.success, margin: "10px 0" }}>98%</div>
-                  <div style={{ width: "100%", height: "8px", backgroundColor: TOKENS.bg, borderRadius: "4px", overflow: "hidden" }}>
-                    <div style={{ width: "98%", height: "100%", backgroundColor: TOKENS.success }}></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              
+              {/* TOP EXECUTIVE KPI RIBBON */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, textTransform: "uppercase", fontWeight: "700" }}>Total Footfall Today</div>
+                  <div style={{ fontSize: "26px", fontWeight: "800", marginTop: "4px", color: TOKENS.text }}>1,480</div>
+                  <div style={{ fontSize: "11px", color: TOKENS.success, marginTop: "4px", fontWeight: "600" }}>▲ +14.2% vs yesterday</div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, textTransform: "uppercase", fontWeight: "700" }}>Live In-Store Shoppers</div>
+                  <div style={{ fontSize: "26px", fontWeight: "800", marginTop: "4px", color: TOKENS.accent, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: TOKENS.success, display: "inline-block", boxShadow: "0 0 8px #5FAE86" }}></span>
+                    18 Persons
                   </div>
-                  <span style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "8px" }}>Based on Cameras, API, DB & AI Engines</span>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "4px" }}>Across 4 active zones</div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, textTransform: "uppercase", fontWeight: "700" }}>Avg In-Store Dwell Time</div>
+                  <div style={{ fontSize: "26px", fontWeight: "800", marginTop: "4px", color: TOKENS.info }}>14.8 min</div>
+                  <div style={{ fontSize: "11px", color: TOKENS.success, marginTop: "4px", fontWeight: "600" }}>▲ +1.2 min vs avg</div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, textTransform: "uppercase", fontWeight: "700" }}>Golden Zone Gaze Focus</div>
+                  <div style={{ fontSize: "26px", fontWeight: "800", marginTop: "4px", color: TOKENS.success }}>68.4%</div>
+                  <div style={{ fontSize: "11px", color: TOKENS.success, marginTop: "4px", fontWeight: "600" }}>▲ +4.1% Eye-Level Share</div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, textTransform: "uppercase", fontWeight: "700" }}>AI Camera Uptime</div>
+                  <div style={{ fontSize: "26px", fontWeight: "800", marginTop: "4px", color: TOKENS.text }}>
+                    {cameras.filter(c => c.status === "Online").length} / {cameras.length}
+                  </div>
+                  <div style={{ fontSize: "11px", color: TOKENS.success, marginTop: "4px", fontWeight: "600" }}>● 99.4% Network Health</div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, textTransform: "uppercase", fontWeight: "700" }}>Conversion Efficiency</div>
+                  <div style={{ fontSize: "26px", fontWeight: "800", marginTop: "4px", color: TOKENS.accent }}>72.6%</div>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "4px" }}>Gaze to engagement</div>
                 </div>
               </div>
 
-              {/* Quick Action Cards */}
-              <div>
-                <h3 style={{ fontSize: "14px", fontWeight: "600", color: TOKENS.muted, marginBottom: "12px" }}>QUICK ACTIONS</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+              {/* HOURLY FOOT-TRAFFIC & ATTENTION CHART */}
+              <div style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>📊 Hourly Customer Traffic & Attention Intensity</h3>
+                    <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>Shopper traffic distribution and peak attention hours across today.</p>
+                  </div>
+                  <span style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: "rgba(232,163,61,0.15)", color: TOKENS.accent, fontSize: "12px", fontWeight: 700 }}>
+                    🔥 Peak Traffic Window: 01:00 PM – 02:30 PM (240 Shoppers/hr)
+                  </span>
+                </div>
+
+                {/* Visual Bar Graph */}
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "160px", padding: "10px 0 24px 0", borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
                   {[
-                    { id: "user", title: "+ Add User", desc: "Provision new team member" },
-                    { id: "store", title: "+ Register Store", desc: "Set up new physical location" },
-                    { id: "camera", title: "+ Add Camera", desc: "Pair new IP attention camera" },
-                    { id: "report", title: "+ Generate Report", desc: "Export analytics summary CSV" }
-                  ].map((act) => (
-                    <button
-                      key={act.id}
-                      onClick={() => {
-                        if (act.id === "report") handleGenerateReport();
-                        else if (act.id === "user") openAddUser();
-                        else if (act.id === "store") openAddStore();
-                        else if (act.id === "camera") openAddCamera();
-                      }}
-                      style={{ ...cardStyle, border: `1px solid ${TOKENS.cardBorder}`, cursor: "pointer", textAlign: "left", transition: "transform 0.1s", background: TOKENS.cardBg }}
-                      onMouseOver={e => e.currentTarget.style.borderColor = TOKENS.accent}
-                      onMouseOut={e => e.currentTarget.style.borderColor = TOKENS.cardBorder}
-                    >
-                      <div style={{ fontSize: "14px", fontWeight: "bold", color: TOKENS.accent }}>{act.title}</div>
-                      <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "4px" }}>{act.desc}</div>
-                    </button>
+                    { time: "09 AM", count: 42, gaze: "54%", height: "25%" },
+                    { time: "10 AM", count: 85, gaze: "62%", height: "45%" },
+                    { time: "11 AM", count: 140, gaze: "71%", height: "65%" },
+                    { time: "12 PM", count: 195, gaze: "78%", height: "82%" },
+                    { time: "01 PM", count: 240, gaze: "86%", height: "100%", peak: true },
+                    { time: "02 PM", count: 215, gaze: "82%", height: "90%" },
+                    { time: "03 PM", count: 160, gaze: "74%", height: "70%" },
+                    { time: "04 PM", count: 130, gaze: "68%", height: "58%" },
+                    { time: "05 PM", count: 180, gaze: "75%", height: "78%" },
+                    { time: "06 PM", count: 210, gaze: "80%", height: "88%" },
+                    { time: "07 PM", count: 175, gaze: "72%", height: "74%" },
+                    { time: "08 PM", count: 95, gaze: "58%", height: "48%" },
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%", justifyContent: "flex-end" }}>
+                      <span style={{ fontSize: "10px", color: item.peak ? TOKENS.accent : TOKENS.muted, fontWeight: item.peak ? 700 : 500 }}>
+                        {item.count}
+                      </span>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: item.height,
+                          backgroundColor: item.peak ? TOKENS.accent : "rgba(91,141,239,0.5)",
+                          borderRadius: "4px 4px 0 0",
+                          transition: "all 0.3s ease",
+                        }}
+                      />
+                      <span style={{ fontSize: "10px", color: TOKENS.muted, whiteSpace: "nowrap" }}>{item.time}</span>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              {/* Video-Based Shelf Attention Detection */}
-              <div style={cardStyle}>
-                <div style={{ marginBottom: "16px" }}>
-                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🎥 Shelf Attention Detection from Video</h3>
-                  <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>
-                    Upload footage of a shelf, run detection, then download the people-count report
-                  </p>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                  <div>
-                    <label style={labelStyle}>Shelf / Camera</label>
-                    <select
-                      style={inputStyle}
-                      value={selectedShelfId}
-                      onChange={(e) => setSelectedShelfId(e.target.value)}
-                      disabled={isProcessing}
-                    >
-                      {shelves.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} — {s.store} ({s.camera})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Upload Shelf Video</label>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={handleVideoUpload}
-                      disabled={isProcessing}
-                      style={{ ...inputStyle, padding: "8px 10px" }}
-                    />
-                  </div>
-                </div>
-
-                {videoURL && (
-                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap" }}>
-                    <video
-                      ref={videoRef}
-                      src={videoURL}
-                      onLoadedMetadata={handleLoadedMetadata}
-                      controls
-                      muted
-                      style={{ width: "260px", borderRadius: "8px", backgroundColor: "#000" }}
-                    />
-                    <div style={{ flex: 1, minWidth: "200px" }}>
-                      <div style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "4px" }}>
-                        {videoFile?.name} {videoDuration ? `· ${formatTime(videoDuration)}` : ""}
-                      </div>
-                      <button
-                        onClick={handleRunDetection}
-                        disabled={isProcessing}
-                        style={{
-                          padding: "10px 18px",
-                          backgroundColor: isProcessing ? TOKENS.cardBorder : TOKENS.accent,
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: "8px",
-                          fontWeight: "600",
-                          fontSize: "13px",
-                          cursor: isProcessing ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        {isProcessing ? `Detecting… ${progress}%` : "▶ Run People Detection"}
-                      </button>
-
-                      {isProcessing && (
-                        <div style={{ width: "100%", height: "6px", backgroundColor: TOKENS.bg, borderRadius: "4px", overflow: "hidden", marginTop: "10px" }}>
-                          <div style={{ width: `${progress}%`, height: "100%", backgroundColor: TOKENS.accent, transition: "width 0.15s linear" }}></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {detectionSummary && (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "8px" }}>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.accent }}>{detectionSummary.uniqueCount}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Unique Individuals</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{detectionSummary.peak}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Peak Concurrent</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{detectionSummary.avg}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Avg Concurrent</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{formatTime(detectionSummary.peakTime)}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Time of Peak</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "800", color: TOKENS.text }}>{detectionSummary.totalFrames}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Frames Analyzed</div>
-                      </div>
-                    </div>
-                    <p style={{ margin: "0 0 16px", fontSize: "10.5px", color: TOKENS.muted, fontStyle: "italic" }}>
-                      "Unique Individuals" counts each detected person once, no matter how many frames they appeared in.
-                    </p>
-
-                    <div style={{ maxHeight: "160px", overflowY: "auto", border: `1px solid ${TOKENS.cardBorder}`, borderRadius: "8px", marginBottom: "16px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                        <thead>
-                          <tr style={{ position: "sticky", top: 0, backgroundColor: TOKENS.cardBg }}>
-                            <th style={{ padding: "8px", textAlign: "left", color: TOKENS.muted, borderBottom: `1px solid ${TOKENS.cardBorder}` }}>Timestamp</th>
-                            <th style={{ padding: "8px", textAlign: "left", color: TOKENS.muted, borderBottom: `1px solid ${TOKENS.cardBorder}` }}>Concurrent People</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {frameResults.map((r, i) => (
-                            <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                              <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{formatTime(r.timeSec)}</td>
-                              <td style={{ padding: "6px 8px" }}>{r.count}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <button
-                      onClick={handleDownloadDetectionReport}
-                      style={{
-                        padding: "10px 18px",
-                        backgroundColor: TOKENS.success,
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontWeight: "600",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      ⬇ Download Detection Report (CSV)
-                    </button>
-                  </>
-                )}
-
-                {!videoURL && (
-                  <div style={{ fontSize: "12px", color: TOKENS.muted }}>
-                    Select a shelf and upload a video clip to run detection.
-                  </div>
-                )}
-              </div>
-
-              {/* Last Detected Count per Shelf */}
+              {/* LIVE ZONE HEAT & CONGESTION STATUS (6 STORE ZONES) */}
               <div style={cardStyle}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🧍 Shelves — Last Detected Count</h3>
-                    <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>Most recent people count recorded per shelf</p>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "22px", fontWeight: "bold", color: TOKENS.accent }}>{totalPeopleNearShelves}</div>
-                    <div style={{ fontSize: "10px", color: TOKENS.muted }}>Total Across Shelves</div>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>📍 Real-Time Zone Occupancy & Gaze Health</h3>
+                    <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>Live in-store congestion and eye attention intensity by department.</p>
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
-                  {shelves.map((s) => {
-                    const busy = s.people >= 4;
-                    const idle = s.people === 0;
-                    return (
-                      <div
-                        key={s.id}
-                        style={{
-                          backgroundColor: TOKENS.bg,
-                          padding: "14px",
-                          borderRadius: "8px",
-                          border: `1px solid ${busy ? TOKENS.warning : TOKENS.cardBorder}`,
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div>
-                            <div style={{ fontSize: "12px", fontWeight: "600" }}>{s.name}</div>
-                            <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "2px" }}>{s.store} · {s.camera}</div>
-                          </div>
-                          <span style={{ fontSize: "10px" }}>
-                            {idle ? "⚪" : busy ? "🟡" : "🟢"}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginTop: "10px" }}>
-                          <span style={{ fontSize: "24px", fontWeight: "800", color: idle ? TOKENS.muted : TOKENS.text }}>{s.people}</span>
-                          <span style={{ fontSize: "11px", color: TOKENS.muted }}>{s.people === 1 ? "person" : "people"} nearby</span>
-                        </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
+                  {[
+                    { zone: "Entrance & Lobby", people: 4, avgDwell: "45s", gaze: "48%", status: "Optimal", color: TOKENS.success },
+                    { zone: "Grocery & Snacks", people: 9, avgDwell: "4.5 min", gaze: "78%", status: "⚠️ High Traffic", color: TOKENS.warning },
+                    { zone: "Electronics Hub", people: 7, avgDwell: "8.2 min", gaze: "86%", status: "🔥 High Attention", color: TOKENS.accent },
+                    { zone: "Apparel & Fitting", people: 5, avgDwell: "6.0 min", gaze: "64%", status: "Steady", color: TOKENS.success },
+                    { zone: "Checkout POS Queues", people: 3, avgDwell: "2.1 min", gaze: "32%", status: "2 POS Active", color: TOKENS.success },
+                    { zone: "Exit & Loss Prev", people: 1, avgDwell: "25s", gaze: "18%", status: "Clear", color: TOKENS.success },
+                  ].map((z, idx) => (
+                    <div key={idx} style={{ background: TOKENS.bg, padding: "14px", borderRadius: "8px", border: `1px solid ${TOKENS.cardBorder}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ fontWeight: 700, fontSize: "13px" }}>{z.zone}</div>
+                        <span style={{ fontSize: "11px", color: z.color, fontWeight: 700 }}>{z.status}</span>
                       </div>
-                    );
-                  })}
-                </div>
-
-                <div style={{ marginTop: "14px", fontSize: "11px", color: TOKENS.muted, borderTop: `1px solid ${TOKENS.cardBorder}`, paddingTop: "10px" }}>
-                  Busiest right now: <strong style={{ color: TOKENS.text }}>{busiestShelf.name}</strong> ({busiestShelf.store}) with {busiestShelf.people} {busiestShelf.people === 1 ? "person" : "people"}
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", fontSize: "11px", color: TOKENS.muted }}>
+                        <span>Shoppers: <strong style={{ color: TOKENS.text }}>{z.people}</strong></span>
+                        <span>Avg Dwell: <strong style={{ color: TOKENS.text }}>{z.avgDwell}</strong></span>
+                        <span>Gaze: <strong style={{ color: TOKENS.accent }}>{z.gaze}</strong></span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </>
+
+              {/* STORE LEADERBOARD & AI INSIGHTS */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "20px" }}>
+                
+                {/* BRANCH LEADERBOARD TABLE */}
+                <div style={cardStyle}>
+                  <h3 style={{ margin: "0 0 14px 0", fontSize: "15px", fontWeight: 700 }}>🏪 Store Branch Performance Leaderboard</h3>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
+                        <th style={{ padding: "8px" }}>Store Branch</th>
+                        <th style={{ padding: "8px" }}>Today Footfall</th>
+                        <th style={{ padding: "8px" }}>Avg Dwell</th>
+                        <th style={{ padding: "8px" }}>Golden Zone %</th>
+                        <th style={{ padding: "8px" }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stores.map(s => (
+                        <tr key={s.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                          <td style={{ padding: "10px 8px", fontWeight: 700, color: TOKENS.text }}>{s.name}</td>
+                          <td style={{ padding: "10px 8px" }}>480 visitors</td>
+                          <td style={{ padding: "10px 8px" }}>15.2 min</td>
+                          <td style={{ padding: "10px 8px", color: TOKENS.success, fontWeight: 700 }}>71.4%</td>
+                          <td style={{ padding: "10px 8px", color: TOKENS.success }}>● Operational</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* AI MERCHANDISING INSIGHTS */}
+                <div style={cardStyle}>
+                  <h3 style={{ margin: "0 0 14px 0", fontSize: "15px", fontWeight: 700 }}>💡 AI Merchandising Recommendations</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ background: TOKENS.bg, padding: "12px", borderRadius: "8px", borderLeft: `3px solid ${TOKENS.success}` }}>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.success }}>Golden Zone Optimization</div>
+                      <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "3px" }}>
+                        Eye-level beverage shelves capture 74% of all aisle attention. Move high-margin promotional SKUs to Shelf 2 for immediate +18% basket lift.
+                      </div>
+                    </div>
+
+                    <div style={{ background: TOKENS.bg, padding: "12px", borderRadius: "8px", borderLeft: `3px solid ${TOKENS.accent}` }}>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.accent }}>High Attention / Low Conversion Anomaly</div>
+                      <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "3px" }}>
+                        Electronics Showcase has 86% visual fixation duration but only 12% touch rate. Recommend testing a 15% promotional discount tag.
+                      </div>
+                    </div>
+
+                    <div style={{ background: TOKENS.bg, padding: "12px", borderRadius: "8px", borderLeft: `3px solid ${TOKENS.info}` }}>
+                      <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.info }}>Queue Wait-Time Prediction</div>
+                      <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "3px" }}>
+                        Peak traffic surge anticipated between 1:00 PM – 2:30 PM. Recommend pre-opening POS Counter 3 to maintain checkout wait times under 2 minutes.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* RECENT REAL-TIME ACTIVITY STREAM */}
+              <div style={cardStyle}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: "15px", fontWeight: 700 }}>⚡ Recent Live AI Telemetry & Events</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                    <span style={{ color: TOKENS.accent, fontWeight: 700 }}>[10:14 AM]</span> Shopper <strong style={{ color: TOKENS.text }}>SHOPPER-01</strong> completed entrance-to-exit journey (Total Dwell: 13.0 mins).
+                  </div>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                    <span style={{ color: TOKENS.success, fontWeight: 700 }}>[10:11 AM]</span> 3D Gaze Raycasting registered <strong style={{ color: TOKENS.text }}>5.2s fixation</strong> on Eye-Level Golden Zone at Grocery Shelf B.
+                  </div>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                    <span style={{ color: TOKENS.info, fontWeight: 700 }}>[10:04 AM]</span> Video frame analysis completed for <strong style={{ color: TOKENS.text }}>store_video.mp4</strong> — Excel report generated.
+                  </div>
+                  <div style={{ fontSize: "11px", color: TOKENS.muted, padding: "8px 0" }}>
+                    <span style={{ color: TOKENS.success, fontWeight: 700 }}>[09:55 AM]</span> Camera <strong style={{ color: TOKENS.text }}>CAM-01 (Entrance)</strong> calibrated and streaming at 30 FPS.
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ================= VIEW: LIVE AI VIDEO & GAZE HUD ================= */}
+          {activeTab === "live-ai" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <LiveCameraStream />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+                <LiveFloorplanRadar />
+                <ShelfGazeHeatmap />
+              </div>
+            </div>
           )}
 
           {/* ================= VIEW 2: CUSTOMER JOURNEY TRACKING ================= */}
           {activeTab === "journeys" && (
-            <>
-              {/* Header bar controls */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h2 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>🚶 Entrance-to-Exit Customer Tracking</h2>
-                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>
-                    Real-time multi-camera path trajectories & zone lifecycle tracking
-                  </p>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <select
-                    style={{ ...inputStyle, width: "auto" }}
-                    value={selectedTrackingStore}
-                    onChange={(e) => setSelectedTrackingStore(e.target.value)}
-                  >
-                    {stores.map((s) => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={handleSimulateNewShopper}
-                    style={{ padding: "8px 14px", backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap" }}
-                  >
-                    + Simulate Entrance
-                  </button>
-                  <button
-                    onClick={handleExportJourneyLogsCSV}
-                    style={{ padding: "8px 14px", backgroundColor: TOKENS.cardBg, border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap" }}
-                  >
-                    ⬇ Export CSV
-                  </button>
-                </div>
-              </div>
-
-              {/* Video-Based Customer Journey Tracking */}
-              <div style={cardStyle}>
-                <div style={{ marginBottom: "16px" }}>
-                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🎥 Track Customer Journey from Video</h3>
-                  <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>
-                    Upload entrance/aisle footage directly — no file path needed — to detect a customer entering the store and generate their full entrance-to-exit journey
-                  </p>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-                  <div>
-                    <label style={labelStyle}>Store</label>
-                    <select
-                      style={inputStyle}
-                      value={selectedTrackingStore}
-                      onChange={(e) => setSelectedTrackingStore(e.target.value)}
-                      disabled={isTrackingVideo}
-                    >
-                      {stores.map((s) => (
-                        <option key={s.id} value={s.name}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Upload Store Video</label>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={handleJourneyVideoUpload}
-                      disabled={isTrackingVideo}
-                      style={{ ...inputStyle, padding: "8px 10px" }}
-                    />
-                  </div>
-                </div>
-
-                {journeyVideoURL && (
-                  <div style={{ display: "flex", gap: "16px", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap" }}>
-                    <video
-                      ref={journeyVideoRef}
-                      src={journeyVideoURL}
-                      onLoadedMetadata={handleJourneyVideoLoadedMetadata}
-                      controls
-                      muted
-                      style={{ width: "260px", borderRadius: "8px", backgroundColor: "#000" }}
-                    />
-                    <div style={{ flex: 1, minWidth: "200px" }}>
-                      <div style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "4px" }}>
-                        {journeyVideoFile?.name} {journeyVideoDuration ? `· ${formatDwellTime(journeyVideoDuration)}` : ""}
-                      </div>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        <button
-                          onClick={handleRunJourneyTracking}
-                          disabled={isTrackingVideo}
-                          style={{
-                            padding: "10px 18px",
-                            backgroundColor: isTrackingVideo ? TOKENS.cardBorder : TOKENS.accent,
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "8px",
-                            fontWeight: "600",
-                            fontSize: "13px",
-                            cursor: isTrackingVideo ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          {isTrackingVideo ? `Tracking… ${trackingProgress}%` : "▶ Track Customer Journey"}
-                        </button>
-                        <button
-                          onClick={handleSimulateJourneyTracking}
-                          disabled={isTrackingVideo}
-                          title="Generates a journey client-side, without calling the backend — useful for testing the UI before /track-video exists"
-                          style={{
-                            padding: "10px 18px",
-                            backgroundColor: "transparent",
-                            color: isTrackingVideo ? TOKENS.muted : TOKENS.text,
-                            border: `1px solid ${TOKENS.cardBorder}`,
-                            borderRadius: "8px",
-                            fontWeight: "600",
-                            fontSize: "13px",
-                            cursor: isTrackingVideo ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          🧪 Simulate (Demo — no backend)
-                        </button>
-                      </div>
-
-                      {isTrackingVideo && (
-                        <div style={{ width: "100%", height: "6px", backgroundColor: TOKENS.bg, borderRadius: "4px", overflow: "hidden", marginTop: "10px" }}>
-                          <div style={{ width: `${trackingProgress}%`, height: "100%", backgroundColor: TOKENS.accent, transition: "width 0.15s linear" }}></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {trackedJourney && (
-                  <>
-                    {trackedJourney.simulated && (
-                      <div style={{ display: "inline-block", padding: "3px 8px", borderRadius: "999px", backgroundColor: TOKENS.info, color: "#fff", fontSize: "10px", fontWeight: "700", marginBottom: "10px" }}>
-                        🧪 DEMO — generated client-side, no backend call
-                      </div>
-                    )}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "12px" }}>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.accent }}>{trackedJourney.id}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Customer ID</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.text }}>{trackedJourney.entryTime} → {trackedJourney.exitTime}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Entry → Exit</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.info }}>{formatDwellTime(trackedJourney.totalDwellSec)}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Total Dwell Time</div>
-                      </div>
-                      <div style={{ backgroundColor: TOKENS.bg, padding: "12px", borderRadius: "8px", textAlign: "center" }}>
-                        <div style={{ fontSize: "16px", fontWeight: "800", color: TOKENS.success }}>{trackedJourney.path.length}</div>
-                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>Zones Visited</div>
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: "8px" }}>
-                      <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600, marginBottom: "8px" }}>JOURNEY PATH</div>
-                      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
-                        {trackedJourney.path.map((zone, i) => (
-                          <React.Fragment key={i}>
-                            <span
-                              style={{
-                                padding: "6px 10px",
-                                borderRadius: "999px",
-                                fontSize: "11px",
-                                fontWeight: "600",
-                                backgroundColor: i === 0 ? TOKENS.info : i === trackedJourney.path.length - 1 ? TOKENS.danger : TOKENS.cardBg,
-                                border: `1px solid ${TOKENS.cardBorder}`,
-                                color: TOKENS.text,
-                              }}
-                            >
-                              {zone}
-                            </span>
-                            {i < trackedJourney.path.length - 1 && (
-                              <span style={{ color: TOKENS.muted, fontSize: "12px" }}>→</span>
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {!journeyVideoURL && (
-                  <div style={{ fontSize: "12px", color: TOKENS.muted }}>
-                    Select a store and upload a video clip to detect and track a customer's in-store journey.
-                  </div>
-                )}
-              </div>
-
-              {/* Top Stats Cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-                <div style={cardStyle}>
-                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>ACTIVE IN-STORE SHOPPERS</div>
-                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.accent, marginTop: "6px" }}>{filteredActiveShoppers.length}</div>
-                  <div style={{ fontSize: "10px", color: TOKENS.success, marginTop: "4px" }}>● Live Trajectories Active</div>
-                </div>
-                <div style={cardStyle}>
-                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>COMPLETED JOURNEYS (TODAY)</div>
-                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.text, marginTop: "6px" }}>{filteredCompletedJourneys.length}</div>
-                  <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "4px" }}>Entrance to Exit</div>
-                </div>
-                <div style={cardStyle}>
-                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>AVG STORE DWELL TIME</div>
-                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.info, marginTop: "6px" }}>{avgStoreDwell}</div>
-                  <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "4px" }}>Across completed journeys</div>
-                </div>
-                <div style={cardStyle}>
-                  <div style={{ fontSize: "11px", color: TOKENS.muted, fontWeight: 600 }}>FULL JOURNEY COMPLETION</div>
-                  <div style={{ fontSize: "24px", fontWeight: 800, color: TOKENS.success, marginTop: "6px" }}>94.2%</div>
-                  <div style={{ fontSize: "10px", color: TOKENS.muted, marginTop: "4px" }}>Checkout & Exit Verified</div>
-                </div>
-              </div>
-
-              {/* Interactive Floorplan Trajectory Map */}
-              <div style={cardStyle}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>🗺 Live Store Floorplan Trajectories</h3>
-                    <p style={{ margin: "2px 0 0", fontSize: "11px", color: TOKENS.muted }}>
-                      Visualizing active shopper paths from entrance (left) to checkout and exit (right)
-                    </p>
-                  </div>
-                  <span style={{ fontSize: "11px", color: TOKENS.muted, backgroundColor: TOKENS.bg, padding: "4px 8px", borderRadius: "6px" }}>
-                    Showing: {selectedTrackingStore}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    position: "relative",
-                    width: "100%",
-                    height: "360px",
-                    backgroundColor: "#070A10",
-                    borderRadius: "10px",
-                    border: `1px solid ${TOKENS.cardBorder}`,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      backgroundImage: `linear-gradient(${TOKENS.cardBorder} 1px, transparent 1px), linear-gradient(90deg, ${TOKENS.cardBorder} 1px, transparent 1px)`,
-                      backgroundSize: "36px 36px",
-                      opacity: 0.25,
-                    }}
-                  />
-
-                  {STORE_ZONES.map((zone) => (
-                    <div
-                      key={zone.name}
-                      style={{
-                        position: "absolute",
-                        left: `${zone.x}%`,
-                        top: `${zone.y}%`,
-                        width: `${zone.width}%`,
-                        height: `${zone.height}%`,
-                        backgroundColor: zone.color,
-                        border: `1px dashed ${TOKENS.cardBorder}`,
-                        borderRadius: "8px",
-                        padding: "6px",
-                        boxSizing: "border-box",
-                        opacity: 0.85,
-                      }}
-                    >
-                      <span style={{ fontSize: "10px", fontWeight: "700", color: TOKENS.muted }}>{zone.name}</span>
-                    </div>
-                  ))}
-
-                  {filteredActiveShoppers.map((shopper) => (
-                    <div
-                      key={shopper.id}
-                      style={{
-                        position: "absolute",
-                        left: `${shopper.posX}%`,
-                        top: `${shopper.posY}%`,
-                        transform: "translate(-50%, -50%)",
-                        transition: "all 0.8s ease",
-                        zIndex: 10,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          borderRadius: "50%",
-                          backgroundColor: shopper.color,
-                          border: "2px solid #fff",
-                          boxShadow: `0 0 12px ${shopper.color}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "9px",
-                          fontWeight: "800",
-                          color: "#1A1200",
-                        }}
-                      >
-                        🚶
-                      </div>
-                      <span
-                        style={{
-                          fontSize: "9px",
-                          fontWeight: "700",
-                          color: "#fff",
-                          backgroundColor: "rgba(0,0,0,0.75)",
-                          padding: "1px 5px",
-                          borderRadius: "4px",
-                          marginTop: "2px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {shopper.id} ({formatDwellTime(shopper.dwellSec)})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Active Shoppers Live Sessions Table */}
-              <div style={cardStyle}>
-                <h3 style={{ margin: "0 0 14px", fontSize: "15px", fontWeight: "700" }}>🟢 Active In-Store Shopper Sessions</h3>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
-                  <thead>
-                    <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
-                      <th style={{ padding: "8px" }}>Shopper ID</th>
-                      <th style={{ padding: "8px" }}>Store</th>
-                      <th style={{ padding: "8px" }}>Entry Time</th>
-                      <th style={{ padding: "8px" }}>Current Zone</th>
-                      <th style={{ padding: "8px" }}>Visited Path</th>
-                      <th style={{ padding: "8px" }}>Live Dwell</th>
-                      <th style={{ padding: "8px" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredActiveShoppers.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} style={{ padding: "16px", color: TOKENS.muted, textAlign: "center" }}>
-                          No active shoppers being tracked in this store right now. Click "+ Simulate Entrance" to create one.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredActiveShoppers.map((s) => (
-                        <tr key={s.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                          <td style={{ padding: "12px 8px", fontWeight: "700", color: s.color }}>{s.id}</td>
-                          <td style={{ padding: "12px 8px" }}>{s.store}</td>
-                          <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>{s.entryTime}</td>
-                          <td style={{ padding: "12px 8px" }}>
-                            <span style={{ backgroundColor: TOKENS.bg, padding: "3px 8px", borderRadius: "4px", fontSize: "11px", border: `1px solid ${TOKENS.cardBorder}` }}>
-                              📍 {s.currentZone}
-                            </span>
-                          </td>
-                          <td style={{ padding: "12px 8px", fontSize: "11px", color: TOKENS.muted }}>
-                            {s.zonesVisited.join(" → ")}
-                          </td>
-                          <td style={{ padding: "12px 8px", fontWeight: "700", color: TOKENS.accent, fontFamily: "monospace" }}>
-                            ⏱ {formatDwellTime(s.dwellSec)}
-                          </td>
-                          <td style={{ padding: "12px 8px" }}>
-                            <button
-                              onClick={() => handleSimulateShopperExit(s)}
-                              style={smallBtn(TOKENS.danger)}
-                            >
-                              Trigger Exit
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Completed Journey Lifecycle Logs */}
-              <div style={cardStyle}>
-                <h3 style={{ margin: "0 0 14px", fontSize: "15px", fontWeight: "700" }}>📜 Completed Customer Journeys Log</h3>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
-                  <thead>
-                    <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
-                      <th style={{ padding: "8px" }}>Shopper ID</th>
-                      <th style={{ padding: "8px" }}>Store</th>
-                      <th style={{ padding: "8px" }}>Entry Time</th>
-                      <th style={{ padding: "8px" }}>Exit Time</th>
-                      <th style={{ padding: "8px" }}>Total Dwell</th>
-                      <th style={{ padding: "8px" }}>Full Trajectory Path</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCompletedJourneys.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} style={{ padding: "16px", color: TOKENS.muted, textAlign: "center" }}>
-                          No completed journeys recorded yet for this store.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredCompletedJourneys.map((j) => (
-                        <tr key={j.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                          <td style={{ padding: "12px 8px", fontWeight: "600" }}>{j.id}</td>
-                          <td style={{ padding: "12px 8px" }}>{j.store}</td>
-                          <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>{j.entryTime}</td>
-                          <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>{j.exitTime}</td>
-                          <td style={{ padding: "12px 8px", fontWeight: "700", color: TOKENS.success }}>{formatDwellTime(j.totalDwellSec)}</td>
-                          <td style={{ padding: "12px 8px", fontSize: "11px", color: TOKENS.muted }}>
-                            {j.path.join(" ➔ ")}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* ================= VIEW 3: INFRASTRUCTURE & CAMERAS ================= */}
-          {activeTab === "infrastructure" && (
-            <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: "700", margin: 0 }}>🚶 Customer Journey Tracking</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
                 <div style={cardStyle}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Camera Connectivity</h3>
-                  <div style={{ display: "flex", alignItems: "center", gap: "20px", marginTop: "20px" }}>
-                    <div style={{ position: "relative", width: "100px", height: "100px" }}>
-                      <svg viewBox="0 0 36 36" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={TOKENS.danger} strokeWidth="3.8" />
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={TOKENS.success} strokeWidth="3.8" strokeDasharray="96, 100" />
-                      </svg>
-                      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", fontSize: "12px", fontWeight: "bold" }}>96%</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "13px", marginBottom: "6px" }}><span style={{ color: TOKENS.success }}>🟢 96%</span> Online (240)</div>
-                      <div style={{ fontSize: "13px" }}><span style={{ color: TOKENS.danger }}>🔴 4%</span> Offline (10)</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={cardStyle}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Camera Connectivity Event Timeline</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
-                    {INITIAL_LOGS.map(log => (
-                      <div key={log.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", backgroundColor: TOKENS.bg, borderRadius: "6px", fontSize: "12px" }}>
-                        <div>
-                          <strong style={{ color: TOKENS.accent }}>{log.time}</strong> — {log.device}
-                        </div>
-                        <span style={{ color: log.status === "danger" ? TOKENS.danger : TOKENS.success, fontWeight: "600" }}>{log.event}</span>
+                  <h3 style={{ fontSize: "15px", fontWeight: "700", marginBottom: "14px" }}>Completed Shopper Journeys</h3>
+                  {completedJourneys.map(j => (
+                    <div key={j.id} style={{ padding: "12px", borderRadius: "8px", backgroundColor: TOKENS.bg, border: `1px solid ${TOKENS.cardBorder}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", fontSize: "13px" }}>
+                        <span>{j.id}</span>
+                        <span style={{ color: TOKENS.accent }}>{Math.round(j.totalDwellSec / 60)} min dwell</span>
                       </div>
+                      <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "4px" }}>
+                        {j.entryTime} → {j.exitTime} · {j.store}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={cardStyle}>
+                  <h3 style={{ fontSize: "15px", fontWeight: "700", marginBottom: "14px" }}>Shopper Pathway Timeline</h3>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {selectedJourney?.path.map((zone, idx) => (
+                      <span key={idx} style={{ padding: "6px 12px", borderRadius: "6px", backgroundColor: TOKENS.bg, border: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px", fontWeight: "600" }}>
+                        {zone}
+                      </span>
                     ))}
                   </div>
                 </div>
               </div>
+            </div>
+          )}
 
+          {/* ================= VIEW 3: INFRASTRUCTURE (STORE & CAMERA CRUD) ================= */}
+          {activeTab === "infrastructure" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              
+              {/* STORES SECTION CRUD */}
               <div style={cardStyle}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", margin: 0 }}>Live Infrastructure Stores & Node Status</h3>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button onClick={openAddStore} style={smallBtn(TOKENS.accent)}>+ Add Store</button>
-                    <button onClick={openAddCamera} style={smallBtn(TOKENS.info)}>+ Add Camera</button>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>🏪 Store Locations (CRUD)</h3>
+                    <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>Manage store branches and location configurations.</p>
                   </div>
+                  <button onClick={() => handleOpenStoreModal()} style={smallBtn(TOKENS.accent, { color: "#1A1200", padding: "8px 16px" })}>
+                    ➕ Add New Store
+                  </button>
                 </div>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "14px" }}>
+                  {stores.map(s => (
+                    <div key={s.id} style={{ background: TOKENS.bg, padding: "16px", borderRadius: "8px", border: `1px solid ${TOKENS.cardBorder}`, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: "14px", color: TOKENS.text }}>{s.name}</div>
+                        <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "4px" }}>📍 {s.location}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "14px", borderTop: `1px solid ${TOKENS.cardBorder}`, paddingTop: "10px" }}>
+                        <button onClick={() => handleOpenStoreModal(s)} style={smallBtn(TOKENS.info)}>✏️ Edit</button>
+                        <button onClick={() => handleDeleteStore(s.id, s.name)} style={smallBtn(TOKENS.danger)}>🗑️ Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CAMERAS SECTION CRUD */}
+              <div style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>📹 Camera Hardware Registry (CRUD)</h3>
+                    <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>Register IP cameras, configure stream endpoints, and monitor status.</p>
+                  </div>
+                  <button onClick={() => handleOpenCamModal()} style={smallBtn(TOKENS.accent, { color: "#1A1200", padding: "8px 16px" })}>
+                    ➕ Register New Camera
+                  </button>
+                </div>
+
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
-                      <th style={{ padding: "8px" }}>Store Name</th>
-                      <th style={{ padding: "8px" }}>Cameras</th>
-                      <th style={{ padding: "8px" }}>Active Users</th>
-                      <th style={{ padding: "8px" }}>AI Engine Status</th>
-                      <th style={{ padding: "8px" }}>Last Sync</th>
-                      <th style={{ padding: "8px" }}>Actions</th>
+                      <th style={{ padding: "10px" }}>Camera ID</th>
+                      <th style={{ padding: "10px" }}>Name & Zone</th>
+                      <th style={{ padding: "10px" }}>Store</th>
+                      <th style={{ padding: "10px" }}>IP Address</th>
+                      <th style={{ padding: "10px" }}>Status</th>
+                      <th style={{ padding: "10px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stores.map((s) => (
-                      <tr key={s.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                        <td style={{ padding: "12px 8px", fontWeight: "600" }}>{s.name}</td>
-                        <td style={{ padding: "12px 8px" }}>{s.cameras} online</td>
-                        <td style={{ padding: "12px 8px" }}>{s.activeUsers} active</td>
-                        <td style={{ padding: "12px 8px" }}>
-                          <span style={{ color: s.aiStatus === "Active" ? TOKENS.success : TOKENS.warning, fontWeight: "bold" }}>● {s.aiStatus}</span>
+                    {cameras.map(c => (
+                      <tr key={c.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                        <td style={{ padding: "10px", fontWeight: "700" }}>{c.id}</td>
+                        <td style={{ padding: "10px" }}>
+                          <div>{c.name}</div>
+                          <div style={{ fontSize: "10px", color: TOKENS.muted }}>{c.zone}</div>
                         </td>
-                        <td style={{ padding: "12px 8px", color: TOKENS.muted }}>{s.lastSync}</td>
-                        <td style={{ padding: "12px 8px" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                            <button onClick={() => openEditStore(s)} style={smallBtn(TOKENS.accent, { marginRight: 0 })}>Edit</button>
-                            <button onClick={() => handleDeleteStore(s)} style={smallBtn(TOKENS.danger, { marginRight: 0 })}>Delete</button>
-                            <button onClick={() => openEditCamera(s)} style={smallBtn(TOKENS.info, { marginRight: 0 })}>Edit Cams</button>
-                            <button onClick={() => handleRemoveAllCameras(s)} style={smallBtn(TOKENS.warning, { marginRight: 0 })}>Clear Cams</button>
+                        <td style={{ padding: "10px" }}>{c.store}</td>
+                        <td style={{ padding: "10px", fontFamily: "monospace" }}>{c.ip}</td>
+                        <td style={{ padding: "10px" }}>
+                          <span style={{ color: c.status === "Online" ? TOKENS.success : TOKENS.danger, fontWeight: "600" }}>
+                            ● {c.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px" }}>
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <button onClick={() => handleOpenCamModal(c)} style={smallBtn(TOKENS.info)}>Edit</button>
+                            <button onClick={() => handleDeleteCamera(c.id)} style={smallBtn(TOKENS.danger)}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -1776,154 +698,93 @@ export default function CAMSAdminDashboard() {
                   </tbody>
                 </table>
               </div>
-            </>
+            </div>
           )}
 
-          {/* ================= VIEW 4: USER MANAGEMENT (CRUD) ================= */}
+          {/* ================= VIEW 4: USERS (USER CRUD) ================= */}
           {activeTab === "users" && (
             <div style={cardStyle}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>👤 User Management</h3>
-                  <p style={{ margin: 0, fontSize: "11px", color: TOKENS.muted }}>Create, update, suspend, or remove platform users</p>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>👤 User Accounts & Role Permissions (CRUD)</h3>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: TOKENS.muted }}>Create staff accounts, assign store roles, and manage permissions.</p>
                 </div>
-                <button onClick={openAddUser} style={smallBtn(TOKENS.accent, { padding: "8px 14px", fontSize: "12px" })}>+ Add User</button>
+                <button onClick={() => handleOpenUserModal()} style={smallBtn(TOKENS.accent, { color: "#1A1200", padding: "8px 16px" })}>
+                  ➕ Create New User
+                </button>
               </div>
 
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
-                    <th style={{ padding: "8px" }}>Name</th>
-                    <th style={{ padding: "8px" }}>Email</th>
-                    <th style={{ padding: "8px" }}>Role</th>
-                    <th style={{ padding: "8px" }}>Status</th>
-                    <th style={{ padding: "8px" }}>Actions</th>
+                    <th style={{ padding: "10px" }}>User</th>
+                    <th style={{ padding: "10px" }}>Role</th>
+                    <th style={{ padding: "10px" }}>Store</th>
+                    <th style={{ padding: "10px" }}>Status</th>
+                    <th style={{ padding: "10px" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: "16px 8px", color: TOKENS.muted, textAlign: "center" }}>
-                        No users yet — add one to get started.
+                  {users.map(u => (
+                    <tr key={u.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                      <td style={{ padding: "10px", fontWeight: "600" }}>
+                        <div>{u.name}</div>
+                        <div style={{ fontSize: "10px", color: TOKENS.muted }}>{u.email}</div>
+                      </td>
+                      <td style={{ padding: "10px" }}>{u.role}</td>
+                      <td style={{ padding: "10px" }}>{u.store}</td>
+                      <td style={{ padding: "10px", color: TOKENS.success, fontWeight: "600" }}>● {u.status}</td>
+                      <td style={{ padding: "10px" }}>
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button onClick={() => handleOpenUserModal(u)} style={smallBtn(TOKENS.info)}>Edit</button>
+                          <button onClick={() => handleDeleteUser(u.id, u.name)} style={smallBtn(TOKENS.danger)}>Delete</button>
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    users.map((u) => (
-                      <tr key={u.id} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                        <td style={{ padding: "12px 8px", fontWeight: "600" }}>{u.name}</td>
-                        <td style={{ padding: "12px 8px", color: TOKENS.muted }}>{u.email}</td>
-                        <td style={{ padding: "12px 8px" }}>{u.role}</td>
-                        <td style={{ padding: "12px 8px" }}>
-                          <span style={{ color: u.status === "Active" ? TOKENS.success : TOKENS.danger, fontWeight: "bold" }}>
-                            ● {u.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 8px" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                            <button onClick={() => openEditUser(u)} style={smallBtn(TOKENS.accent, { marginRight: 0 })}>Edit</button>
-                            <button onClick={() => handleToggleUserStatus(u)} style={smallBtn(TOKENS.warning, { marginRight: 0 })}>
-                              {u.status === "Active" ? "Suspend" : "Activate"}
-                            </button>
-                            <button onClick={() => handleDeleteUser(u)} style={smallBtn(TOKENS.danger, { marginRight: 0 })}>Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
 
-          {/* ================= VIEW 5: SYSTEM & API HEALTH ================= */}
+          {/* ================= VIEW 5: SYSTEM HEALTH ================= */}
           {activeTab === "system" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
               <div style={cardStyle}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>API Performance Monitor</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
-                  {[
-                    { endpoint: "GET /users", latency: "85 ms", status: "green" },
-                    { endpoint: "GET /stores", latency: "74 ms", status: "green" },
-                    { endpoint: "GET /alerts", latency: "240 ms", status: "yellow" },
-                    { endpoint: "POST /ai/infer", latency: "112 ms", status: "green" },
-                  ].map((api, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", backgroundColor: TOKENS.bg, borderRadius: "6px", fontFamily: "monospace", fontSize: "12px" }}>
-                      <span>{api.endpoint}</span>
-                      <div>
-                        <span style={{ marginRight: "10px", color: TOKENS.muted }}>{api.latency}</span>
-                        <span>{api.status === "green" ? "🟢" : "🟡"}</span>
-                      </div>
-                    </div>
-                  ))}
+                <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "12px" }}>FastAPI Backend Services</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
+                  <span>Video Frame Analysis API</span>
+                  <span style={{ color: TOKENS.success }}>Operational</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
+                  <span>Excel Export Service</span>
+                  <span style={{ color: TOKENS.success }}>Operational</span>
                 </div>
               </div>
 
               <div style={cardStyle}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Operational Backup Status</h3>
-                <div style={{ marginTop: "16px", backgroundColor: TOKENS.bg, padding: "16px", borderRadius: "8px" }}>
-                  <div style={{ fontSize: "12px", color: TOKENS.muted }}>Database Backup Status</div>
-                  <div style={{ fontSize: "18px", fontWeight: "bold", color: TOKENS.success, marginTop: "4px" }}>Completed</div>
-                  <div style={{ fontSize: "11px", color: TOKENS.muted, marginTop: "8px" }}>Last completed: 2 hours ago</div>
-                  <div style={{ fontSize: "11px", color: TOKENS.accent, marginTop: "4px" }}>Next scheduled: 11:00 PM UTC</div>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "12px" }}>AI Model Compute Status</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
+                  <span>YOLOv8-Pose (Gaze Engine)</span>
+                  <span style={{ color: TOKENS.success }}>Loaded</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
+                  <span>ByteTrack Multi-Tracker</span>
+                  <span style={{ color: TOKENS.success }}>Active</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ================= VIEW 6: SECURITY & PERMISSIONS ================= */}
+          {/* ================= VIEW 6: SECURITY ================= */}
           {activeTab === "security" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                <div style={cardStyle}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Security Panel</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px", fontSize: "12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Failed Login Attempts:</span> <strong style={{ color: TOKENS.warning }}>3</strong></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>Locked Accounts:</span> <strong style={{ color: TOKENS.danger }}>1</strong></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>JWT Status:</span> <strong style={{ color: TOKENS.success }}>Healthy</strong></div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}><span>SSL Encryption:</span> <strong style={{ color: TOKENS.success }}>Enabled</strong></div>
-                  </div>
-                </div>
-
-                <div style={cardStyle}>
-                  <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0 }}>Recent User Login Activity</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px", fontSize: "12px" }}>
-                    {users.slice(0, 4).map((u, i) => (
-                      <div key={u.id} style={{ padding: "8px", backgroundColor: TOKENS.bg, borderRadius: "4px" }}>
-                        <strong>{u.name}</strong> — <span style={{ color: TOKENS.muted }}>{u.role}</span> ({(i + 1) * 3} min ago)
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: "18px", fontWeight: "700", margin: "0 0 14px 0" }}>🛡️ Audit Trail & Permissions</h2>
+              <div style={{ fontSize: "12px", color: TOKENS.muted, padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                [Today] Administrator performed video analysis with Excel export.
               </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", marginTop: 0, marginBottom: "16px" }}>Role Permissions Matrix</h3>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
-                  <thead>
-                    <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted }}>
-                      <th style={{ padding: "8px" }}>Role</th>
-                      <th style={{ padding: "8px" }}>Create</th>
-                      <th style={{ padding: "8px" }}>Update</th>
-                      <th style={{ padding: "8px" }}>Delete</th>
-                      <th style={{ padding: "8px" }}>Export</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { role: "Admin", create: true, update: true, delete: true, export: true },
-                      { role: "Store Manager", create: true, update: true, delete: false, export: true },
-                      { role: "Retail Analyst", create: false, update: false, delete: false, export: true },
-                    ].map((row, idx) => (
-                      <tr key={idx} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
-                        <td style={{ padding: "12px 8px", fontWeight: "600" }}>{row.role}</td>
-                        <td style={{ padding: "12px 8px", color: row.create ? TOKENS.success : TOKENS.danger }}>{row.create ? "✔" : "✖"}</td>
-                        <td style={{ padding: "12px 8px", color: row.update ? TOKENS.success : TOKENS.danger }}>{row.update ? "✔" : "✖"}</td>
-                        <td style={{ padding: "12px 8px", color: row.delete ? TOKENS.success : TOKENS.danger }}>{row.delete ? "✔" : "✖"}</td>
-                        <td style={{ padding: "12px 8px", color: row.export ? TOKENS.success : TOKENS.danger }}>{row.export ? "✔" : "✖"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ fontSize: "12px", color: TOKENS.muted, padding: "8px 0" }}>
+                [Today] Automated security integrity check PASSED.
               </div>
             </div>
           )}
@@ -1931,234 +792,128 @@ export default function CAMSAdminDashboard() {
         </main>
       </div>
 
-      {/* ================= SYSTEM VERSION FOOTER ================= */}
-      <footer style={{ backgroundColor: TOKENS.sidebarBg, borderTop: `1px solid ${TOKENS.cardBorder}`, padding: "8px 24px", display: "flex", justifyContent: "space-between", fontSize: "11px", color: TOKENS.muted }}>
-        <div>CAMS — Consumer Attention Mapping System</div>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <button
-            onClick={handleResetDemoData}
-            style={{ background: "none", border: "none", color: TOKENS.muted, fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}
-          >
-            Reset demo data
-          </button>
-          <span>Version 2.5.0 | Build 260 | Updated Today</span>
+      {/* ================= STORE CRUD MODAL ================= */}
+      {isStoreModalOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(11,15,23,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+          <div style={{ ...cardStyle, width: "420px", maxWidth: "90vw" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>{editingStore ? "Edit Store" : "Add New Store"}</h3>
+              <button onClick={() => setIsStoreModalOpen(false)} style={{ background: "none", border: "none", color: TOKENS.muted, cursor: "pointer" }}>✕</button>
+            </div>
+            <form onSubmit={handleSaveStore} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={labelStyle}>Store Name</label>
+                <input style={inputStyle} value={storeForm.name} onChange={e => setStoreForm({ ...storeForm, name: e.target.value })} placeholder="e.g. Inorbit Mall Branch" required />
+              </div>
+              <div>
+                <label style={labelStyle}>Location / Address</label>
+                <input style={inputStyle} value={storeForm.location} onChange={e => setStoreForm({ ...storeForm, location: e.target.value })} placeholder="e.g. Madhapur, Hyderabad" />
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                <button type="button" onClick={() => setIsStoreModalOpen(false)} style={smallBtn(TOKENS.surface2, { color: TOKENS.text })}>Cancel</button>
+                <button type="submit" style={smallBtn(TOKENS.accent, { color: "#1A1200" })}>Save Store</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </footer>
-
-      {/* ================= QUICK ACTION / CRUD MODALS ================= */}
-
-      {/* Add User */}
-      {activeModal === "user" && (
-        <Modal title="Add New User" onClose={closeModal}>
-          <form onSubmit={handleAddUser}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Full Name</label>
-              <input
-                style={inputStyle}
-                value={userForm.name}
-                onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                placeholder="e.g. Priya Nair"
-                autoFocus
-              />
-            </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={labelStyle}>Role</label>
-              <select
-                style={inputStyle}
-                value={userForm.role}
-                onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-              >
-                <option>Store Manager</option>
-                <option>Retail Analyst</option>
-                <option>Admin</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
-            >
-              Create User
-            </button>
-          </form>
-        </Modal>
       )}
 
-      {/* Edit User */}
-      {activeModal === "editUser" && (
-        <Modal title="Edit User" onClose={closeModal}>
-          <form onSubmit={handleUpdateUser}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Full Name</label>
-              <input
-                style={inputStyle}
-                value={userForm.name}
-                onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-                placeholder="e.g. Priya Nair"
-                autoFocus
-              />
+      {/* ================= CAMERA CRUD MODAL ================= */}
+      {isCamModalOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(11,15,23,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+          <div style={{ ...cardStyle, width: "450px", maxWidth: "90vw" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>{editingCam ? `Edit Camera ${editingCam.id}` : "Register New Camera"}</h3>
+              <button onClick={() => setIsCamModalOpen(false)} style={{ background: "none", border: "none", color: TOKENS.muted, cursor: "pointer" }}>✕</button>
             </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={labelStyle}>Role</label>
-              <select
-                style={inputStyle}
-                value={userForm.role}
-                onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-              >
-                <option>Store Manager</option>
-                <option>Retail Analyst</option>
-                <option>Admin</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
-            >
-              Save Changes
-            </button>
-          </form>
-        </Modal>
+            <form onSubmit={handleSaveCamera} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={labelStyle}>Camera Name / Description</label>
+                <input style={inputStyle} value={camForm.name} onChange={e => setCamForm({ ...camForm, name: e.target.value })} placeholder="e.g. Front Entrance Overhead" required />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={labelStyle}>Assigned Store</label>
+                  <select style={inputStyle} value={camForm.store} onChange={e => setCamForm({ ...camForm, store: e.target.value })}>
+                    {stores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Store Zone</label>
+                  <select style={inputStyle} value={camForm.zone} onChange={e => setCamForm({ ...camForm, zone: e.target.value })}>
+                    <option value="Entrance">Entrance</option>
+                    <option value="Grocery & Snacks">Grocery & Snacks</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Apparel">Apparel</option>
+                    <option value="Checkout">Checkout</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={labelStyle}>IP Address</label>
+                  <input style={inputStyle} value={camForm.ip} onChange={e => setCamForm({ ...camForm, ip: e.target.value })} placeholder="192.168.1.100" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Status</label>
+                  <select style={inputStyle} value={camForm.status} onChange={e => setCamForm({ ...camForm, status: e.target.value })}>
+                    <option value="Online">Online</option>
+                    <option value="Degraded">Degraded</option>
+                    <option value="Offline">Offline</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                <button type="button" onClick={() => setIsCamModalOpen(false)} style={smallBtn(TOKENS.surface2, { color: TOKENS.text })}>Cancel</button>
+                <button type="submit" style={smallBtn(TOKENS.accent, { color: "#1A1200" })}>Save Camera</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {/* Add Store */}
-      {activeModal === "store" && (
-        <Modal title="Register New Store" onClose={closeModal}>
-          <form onSubmit={handleRegisterStore}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Store Name</label>
-              <input
-                style={inputStyle}
-                value={storeForm.name}
-                onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
-                placeholder="e.g. Riverside Outlet"
-                autoFocus
-              />
+      {/* ================= USER CRUD MODAL ================= */}
+      {isUserModalOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(11,15,23,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+          <div style={{ ...cardStyle, width: "450px", maxWidth: "90vw" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>{editingUser ? "Edit User Account" : "Create New User"}</h3>
+              <button onClick={() => setIsUserModalOpen(false)} style={{ background: "none", border: "none", color: TOKENS.muted, cursor: "pointer" }}>✕</button>
             </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={labelStyle}>Initial Camera Count</label>
-              <input
-                type="number"
-                min="0"
-                style={inputStyle}
-                value={storeForm.cameras}
-                onChange={(e) => setStoreForm({ ...storeForm, cameras: e.target.value })}
-                placeholder="e.g. 10"
-              />
-            </div>
-            <button
-              type="submit"
-              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
-            >
-              Register Store
-            </button>
-          </form>
-        </Modal>
-      )}
-
-      {/* Edit Store */}
-      {activeModal === "editStore" && (
-        <Modal title="Edit Store" onClose={closeModal}>
-          <form onSubmit={handleUpdateStore}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Store Name</label>
-              <input
-                style={inputStyle}
-                value={storeForm.name}
-                onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
-                placeholder="e.g. Riverside Outlet"
-                autoFocus
-              />
-            </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={labelStyle}>Camera Count</label>
-              <input
-                type="number"
-                min="0"
-                style={inputStyle}
-                value={storeForm.cameras}
-                onChange={(e) => setStoreForm({ ...storeForm, cameras: e.target.value })}
-                placeholder="e.g. 10"
-              />
-            </div>
-            <button
-              type="submit"
-              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
-            >
-              Save Changes
-            </button>
-          </form>
-        </Modal>
-      )}
-
-      {/* Add Camera(s) */}
-      {activeModal === "camera" && (
-        <Modal title="Add Camera" onClose={closeModal}>
-          <form onSubmit={handleAddCamera}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Store</label>
-              <select
-                style={inputStyle}
-                value={cameraForm.storeId}
-                onChange={(e) => setCameraForm({ ...cameraForm, storeId: e.target.value })}
-              >
-                {stores.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={labelStyle}>Number of Cameras to Add</label>
-              <input
-                type="number"
-                min="1"
-                style={inputStyle}
-                value={cameraForm.count}
-                onChange={(e) => setCameraForm({ ...cameraForm, count: e.target.value })}
-                placeholder="e.g. 2"
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
-            >
-              Pair Camera(s)
-            </button>
-          </form>
-        </Modal>
-      )}
-
-      {/* Edit Camera Count */}
-      {activeModal === "editCamera" && (
-        <Modal title="Edit Camera Count" onClose={closeModal}>
-          <form onSubmit={handleUpdateCameraCount}>
-            <div style={{ marginBottom: "14px" }}>
-              <label style={labelStyle}>Store</label>
-              <select style={{ ...inputStyle, opacity: 0.7 }} value={cameraForm.storeId} disabled>
-                {stores.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={labelStyle}>Exact Camera Count</label>
-              <input
-                type="number"
-                min="0"
-                style={inputStyle}
-                value={cameraForm.count}
-                onChange={(e) => setCameraForm({ ...cameraForm, count: e.target.value })}
-                placeholder="e.g. 12"
-                autoFocus
-              />
-            </div>
-            <button
-              type="submit"
-              style={{ width: "100%", padding: "10px", backgroundColor: TOKENS.accent, color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "13px" }}
-            >
-              Update Count
-            </button>
-          </form>
-        </Modal>
+            <form onSubmit={handleSaveUser} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={labelStyle}>Full Name</label>
+                <input style={inputStyle} value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} placeholder="e.g. John Doe" required />
+              </div>
+              <div>
+                <label style={labelStyle}>Email Address</label>
+                <input style={inputStyle} type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} placeholder="john@retailai.corp" required />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={labelStyle}>Role</label>
+                  <select style={inputStyle} value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}>
+                    <option value="Store Manager">Store Manager</option>
+                    <option value="Retail Analyst">Retail Analyst</option>
+                    <option value="Marketing Manager">Marketing Manager</option>
+                    <option value="Administrator">Administrator</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Assigned Store</label>
+                  <select style={inputStyle} value={userForm.store} onChange={e => setUserForm({ ...userForm, store: e.target.value })}>
+                    <option value="All Stores">All Stores</option>
+                    {stores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                <button type="button" onClick={() => setIsUserModalOpen(false)} style={smallBtn(TOKENS.surface2, { color: TOKENS.text })}>Cancel</button>
+                <button type="submit" style={smallBtn(TOKENS.accent, { color: "#1A1200" })}>Save User</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>
