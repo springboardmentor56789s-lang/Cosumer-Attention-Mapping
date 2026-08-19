@@ -3,343 +3,339 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Camera Management</title>
-
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-
-<body class="bg-sky-50">
-
-<div class="max-w-6xl mx-auto py-12 px-4">
-
-    <header class="mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-extrabold text-sky-800">Camera Management</h1>
-                <p class="text-sm text-sky-600">Manage store cameras, statuses and locations</p>
-            </div>
-        </div>
-    </header>
-
-    <!-- Add Camera Form -->
-
-    <div class="bg-white shadow-md rounded-2xl p-6 mb-8">
-
-        <h2 class="text-xl font-semibold text-sky-800 mb-4">
-            Add New Camera
-        </h2>
-
-        <form class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            <input
-                id="camera_name"
-                type="text"
-                placeholder="Camera Name"
-                class="border border-sky-100 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white"
-            />
-
-            <input
-                id="store_id"
-                type="number"
-                placeholder="Store ID"
-                class="border border-sky-100 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white"
-            />
-
-            <input
-                id="rtsp_url"
-                type="text"
-                placeholder="RTSP URL"
-                class="col-span-1 md:col-span-2 border border-sky-100 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white"
-            />
-
-            <input
-                id="location"
-                type="text"
-                placeholder="Location"
-                class="border border-sky-100 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white"
-            />
-
-            <select
-                id="status"
-                class="border border-sky-100 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white"
-            >
-                <option>Online</option>
-                <option>Offline</option>
-            </select>
-
-            <div class="md:col-span-2 flex justify-end">
-                <button
-                    onclick="addCamera()"
-                    type="button"
-                    class="mt-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 rounded-lg shadow"
-                >
-                    Add Camera
-                </button>
-            </div>
-
-        </form>
-
+<body class="min-h-screen bg-gradient-to-br from-sky-200 via-sky-100 to-cyan-100 text-slate-800">
+<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+  <header class="mb-8 rounded-3xl border border-white/70 bg-white/55 p-6 shadow-[0_20px_55px_rgba(2,132,199,0.18)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(2,132,199,0.25)]">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-700">Camera Operations</p>
+        <h1 class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">Professional camera control</h1>
+        <p class="mt-2 text-sm text-slate-600">Start, stop, preview, and monitor live tracking pipelines.</p>
+      </div>
+      <a href="/admin/dashboard" class="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/70 bg-white/75 px-4 py-2 text-sm font-semibold text-cyan-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyan-50">
+        <span>◀</span>
+        <span>Back to Dashboard</span>
+      </a>
     </div>
-    <!-- AI Controls -->
+  </header>
 
-    <div class="bg-white shadow-lg rounded-lg p-6 mb-8">
-
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-            <div>
-                <h2 class="text-2xl font-semibold mb-2">AI Detection</h2>
-                <p class="text-gray-600">Run YOLO/OpenCV detection for a selected camera and view the latest results.</p>
-            </div>
-
-            <div class="flex gap-3">
-                <button onclick="runDetection()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">
-                    Run Detection
-                </button>
-                <button onclick="loadSummary()" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg">
-                    Refresh Summary
-                </button>
-            </div>
-
-        </div>
-
-        <div id="aiStatus" class="mt-4 text-sm text-gray-600"></div>
-        <div id="summaryBox" class="mt-4 text-sm text-gray-700"></div>
-        <ul id="detectionResults" class="mt-4 space-y-2"></ul>
-
+  <section class="mb-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+    <div class="rounded-3xl border border-white/70 bg-white/65 p-6 shadow-[0_16px_38px_rgba(15,23,42,0.1)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_20px_45px_rgba(15,23,42,0.14)]">
+      <h2 class="text-xl font-semibold text-slate-900">Add Camera</h2>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <input id="camera_name" placeholder="Camera Name" class="rounded-2xl border border-sky-200 bg-white/90 px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200" />
+        <input id="store_id" type="number" placeholder="Store ID" class="rounded-2xl border border-sky-200 bg-white/90 px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200" />
+        <input id="rtsp_url" placeholder="RTSP URL or MP4 path" class="md:col-span-2 rounded-2xl border border-sky-200 bg-white/90 px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200" />
+        <input id="location" placeholder="Location" class="rounded-2xl border border-sky-200 bg-white/90 px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200" />
+        <select id="camera_type" class="rounded-2xl border border-sky-200 bg-white/90 px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200">
+          <option value="webcam">Webcam</option>
+          <option value="rtsp">RTSP</option>
+          <option value="video">Video File</option>
+        </select>
+        <select id="status" class="rounded-2xl border border-sky-200 bg-white/90 px-3 py-3 text-sm text-slate-800 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200">
+          <option>Online</option><option>Offline</option>
+        </select>
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button onclick="addCamera()" class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-600 to-sky-600 px-4 py-2 font-semibold text-white shadow-lg shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:brightness-105">
+          <span>+</span>
+          <span>Add Camera</span>
+        </button>
+      </div>
     </div>
-    <!-- Camera Table -->
-
-    <div class="bg-white rounded-2xl shadow-md p-6">
-
-        <h2 class="text-xl font-semibold text-sky-800 mb-4">
-            Camera List
-        </h2>
-
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[640px] divide-y divide-sky-100">
-                <thead class="bg-sky-50 text-sky-700">
-                    <tr>
-                        <th class="text-left p-3 font-medium">ID</th>
-                        <th class="text-left p-3 font-medium">Name</th>
-                        <th class="text-left p-3 font-medium">Store</th>
-                        <th class="text-left p-3 font-medium">Location</th>
-                        <th class="text-left p-3 font-medium">Status</th>
-                        <th class="text-left p-3 font-medium">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="cameraTable" class="bg-white">
-                </tbody>
-            </table>
+    <div class="rounded-3xl border border-white/70 bg-white/65 p-6 shadow-[0_16px_38px_rgba(15,23,42,0.1)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_20px_45px_rgba(15,23,42,0.14)]">
+      <h2 class="text-xl font-semibold text-slate-900">AI Detection Controls</h2>
+      <div class="mt-4 flex gap-3">
+        <button onclick="runDetection()" class="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:-translate-y-0.5 hover:brightness-105">
+          <span>▶</span>
+          <span>Run Detection</span>
+        </button>
+        <button onclick="loadSummary()" class="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white/85 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50">
+          <span>↻</span>
+          <span>Refresh Summary</span>
+        </button>
+      </div>
+      <div id="aiStatus" class="mt-4 text-sm text-slate-700"></div>
+      <div id="summaryBox" class="mt-4 rounded-2xl border border-sky-200 bg-white/85 p-3 text-sm text-slate-700"></div>
+      <div class="mt-4 rounded-2xl border border-sky-200 bg-slate-950 p-3">
+        <div class="mb-2 flex items-center justify-between text-sm text-slate-200">
+          <span class="font-semibold">Live Preview</span>
+          <span id="streamStatus">Idle</span>
         </div>
-
+        <img id="livePreview" alt="Camera stream" class="h-64 w-full rounded-2xl border border-slate-800 bg-slate-900 object-cover" />
+      </div>
+      <ul id="detectionResults" class="mt-4 space-y-2"></ul>
     </div>
+  </section>
 
+  <section class="rounded-3xl border border-white/70 bg-white/65 p-6 shadow-[0_16px_38px_rgba(15,23,42,0.1)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_20px_45px_rgba(15,23,42,0.14)]">
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-900">Camera Inventory</h2>
+        <p class="text-sm text-slate-600">Cards show status, FPS, activity, and controls.</p>
+      </div>
+    </div>
+    <div id="cameraCards" class="grid gap-4 lg:grid-cols-2"></div>
+  </section>
 </div>
-
+<div id="zoneModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4">
+  <div class="max-h-[94vh] w-full max-w-7xl overflow-auto rounded-3xl bg-white p-6 shadow-2xl">
+    <div class="mb-5 flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[.2em] text-cyan-700">Camera → Zone → Shelf</p><h2 class="mt-1 text-2xl font-semibold text-slate-900">Configure Zones</h2><p id="zoneCameraLabel" class="mt-1 text-sm text-slate-500"></p></div><button onclick="closeZoneModal()" class="rounded-xl border px-3 py-2 text-sm font-semibold">Close</button></div>
+    <div class="grid gap-6 lg:grid-cols-[1.25fr_.75fr]"><div><div class="relative min-h-[320px] overflow-hidden rounded-2xl bg-slate-950"><img id="zoneFrame" class="hidden h-[58vh] w-full object-contain" alt="Camera reference frame"/><div id="referencePlaceholder" class="absolute inset-0 flex items-center justify-center p-8 text-center text-slate-300">No reference video is available for this camera. You can still define zones and shelves using a saved frame or attach a recorded clip later.</div><canvas id="roiCanvas" class="absolute inset-0 h-full w-full cursor-crosshair"></canvas><div id="streamError" class="absolute inset-x-5 bottom-5 hidden rounded-xl bg-rose-600/90 p-3 text-sm text-white"></div></div><div class="mt-3 flex flex-wrap items-center gap-2"><span id="drawState" class="rounded-full bg-slate-200 px-3 py-1 text-sm font-semibold text-slate-700">Select “+ Add Zone” to begin</span><button onclick="setRoiMode('rectangle')" class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm">Rectangle</button><button onclick="setRoiMode('polygon')" class="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm">Polygon</button><button onclick="clearRoi()" class="rounded-xl border px-3 py-2 text-sm">Clear drawing</button></div><p class="mt-2 text-xs text-slate-500">Zone outlines are blue; shelf outlines are amber. Draw on the saved camera reference when available; a live RTSP stream is not required.</p></div><aside class="space-y-4"><button onclick="beginZone()" class="w-full rounded-xl bg-cyan-600 px-4 py-3 font-semibold text-white">+ Add Zone</button><section id="zoneForm" class="hidden rounded-2xl border border-cyan-100 bg-cyan-50/50 p-4"><h3 class="font-semibold text-slate-900">New Zone</h3><div class="mt-3 space-y-3"><input id="zoneName" placeholder="Zone Name" class="w-full rounded-xl border p-2"/><input id="zoneCode" placeholder="Zone Code" class="w-full rounded-xl border p-2"/><button onclick="saveZone()" class="w-full rounded-xl bg-cyan-600 px-3 py-2 font-semibold text-white">Save Zone ROI</button></div></section><section id="shelfForm" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-4"><h3 id="shelfFormTitle" class="font-semibold text-slate-900">New Shelf</h3><div class="mt-3 space-y-3"><input id="shelfName" placeholder="Shelf Name" class="w-full rounded-xl border p-2"/><input id="shelfId" placeholder="Shelf ID" class="w-full rounded-xl border p-2"/><button onclick="saveShelf()" class="w-full rounded-xl bg-amber-500 px-3 py-2 font-semibold text-white">Save Shelf ROI</button></div></section><div><h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">Saved hierarchy</h3><div id="zoneHierarchy" class="space-y-3"></div></div></aside></div>
+  </div>
+</div>
 <script>
+const API = "/api/production/cameras";
+const token = localStorage.getItem('access_token');
 
-const API="http://127.0.0.1:8000/camera";
-
-
-async function loadCameras(){
-
-const response=await fetch(API+"/");
-
-const result=await response.json();
-
-const table=document.getElementById("cameraTable");
-
-table.innerHTML="";
-
-result.data.forEach(camera=>{
-
-table.innerHTML+=`
-
-<tr class="border text-center">
-
-<td class="p-3">${camera.id}</td>
-
-<td>${camera.camera_name}</td>
-
-<td>${camera.store_id}</td>
-
-<td>${camera.location}</td>
-
-<td>${camera.status}</td>
-
-<td>
-
-<button
-onclick="editCamera(${camera.id})"
-class="bg-green-600 text-white px-3 py-1 rounded">
-
-Edit
-
-</button>
-
-<button
-onclick="deleteCamera(${camera.id})"
-class="bg-red-600 text-white px-3 py-1 rounded ml-2">
-
-Delete
-
-</button>
-
-</td>
-
-</tr>
-
-`;
-
-});
-
+if (!token) {
+  window.location.href = '/login';
 }
 
-loadCameras();
-loadSummary();
+async function request(url, options = {}) {
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || 'Request failed');
+  }
+  return response.status === 204 ? null : response.json();
+}
+async function loadCameras() {
+  const cameras = await request(API);
+  const container = document.getElementById('cameraCards');
+  container.innerHTML = cameras.map((camera) => `
+    <article class="rounded-3xl border border-sky-200/80 bg-white/90 p-5 shadow-[0_10px_28px_rgba(2,132,199,0.1)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(2,132,199,0.18)]">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-semibold text-slate-900">${camera.camera_name || 'Unnamed Camera'}</h3>
+          <p class="text-sm text-slate-500">${camera.location || 'Unknown location'}</p>
+        </div>
+        <span class="rounded-full px-3 py-1 text-xs font-semibold ${camera.status === 'Online' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${camera.status}</span>
+      </div>
+      <div class="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+        <div><span class="text-slate-500">Store</span><div class="font-medium">${camera.store_id}</div></div>
+        <div><span class="text-slate-500">FPS</span><div class="font-medium">${camera.fps || 0}</div></div>
+        <div><span class="text-slate-500">Status</span><div class="font-medium">${camera.processing_status || 'Idle'}</div></div>
+        <div><span class="text-slate-500">Source</span><div class="font-medium break-all">${camera.camera_type || 'rtsp'} · ${camera.rtsp_url || camera.video_path || 'N/A'}</div></div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button onclick="startCamera(${camera.id})" class="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-600">▶ Start</button>
+        <button onclick="stopCamera(${camera.id})" class="rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-amber-600">■ Stop</button>
+        <button onclick="previewCamera(${camera.id})" class="rounded-xl bg-sky-500 px-3 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-sky-600">◉ Preview</button>
+        <button onclick="openZoneModal(${camera.id}, '${(camera.camera_name || 'Camera').replace(/'/g, "\\'")}')" class="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white">Configure Zones</button>
+        <button onclick="deleteCamera(${camera.id})" class="rounded-xl bg-rose-500 px-3 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-rose-600">🗑 Delete</button>
+      </div>
+    </article>
+  `).join('');
+}
+async function addCamera() {
+  const statusBox = document.getElementById('aiStatus');
 
+  const data = {
+    camera_name: document.getElementById('camera_name').value.trim(),
+    store_id: Number(document.getElementById('store_id').value),
+    rtsp_url: document.getElementById('rtsp_url').value.trim(),
+    location: document.getElementById('location').value.trim(),
+    status: document.getElementById('status').value,
+    camera_type: document.getElementById('camera_type').value || 'webcam',
+    fps: 0,
+    processing_status: 'Idle'
+  };
 
-async function addCamera(){
+  if (!data.camera_name || !data.store_id || !data.rtsp_url || !data.location) {
+    statusBox.innerText = 'Please fill Camera Name, Store ID, Source URL, and Location.';
+    return;
+  }
 
-const data={
+  try {
+    statusBox.innerText = 'Saving camera...';
+    await request(API, { method: 'POST', body: JSON.stringify(data) });
+    await loadCameras();
+    statusBox.innerText = 'Camera added successfully. Dashboard camera count is now updated in database.';
 
-camera_name:document.getElementById("camera_name").value,
+    document.getElementById('camera_name').value = '';
+    document.getElementById('store_id').value = '';
+    document.getElementById('rtsp_url').value = '';
+    document.getElementById('location').value = '';
+    document.getElementById('status').value = 'Online';
+  } catch (error) {
+    statusBox.innerText = `Failed to add camera: ${error.message}`;
+  }
+}
+async function startCamera(id) {
+  const statusBox = document.getElementById('aiStatus');
+  statusBox.innerText = `Starting camera ${id}...`;
+  const result = await request(`${API}/${id}/start`, { method: 'POST' });
+  document.getElementById('streamStatus').innerText = result.is_streaming ? 'Streaming' : 'Idle';
+  document.getElementById('livePreview').src = `${API}/${id}/stream?ts=${Date.now()}&token=${encodeURIComponent(token)}`;
+  await loadCameras();
+  statusBox.innerText = `Camera ${id} started. Stream status: ${result.status}`;
+}
+async function stopCamera(id) {
+  const statusBox = document.getElementById('aiStatus');
+  const result = await request(`${API}/${id}/stop`, { method: 'POST' });
+  document.getElementById('streamStatus').innerText = 'Stopped';
+  document.getElementById('livePreview').removeAttribute('src');
+  await loadCameras();
+  statusBox.innerText = `Camera ${id} stopped. ${result.status}`;
+}
+async function previewCamera(id) {
+  const statusBox = document.getElementById('aiStatus');
+  statusBox.innerText = `Previewing camera ${id}...`;
+  const result = await request(`${API}/${id}/preview`);
+  const resultsList = document.getElementById('detectionResults');
+  resultsList.innerHTML = '';
+  (result.detections || []).forEach(det => {
+    const li = document.createElement('li');
+    li.className = 'rounded-2xl border border-sky-200 bg-white px-3 py-2 text-sm text-slate-700';
+    li.innerHTML = detectionResultText(det);
+    resultsList.appendChild(li);
+  });
+  document.getElementById('streamStatus').innerText = result.status?.is_streaming ? 'Streaming' : 'Preview';
+  document.getElementById('livePreview').src = `${API}/${id}/stream?ts=${Date.now()}&token=${encodeURIComponent(token)}`;
+  statusBox.innerText = `Preview complete: ${result.total_detections || 0} detections, FPS ${result.fps || 0}`;
+  await loadCameras();
+}
+async function deleteCamera(id) { if (!confirm('Delete camera?')) return; await request(`${API}/${id}`, { method: 'DELETE' }); await loadCameras(); }
+async function loadSummary() { const summary = await request('/analytics/summary'); const summaryBox = document.getElementById('summaryBox'); summaryBox.innerHTML = `<strong>Total detections:</strong> ${summary.total_detections}<br><strong>Recent classes:</strong> ${summary.recent_classes.join(', ') || 'None'}`; }
+function detectionResultText(det) { return `<strong>${det.class_name}</strong> · confidence ${det.confidence} · camera ${det.camera_id ?? '-'} · zone ${det.zone_id ?? '-'} · shelf ${det.shelf_id ?? '-'} · track ${det.track_id ?? '-'} · bbox (${det.x1}, ${det.y1}) to (${det.x2}, ${det.y2})`; }
+async function runDetection() { const cameraId = prompt('Enter camera ID'); if (!cameraId) return; const statusBox = document.getElementById('aiStatus'); statusBox.innerText = 'Running detection...'; const result = await request(`/analytics/run?camera_id=${cameraId}`, { method: 'POST' }); const resultsList = document.getElementById('detectionResults'); resultsList.innerHTML=''; if (result.detections?.length) { result.detections.forEach(det => { const li = document.createElement('li'); li.className='rounded-2xl border border-sky-200 bg-white px-3 py-2 text-sm text-slate-700'; li.innerHTML=detectionResultText(det); resultsList.appendChild(li);}); statusBox.innerText='Detection completed.'; } else { statusBox.innerText='No detections found.'; } loadSummary(); }
 
-store_id:Number(document.getElementById("store_id").value),
-
-rtsp_url:document.getElementById("rtsp_url").value,
-
-location:document.getElementById("location").value,
-
-status:document.getElementById("status").value
-
-};
-
-await fetch(API+"/add",{
-
-method:"POST",
-
-headers:{
-
-"Content-Type":"application/json"
-
-},
-
-body:JSON.stringify(data)
-
-});
-
-alert("Camera Added Successfully");
-
-location.reload();
-
+function setDrawState(message, tone = 'bg-slate-200 text-slate-700') {
+  const drawState = document.getElementById('drawState');
+  if (!drawState) return;
+  drawState.className = `rounded-full px-3 py-1 text-sm font-semibold ${tone}`;
+  drawState.textContent = message;
 }
 
-
-
-async function deleteCamera(id){
-
-if(!confirm("Delete Camera?")) return;
-
-await fetch(API+"/"+id,{
-
-method:"DELETE"
-
-});
-
-location.reload();
-
+function beginZone(){
+  drawingTarget = { type: 'zone' };
+  document.getElementById('zoneForm').classList.remove('hidden');
+  document.getElementById('shelfForm').classList.add('hidden');
+  document.getElementById('zoneName').value = '';
+  document.getElementById('zoneCode').value = '';
+  clearRoi();
+  setDrawState('Drawing Zone ROI', 'bg-cyan-100 text-cyan-800');
 }
 
-
-
-
-async function editCamera(id){
-
-const name=prompt("Camera Name");
-
-const locationText=prompt("Location");
-
-const status=prompt("Status (Online/Offline)");
-
-await fetch(API+"/"+id,{
-
-method:"PUT",
-
-headers:{
-
-"Content-Type":"application/json"
-
-},
-
-body:JSON.stringify({
-
-camera_name:name,
-
-location:locationText,
-
-status:status
-
-})
-
-});
-
-alert("Camera Updated");
-
-location.reload();
-
+function beginShelf(zoneId, zoneName){
+  drawingTarget = { type: 'shelf', zoneId };
+  document.getElementById('shelfFormTitle').textContent = `New Shelf in ${zoneName}`;
+  document.getElementById('shelfForm').classList.remove('hidden');
+  document.getElementById('zoneForm').classList.add('hidden');
+  document.getElementById('shelfName').value = '';
+  document.getElementById('shelfId').value = '';
+  clearRoi();
+  setDrawState('Drawing Shelf ROI', 'bg-amber-100 text-amber-800');
 }
 
-async function loadSummary(){
-
-const response=await fetch("/analytics/summary");
-const summary=await response.json();
-
-const summaryBox=document.getElementById("summaryBox");
-summaryBox.innerHTML=`<strong>Total detections:</strong> ${summary.total_detections}<br><strong>Recent classes:</strong> ${summary.recent_classes.join(", ") || "None"}`;
-
+function editZone(zoneId){
+  const zone = zoneData.find(z => z.id === zoneId);
+  if (!zone) return;
+  drawingTarget = { type: 'zone', zoneId };
+  document.getElementById('zoneForm').classList.remove('hidden');
+  document.getElementById('shelfForm').classList.add('hidden');
+  document.getElementById('zoneName').value = zone.zone_name || '';
+  document.getElementById('zoneCode').value = zone.zone_code || '';
+  roiMode = zone.roi?.type || 'polygon';
+  roiPoints = (zone.roi?.points || []).slice();
+  drawRoi();
+  setDrawState('Editing Zone ROI — redraw or save as-is', 'bg-cyan-100 text-cyan-800');
 }
 
-async function runDetection(){
-
-const cameraId=prompt("Enter Camera ID to run detection:");
-
-if(!cameraId){ return; }
-
-const statusBox=document.getElementById("aiStatus");
-statusBox.innerText="Running detection...";
-
-const response=await fetch(`/analytics/run?camera_id=${cameraId}`, {method:"POST"});
-const result=await response.json();
-
-const resultsList=document.getElementById("detectionResults");
-resultsList.innerHTML="";
-
-if(result.detections && result.detections.length){
-
-result.detections.forEach(det=>{
-
-const li=document.createElement("li");
-li.className="bg-gray-50 border rounded p-3 text-sm";
-li.innerHTML=`<strong>${det.class_name}</strong> · confidence ${det.confidence} · bbox (${det.x1}, ${det.y1}) to (${det.x2}, ${det.y2})`;
-resultsList.appendChild(li);
-
-});
-
-statusBox.innerText=`Detection completed for camera ${cameraId}.`;
-
-}else{
-
-statusBox.innerText="No detections found.";
-
+function editShelf(zoneId, shelfId){
+  const zone = zoneData.find(z => z.id === zoneId);
+  const shelf = zone?.shelves?.find(s => s.id === shelfId);
+  if (!zone || !shelf) return;
+  drawingTarget = { type: 'shelf', zoneId, shelfId };
+  document.getElementById('shelfFormTitle').textContent = `Edit Shelf in ${zone.zone_name}`;
+  document.getElementById('shelfForm').classList.remove('hidden');
+  document.getElementById('zoneForm').classList.add('hidden');
+  document.getElementById('shelfName').value = shelf.shelf_name || '';
+  document.getElementById('shelfId').value = shelf.shelf_number || '';
+  roiMode = shelf.roi?.type || 'polygon';
+  roiPoints = (shelf.roi?.points || []).slice();
+  drawRoi();
+  setDrawState('Editing Shelf ROI — redraw or save as-is', 'bg-amber-100 text-amber-800');
 }
 
-loadSummary();
-
+async function deleteZone(id){
+  if (!confirm('Delete this zone and its shelf configuration?')) return;
+  await request(`${API}/${zoneCameraId}/zones/${id}`, { method: 'DELETE' });
+  await loadZones();
 }
 
+async function deleteZoneShelf(zoneId, shelfId){
+  if (!confirm('Delete shelf ROI?')) return;
+  await request(`${API}/${zoneCameraId}/zones/${zoneId}/shelves/${shelfId}`, { method: 'DELETE' });
+  await loadZones();
+}
+
+let zoneCameraId, roiMode='rectangle', roiPoints=[], dragStart=null, zoneData=[], drawingTarget=null, referenceFrame=null, referenceFrameUrl=null, hasReferenceVideo=false;
+const roiCanvas=document.getElementById('roiCanvas'), roiContext=roiCanvas.getContext('2d'), zoneFrame=document.getElementById('zoneFrame'), referencePlaceholder=document.getElementById('referencePlaceholder');
+const DEFAULT_FRAME_SIZE={width:1280,height:720};
+function setRoiMode(mode){roiMode=mode;clearRoi()} function clearRoi(){roiPoints=[];dragStart=null;drawRoi()}
+function canvasPoint(e){const r=roiCanvas.getBoundingClientRect();const width=zoneFrame.videoWidth||zoneFrame.naturalWidth||DEFAULT_FRAME_SIZE.width;const height=zoneFrame.videoHeight||zoneFrame.naturalHeight||DEFAULT_FRAME_SIZE.height;return{x:Math.round((e.clientX-r.left)*width/r.width),y:Math.round((e.clientY-r.top)*height/r.height)}}
+function resizeCanvas(){const width=zoneFrame.videoWidth||zoneFrame.naturalWidth||DEFAULT_FRAME_SIZE.width;const height=zoneFrame.videoHeight||zoneFrame.naturalHeight||DEFAULT_FRAME_SIZE.height;roiCanvas.width=width;roiCanvas.height=height;drawRoi()}
+function drawShape(roi,color='#22c55e'){const p=roi?.points||[];if(!p.length)return;roiContext.strokeStyle=color;roiContext.fillStyle=`${color}22`;roiContext.lineWidth=3;roiContext.beginPath();p.forEach((v,i)=>i?roiContext.lineTo(v.x,v.y):roiContext.moveTo(v.x,v.y));roiContext.closePath();roiContext.fill();roiContext.stroke()}
+function drawRoi(){roiContext.clearRect(0,0,roiCanvas.width,roiCanvas.height);zoneData.forEach(z=>{drawShape(z.roi,'#38bdf8');(z.shelves||[]).forEach(s=>drawShape(s.roi,'#f59e0b'))});if(roiPoints.length)drawShape({points:roiPoints},'#a855f7')}
+roiCanvas.addEventListener('mousedown',e=>{if(!drawingTarget)return;const p=canvasPoint(e);if(roiMode==='rectangle'){dragStart=p;roiPoints=[p,p,p,p]}else{roiPoints.push(p);drawRoi()}});roiCanvas.addEventListener('mousemove',e=>{if(roiMode!=='rectangle'||!dragStart)return;const p=canvasPoint(e);roiPoints=[dragStart,{x:p.x,y:dragStart.y},p,{x:dragStart.x,y:p.y}];drawRoi()});roiCanvas.addEventListener('mouseup',()=>dragStart=null);
+function showReferenceFrame(sourceUrl, fallbackMessage='No reference video is available for this camera.'){
+  const streamError=document.getElementById('streamError');
+  if (sourceUrl) {
+    zoneFrame.classList.remove('hidden');
+    referencePlaceholder.classList.add('hidden');
+    streamError.classList.add('hidden');
+    zoneFrame.src=sourceUrl;
+    zoneFrame.onload=resizeCanvas;
+    zoneFrame.onerror=()=>{
+      streamError.textContent=fallbackMessage;
+      streamError.classList.remove('hidden');
+      zoneFrame.classList.add('hidden');
+      referencePlaceholder.classList.remove('hidden');
+      zoneFrame.removeAttribute('src');
+      roiCanvas.width=DEFAULT_FRAME_SIZE.width;
+      roiCanvas.height=DEFAULT_FRAME_SIZE.height;
+      drawRoi();
+    };
+    return;
+  }
+  zoneFrame.classList.add('hidden');
+  zoneFrame.removeAttribute('src');
+  referencePlaceholder.classList.remove('hidden');
+  streamError.textContent=fallbackMessage;
+  streamError.classList.remove('hidden');
+  roiCanvas.width=DEFAULT_FRAME_SIZE.width;
+  roiCanvas.height=DEFAULT_FRAME_SIZE.height;
+  drawRoi();
+}
+function ensureReferenceFrameControls(){
+  referencePlaceholder.textContent='Load a frame from this camera\'s assigned recorded video before drawing zones and shelves.';
+  if(document.getElementById('referenceTimestamp'))return;
+  const controls=document.getElementById('drawState').parentElement;
+  const markup='<input id="referenceVideoFile" type="file" accept="video/mp4,video/x-msvideo,video/quicktime,video/x-matroska" class="hidden"/><button id="referenceVideoButton" type="button" onclick="document.getElementById(\'referenceVideoFile\').click()" class="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white"></button><label for="referenceTimestamp" class="text-sm font-semibold text-slate-700">Frame time (seconds)</label><input id="referenceTimestamp" type="number" min="0" step="0.1" value="0" class="w-24 rounded-xl border border-sky-200 px-3 py-2 text-sm"/><button type="button" onclick="loadReferenceFrame()" class="rounded-xl bg-sky-600 px-3 py-2 text-sm font-semibold text-white">Load Frame</button>';
+  controls.insertAdjacentHTML('afterbegin',markup);
+  document.getElementById('referenceVideoFile').addEventListener('change', uploadReferenceVideo);
+}
+function updateReferenceVideoControls(){document.getElementById('referenceVideoButton').textContent=hasReferenceVideo?'Change Reference Video':'Upload Reference Video';}
+async function openZoneModal(id,name){zoneCameraId=id;drawingTarget=null;referenceFrame=null;ensureReferenceFrameControls();document.getElementById('zoneCameraLabel').textContent=`${name} · Camera ${id}`;document.getElementById('zoneModal').classList.replace('hidden','flex');try{const camera=await request(`${API}/${id}`);hasReferenceVideo=Boolean(camera.video_path);}catch(error){hasReferenceVideo=false;}updateReferenceVideoControls();if(hasReferenceVideo)await loadReferenceFrame();else showReferenceFrame('','Upload a recorded reference video to begin.');await loadZones();}
+async function uploadReferenceVideo(event){const file=event.target.files?.[0];if(!file||!zoneCameraId)return;const formData=new FormData();formData.append('file',file);try{setDrawState('Uploading and assigning reference video...');const response=await fetch(`${API}/${zoneCameraId}/reference-video`,{method:'POST',headers:{Authorization:`Bearer ${token}`},body:formData});if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.detail||'Unable to upload reference video');}hasReferenceVideo=true;updateReferenceVideoControls();await loadReferenceFrame();await loadCameras();}catch(error){showReferenceFrame('',error.message);setDrawState('Reference video upload failed','bg-rose-100 text-rose-800');}finally{event.target.value='';}}
+async function loadReferenceFrame(){if(!zoneCameraId)return;const timestamp=Number(document.getElementById('referenceTimestamp').value||0);try{const response=await fetch(`${API}/${zoneCameraId}/reference-frame?timestamp_seconds=${encodeURIComponent(timestamp)}`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.detail||'Unable to load reference frame');}if(referenceFrameUrl)URL.revokeObjectURL(referenceFrameUrl);referenceFrameUrl=URL.createObjectURL(await response.blob());referenceFrame={width:Number(response.headers.get('X-Reference-Frame-Width')),height:Number(response.headers.get('X-Reference-Frame-Height'))};showReferenceFrame(referenceFrameUrl,'Unable to display the selected frame.');setDrawState('Draw a zone or shelf on the selected recorded-video frame');}catch(error){referenceFrame=null;showReferenceFrame('',error.message);setDrawState('Load a recorded-video frame before drawing','bg-rose-100 text-rose-800');}}
+function closeZoneModal(){document.getElementById('zoneModal').classList.replace('flex','hidden');zoneFrame.classList.add('hidden');zoneFrame.removeAttribute('src');referencePlaceholder.classList.remove('hidden');if(referenceFrameUrl)URL.revokeObjectURL(referenceFrameUrl);referenceFrameUrl=null;referenceFrame=null;drawingTarget=null;clearRoi();}
+async function loadZones(){const result=await request(`${API}/${zoneCameraId}/zones`);zoneData=result.zones||[];drawRoi();document.getElementById('zoneHierarchy').innerHTML=zoneData.map(zone=>`<article class="rounded-2xl border border-sky-200 bg-white p-3 text-sm"><div class="flex justify-between gap-2"><div><b>Zone: ${zone.zone_name}</b><p class="text-xs text-slate-500">Code: ${zone.zone_code||'—'} · ID: ${zone.id}</p></div><div class="flex gap-2"><button onclick="editZone(${zone.id})" class="text-cyan-700">Edit</button><button onclick="deleteZone(${zone.id})" class="text-rose-600">Delete</button></div></div><div class="mt-3 space-y-2 border-l-2 border-amber-200 pl-3">${(zone.shelves||[]).map(shelf=>`<div class="flex justify-between gap-2"><span>↳ Shelf: <b>${shelf.shelf_name}</b> <small>(${shelf.shelf_number})</small></span><span class="flex gap-2"><button onclick="editShelf(${zone.id},${shelf.id})" class="text-cyan-700">Edit</button><button onclick="deleteZoneShelf(${zone.id},${shelf.id})" class="text-rose-600">×</button></span></div>`).join('')||'<span class="text-slate-400">No shelves configured</span>'}</div><button onclick="beginShelf(${zone.id}, '${zone.zone_name.replace(/'/g,"\\'")}')" class="mt-3 w-full rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 font-semibold text-amber-800">+ Add Shelf</button></article>`).join('')||'<p class="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No zones yet. Use “+ Add Zone” to configure this camera.</p>';} 
+async function saveZone(){const zone_name=document.getElementById('zoneName').value.trim();if(!referenceFrame)return alert('Load a recorded-video reference frame before saving an ROI.');if(!zone_name||roiPoints.length<3)return alert('Enter Zone Name and draw its ROI.');const body=JSON.stringify({zone_name,zone_code:document.getElementById('zoneCode').value.trim()||null,roi:{type:roiMode,points:roiPoints,reference_frame:referenceFrame}});if(drawingTarget?.zoneId){await request(`${API}/${zoneCameraId}/zones/${drawingTarget.zoneId}`,{method:'PUT',body});}else{await request(`${API}/${zoneCameraId}/zones`,{method:'POST',body});}document.getElementById('zoneName').value='';document.getElementById('zoneCode').value='';document.getElementById('zoneForm').classList.add('hidden');drawingTarget=null;clearRoi();setDrawState('Zone saved. Add another zone or select “+ Add Shelf”.','bg-emerald-100 text-emerald-800');await loadZones();}
+async function saveShelf(){if(!drawingTarget?.zoneId)return;const shelf_name=document.getElementById('shelfName').value.trim(),shelf_number=document.getElementById('shelfId').value.trim();if(!referenceFrame)return alert('Load a recorded-video reference frame before saving an ROI.');if(!shelf_name||!shelf_number||roiPoints.length<3)return alert('Enter Shelf Name, Shelf ID, and draw its ROI.');const body=JSON.stringify({shelf_name,shelf_number,roi:{type:roiMode,points:roiPoints,reference_frame:referenceFrame}});if(drawingTarget.shelfId){await request(`${API}/${zoneCameraId}/zones/${drawingTarget.zoneId}/shelves/${drawingTarget.shelfId}`,{method:'PUT',body});}else{await request(`${API}/${zoneCameraId}/zones/${drawingTarget.zoneId}/shelves`,{method:'POST',body});}document.getElementById('shelfName').value='';document.getElementById('shelfId').value='';document.getElementById('shelfForm').classList.add('hidden');drawingTarget=null;clearRoi();setDrawState('Shelf saved.','bg-emerald-100 text-emerald-800');await loadZones();}
+loadCameras(); loadSummary();
 </script>
-
 </body>
 </html>

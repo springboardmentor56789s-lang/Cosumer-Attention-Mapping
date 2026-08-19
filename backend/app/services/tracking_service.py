@@ -3,9 +3,31 @@ Tracking service for multi-object tracking and trajectory analysis.
 Manages tracking across frames and provides trajectory analytics.
 """
 
+from types import SimpleNamespace
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
-from app.ai.tracker import CentroidTracker
+
+try:
+    import numpy as np
+    from ultralytics.trackers.byte_tracker import BYTETracker
+except ImportError:  # pragma: no cover - optional dependency
+    np = None
+    BYTETracker = None
+
+
+class _ByteTrackDetections:
+    """Minimal YOLO-style detection batch accepted by Ultralytics BYTETracker."""
+
+    def __init__(self, xywh, confidence, classes):
+        self.xywh = xywh
+        self.conf = confidence
+        self.cls = classes
+
+    def __len__(self) -> int:
+        return len(self.conf)
+
+    def __getitem__(self, index):
+        return _ByteTrackDetections(self.xywh[index], self.conf[index], self.cls[index])
 
 
 class TrackingService:
@@ -22,29 +44,94 @@ class TrackingService:
             max_distance: Maximum distance for object matching
             max_disappeared: Max frames before removing object
         """
-        self.tracker = CentroidTracker(max_distance=max_distance, 
-                                      max_disappeared=max_disappeared)
+        self._tracker_config = {
+            "track_high_thresh": 0.25,
+            "track_low_thresh": 0.1,
+            "new_track_thresh": 0.25,
+            "track_buffer": max_disappeared,
+            "match_thresh": 0.8,
+            "fuse_score": True,
+        }
+        self.tracker = self._create_tracker()
         self.frame_count = 0
         self.trajectory_data = {}
         self.attention_metrics = {}
         self.start_time = datetime.now()
 
-    def update_tracks(self, detections: List[Dict[str, float]]) -> Dict[int, Dict[str, Any]]:
+    def update_tracks(
+        self,
+        detections: List[Dict[str, float]],
+        frame: Optional[Any] = None,
+    ) -> Dict[int, Dict[str, Any]]:
         """
         Update tracks with new detections.
         
         Args:
             detections: List of detection dictionaries with bounding boxes
+            frame: Current OpenCV frame (kept for API compatibility)
             
         Returns:
             Tracking results for current frame
         """
+        if self.tracker is None or np is None:
+            raise RuntimeError(
+                "ByteTrack is unavailable. Install the project's ultralytics dependency."
+            )
+
         self.frame_count += 1
         
-        tracked_objects = self.tracker.update(detections)
+        boxes = []
+        confidences = []
+        classes = []
+        for detection in detections:
+            x1 = detection.get("x1")
+            y1 = detection.get("y1")
+            x2 = detection.get("x2")
+            y2 = detection.get("y2")
+            if None in (x1, y1, x2, y2):
+                continue
+
+            width = float(x2) - float(x1)
+            height = float(y2) - float(y1)
+            if width <= 0 or height <= 0:
+                continue
+
+            boxes.append([
+                float(x1) + (width / 2.0),
+                float(y1) + (height / 2.0),
+                width,
+                height,
+            ])
+            confidences.append(float(detection.get("confidence", 0.0) or 0.0))
+            classes.append(0)
+
+        detection_batch = _ByteTrackDetections(
+            np.asarray(boxes, dtype=np.float32).reshape(-1, 4),
+            np.asarray(confidences, dtype=np.float32),
+            np.asarray(classes, dtype=np.float32),
+        )
+        tracks = self.tracker.update(detection_batch)
+
+        normalized_objects: Dict[int, Dict[str, Any]] = {}
+        for track in tracks:
+            left, top, right, bottom, track_id = track[:5]
+            obj_id = int(track_id)
+            centroid = ((left + right) / 2.0, (top + bottom) / 2.0)
+            normalized_objects[obj_id] = {
+                "id": obj_id,
+                "centroid": centroid,
+                "disappeared": 0,
+                "status": "active",
+                "bbox": {
+                    "x1": int(left),
+                    "y1": int(top),
+                    "x2": int(right),
+                    "y2": int(bottom),
+                },
+            }
         
         # Store trajectory data
-        for obj_id, obj_info in tracked_objects.items():
+        for obj_id, obj_info in normalized_objects.items():
             if obj_id not in self.trajectory_data:
                 self.trajectory_data[obj_id] = {
                     "id": obj_id,
@@ -61,8 +148,8 @@ class TrackingService:
         return {
             "frame_number": self.frame_count,
             "timestamp": datetime.now().isoformat(),
-            "tracked_objects": tracked_objects,
-            "total_tracked": len(tracked_objects)
+            "tracked_objects": normalized_objects,
+            "total_tracked": len(normalized_objects)
         }
 
     def get_trajectory(self, object_id: int) -> Dict[str, Any]:
@@ -184,11 +271,16 @@ class TrackingService:
 
     def reset(self) -> None:
         """Reset tracking state."""
-        self.tracker.reset()
+        self.tracker = self._create_tracker()
         self.frame_count = 0
         self.trajectory_data.clear()
         self.attention_metrics.clear()
         self.start_time = datetime.now()
+
+    def _create_tracker(self):
+        if BYTETracker is None or np is None:
+            return None
+        return BYTETracker(SimpleNamespace(**self._tracker_config))
 
     def _calculate_path_length(self, centroids: List[Tuple[float, float]]) -> float:
         """Calculate total distance traveled."""

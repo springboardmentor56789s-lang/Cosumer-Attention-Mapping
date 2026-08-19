@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Video Attention Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --ink: #1f2740;
+            --muted: #6f7a93;
+            --line: #e5eaf2;
+            --bg: #f5f7fc;
+            --card: #ffffff;
+            --brand: #205edb;
+            --ok: #2a9c6b;
+            --warn: #d56f32;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 10% 10%, #f0f4ff 0%, #f5f7fc 45%, #eef3ff 100%);
+            color: var(--ink);
+            font: 14px "Segoe UI", Tahoma, sans-serif;
+        }
+        .page {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 28px 4vw 36px;
+        }
+        .head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+        .eyebrow {
+            margin: 0 0 8px;
+            font-size: 11px;
+            letter-spacing: 1.3px;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+        h1 {
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: -1px;
+        }
+        .sub {
+            margin: 9px 0 0;
+            color: var(--muted);
+        }
+        .back {
+            display: inline-block;
+            text-decoration: none;
+            color: #244d9f;
+            border: 1px solid #cad8f4;
+            background: #eef4ff;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 14px;
+        }
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 0 8px 26px rgba(19, 28, 49, 0.06);
+            padding: 18px;
+        }
+        .panel h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .hint {
+            color: var(--muted);
+            margin: 8px 0 0;
+            line-height: 1.55;
+            font-size: 12px;
+        }
+        .form-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .field {
+            display: grid;
+            gap: 6px;
+        }
+        .field label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #4c5874;
+            letter-spacing: .4px;
+        }
+        .field input, .field select {
+            width: 100%;
+            border: 1px solid #d7dfec;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 13px;
+            color: var(--ink);
+            background: #fff;
+        }
+        .field input:focus, .field select:focus {
+            outline: 2px solid #cae1ff;
+            border-color: #6da5ff;
+        }
+        .primary {
+            border: 0;
+            border-radius: 9px;
+            padding: 11px 12px;
+            background: linear-gradient(135deg, #2f73ff, #1e56c3);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .primary:disabled {
+            opacity: .6;
+            cursor: wait;
+        }
+        .status {
+            margin-top: 12px;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 12px;
+            display: none;
+        }
+        .status.show { display: block; }
+        .status.ok { background: #e9f8f1; color: #247450; }
+        .status.err { background: #fff1f2; color: #ac3f4a; }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .metric {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 12px;
+            background: #fbfdff;
+        }
+        .metric p {
+            margin: 0;
+            color: #7f89a0;
+            font-size: 11px;
+        }
+        .metric h3 {
+            margin: 8px 0 0;
+            font-size: 24px;
+            letter-spacing: -.7px;
+        }
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        .chart-card {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 12px;
+            background: #fff;
+        }
+        .chart-card h3 {
+            margin: 0;
+            font-size: 14px;
+        }
+        .chart-wrap {
+            height: 300px;
+            margin-top: 10px;
+        }
+        @media (max-width: 980px) {
+            .layout { grid-template-columns: 1fr; }
+            .metrics { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 520px) {
+            h1 { font-size: 27px; }
+            .metrics { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="head">
+            <div>
+                <p class="eyebrow">Video Analytics</p>
+                <h1>Upload Store Video and Track Attention</h1>
+                <p class="sub">Upload a retail footage clip (for example DMart aisle purchase flow) and generate attention score analytics instantly.</p>
+            </div>
+            <a class="back" href="/admin/dashboard">Back to dashboard</a>
+        </header>
+
+        <section class="layout">
+            <aside class="panel">
+                <h2>Run Analysis</h2>
+                <p class="hint">Select a store, upload the video, and run AI processing to calculate attention score, dwell time, and activity trends.</p>
+
+                <form id="videoForm" class="form-grid">
+                    <div class="field">
+                        <label for="storeSelect">Store</label>
+                        <select id="storeSelect" required></select>
+                    </div>
+                    <div class="field">
+                        <label for="cameraSelect">Camera</label>
+                        <select id="cameraSelect" required disabled>
+                            <option value="">Select a store first</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="videoFile">Store video file</label>
+                        <input id="videoFile" type="file" accept=".mp4,.avi,.mov,.mkv" required>
+                    </div>
+                    <div class="field">
+                        <label for="maxFrames">Max frames to process</label>
+                        <input id="maxFrames" type="number" min="30" max="5000" value="300" required>
+                    </div>
+                    <div class="field">
+                        <label for="confThreshold">Confidence threshold (0.01 - 1.00)</label>
+                        <input id="confThreshold" type="number" step="0.01" min="0.01" max="1" value="0.25" required>
+                    </div>
+                    <button id="runBtn" class="primary" type="submit">Upload and Analyze</button>
+                </form>
+
+                <div id="statusBox" class="status"></div>
+            </aside>
+
+            <section class="panel">
+                <div class="metrics">
+                    <article class="metric"><p>Processed Frames</p><h3 id="mProcessed">0</h3></article>
+                    <article class="metric"><p>Analytics Rows</p><h3 id="mRows">0</h3></article>
+                    <article class="metric"><p>Avg Attention</p><h3 id="mAttention">0%</h3></article>
+                    <article class="metric"><p>Avg Dwell Time</p><h3 id="mDwell">0</h3></article>
+                </div>
+
+                <div class="charts">
+                    <article class="chart-card">
+                        <h3>Attention Score by Detection Event</h3>
+                        <div class="chart-wrap"><canvas id="attentionChart"></canvas></div>
+                    </article>
+                    <article class="chart-card">
+                        <h3>Dwell Time by Detection Event</h3>
+                        <div class="chart-wrap"><canvas id="dwellChart"></canvas></div>
+                    </article>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="/static/js/video_analytics_upload.js"></script>
+</body>
+</html>

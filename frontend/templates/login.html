@@ -40,7 +40,7 @@
             </section>
 
         
-                <form id="loginForm" method="POST" action="/login" class="rounded-[2rem] border border-slate-200/70 bg-white/80 p-8 shadow-2xl shadow-slate-200/70 backdrop-blur-xl transition duration-500 hover:-translate-y-1">
+                <form id="loginForm" method="POST" action="/api/login" class="rounded-[2rem] border border-slate-200/70 bg-white/80 p-8 shadow-2xl shadow-slate-200/70 backdrop-blur-xl transition duration-500 hover:-translate-y-1">
                 <div class="mb-10 text-center">
                     <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-xl shadow-sky-300/30">
                     <i class="fas fa-lock text-2xl"></i>
@@ -65,11 +65,15 @@
                     <input id="password" type="password" name="password" placeholder="Enter your password"
                         class="w-full rounded-[1.75rem] border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900 placeholder-slate-400 shadow-sm shadow-slate-100 outline-none transition duration-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-200/80">
                     </div>
+
                     <button type="submit"
+                    id="emailLoginBtn"
                     class="w-full rounded-full bg-gradient-to-r from-sky-500 via-cyan-400 to-slate-900 px-5 py-4 text-base font-semibold text-white shadow-xl shadow-cyan-300/30 transition duration-300 hover:-translate-y-0.5 hover:shadow-cyan-400/40">
                     <i class="fas fa-sign-in-alt mr-2"></i>Sign In
                     </button>
-                    <a href="/api/auth/google/login"
+                    <button type="button"
+                        id="googleLoginBtn"
+                        data-google-url="/api/auth/google/login"
                         class="flex w-full items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:bg-slate-50">
                         <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path fill="#4285F4" d="M21.6 12.23c0-.82-.07-1.6-.2-2.35H12v4.45h5.37a4.58 4.58 0 0 1-1.99 3.01v2.5h3.22c1.89-1.74 2.98-4.3 2.98-7.61z"/>
@@ -78,7 +82,8 @@
                             <path fill="#EA4335" d="M12 6.08c1.47 0 2.8.5 3.84 1.49l2.88-2.88A9.96 9.96 0 0 0 12 2a10 10 0 0 0-8.92 5.52l3.31 2.58C7.18 7.84 9.39 6.08 12 6.08z"/>
                         </svg>
                         Continue with Google
-                    </a>
+                    </button>
+                    <a href="/api/auth/google/login" class="hidden" aria-hidden="true"></a>
                     <div class="mt-6 flex flex-col gap-3 text-center text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
                     <a href="/forgot-password" class="inline-flex items-center justify-center gap-2 text-sky-600 transition duration-200 hover:text-sky-800">
                         <i class="fas fa-question-circle text-xs"></i>Forgot your password?

@@ -52,7 +52,7 @@ class RetailAttentionAnalyzer:
         
         # Step 2: Tracking
         print("\n2️⃣  Object Tracking")
-        tracking_result = self.tracker.update_tracks(detections['detections'])
+        tracking_result = self.tracker.update_tracks(detections['detections'], frame=frame)
         print(f"   ✓ Tracked {tracking_result['total_tracked']} objects")
         print(f"   Frame number: {tracking_result['frame_number']}")
         

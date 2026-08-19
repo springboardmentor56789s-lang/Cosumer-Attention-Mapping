@@ -9,6 +9,24 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
+function getCanvasContext(id) {
+    const canvas = document.getElementById(id);
+    if (!canvas || typeof canvas.getContext !== "function") {
+        return null;
+    }
+    return canvas.getContext("2d");
+}
+
+function destroyCanvasChart(canvas, chartInstance) {
+    if (chartInstance && typeof chartInstance.destroy === "function") chartInstance.destroy();
+    if (typeof Chart !== "undefined" && typeof Chart.getChart === "function" && canvas) {
+        const existing = Chart.getChart(canvas);
+        if (existing && existing !== chartInstance) existing.destroy();
+    }
+}
+
+let shelfChart;
+
 document.addEventListener("DOMContentLoaded", async () => {
     const fullName = localStorage.getItem("full_name") || "Store Manager";
     if (fullName) {
@@ -27,7 +45,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             throw new Error("Unable to load store dashboard");
         }
 
-        const data = await response.json();
+        const payload = await response.json();
+        const data = payload && typeof payload === "object" ? payload : {};
 
         setText("storeName", `${data.store_name} • Store operations`);
         setText("todaysVisitors", data.todays_visitors);
@@ -39,10 +58,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         setText("managerName", data.manager_name || "Unassigned");
 
         const table = document.getElementById("shelfTable");
+        const shelfStats = Array.isArray(data.shelf_stats)
+            ? data.shelf_stats.filter((item) => item)
+            : [];
+        if (!table) return;
         table.innerHTML = "";
 
-        if (data.shelf_stats && data.shelf_stats.length) {
-            data.shelf_stats.forEach((item) => {
+        if (shelfStats.length) {
+            shelfStats.forEach((item) => {
                 table.innerHTML += `
                     <tr class="border-b hover:bg-slate-50">
                         <td class="p-3 font-medium">${item.name}</td>
@@ -55,11 +78,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             table.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-500">No shelf metrics available yet.</td></tr>`;
         }
 
-        if (data.shelf_stats && data.shelf_stats.length) {
-            const labels = data.shelf_stats.map((item) => item.name);
-            const values = data.shelf_stats.map((item) => item.engagement_score);
+        if (shelfStats.length) {
+            const labels = shelfStats.map((item) => item.name);
+            const values = shelfStats.map((item) => item.engagement_score);
+            const shelfCanvas = document.getElementById("shelfChart");
+            const shelfCtx = getCanvasContext("shelfChart");
 
-            new Chart(document.getElementById("shelfChart"), {
+            if (typeof Chart !== "undefined" && shelfCtx) {
+                destroyCanvasChart(shelfCanvas, shelfChart);
+                shelfChart = null;
+
+                shelfChart = new Chart(shelfCtx, {
                 type: "bar",
                 data: {
                     labels,
@@ -75,7 +104,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     plugins: { legend: { display: false } },
                     scales: { y: { beginAtZero: true, max: 100 } }
                 }
-            });
+                });
+            }
         }
     } catch (error) {
         console.error(error);

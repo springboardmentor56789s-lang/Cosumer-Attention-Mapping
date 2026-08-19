@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Store Video Upload | Attention Analytics</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<style>
+		:root {
+			--bg: #f3f6fb;
+			--surface: #ffffff;
+			--surface-soft: #f9fbff;
+			--ink: #1f2a3d;
+			--muted: #6a7488;
+			--line: #dbe3f0;
+			--brand: #0b66e4;
+			--brand-2: #00a8b8;
+			--accent: #ff8c42;
+			--ok: #198754;
+			--err: #b42318;
+			--shadow: 0 18px 34px rgba(21, 38, 67, 0.09);
+			--radius-lg: 18px;
+			--radius-md: 12px;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			color: var(--ink);
+			font-family: "Manrope", "Segoe UI", Tahoma, sans-serif;
+			background:
+				radial-gradient(circle at 2% 15%, rgba(11, 102, 228, 0.14), transparent 40%),
+				radial-gradient(circle at 95% 85%, rgba(0, 168, 184, 0.16), transparent 44%),
+				linear-gradient(160deg, #f4f8ff 0%, #f3f6fb 45%, #edf4ff 100%);
+		}
+
+		.page {
+			max-width: 1260px;
+			margin: 0 auto;
+			padding: 28px 20px 36px;
+		}
+
+		.hero {
+			position: relative;
+			overflow: hidden;
+			border: 1px solid rgba(255, 255, 255, 0.72);
+			border-radius: calc(var(--radius-lg) + 4px);
+			background: linear-gradient(135deg, #ffffff 0%, #f8fbff 58%, #eef6ff 100%);
+			box-shadow: var(--shadow);
+			padding: 24px;
+			margin-bottom: 18px;
+			animation: reveal .45s ease;
+		}
+
+		.hero::after {
+			content: "";
+			position: absolute;
+			right: -70px;
+			top: -70px;
+			width: 240px;
+			height: 240px;
+			border-radius: 50%;
+			background: radial-gradient(circle, rgba(11, 102, 228, 0.16), transparent 70%);
+			pointer-events: none;
+		}
+
+		.hero-top {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			gap: 16px;
+		}
+
+		.eyebrow {
+			margin: 0 0 8px;
+			font: 700 11px/1 "Space Grotesk", sans-serif;
+			letter-spacing: 0.16em;
+			text-transform: uppercase;
+			color: #0b66e4;
+		}
+
+		h1 {
+			margin: 0;
+			font: 700 clamp(1.6rem, 3vw, 2.3rem)/1.15 "Space Grotesk", sans-serif;
+			letter-spacing: -0.02em;
+		}
+
+		.sub {
+			margin: 8px 0 0;
+			color: var(--muted);
+			max-width: 730px;
+			line-height: 1.55;
+			font-size: 0.95rem;
+		}
+
+		.chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			border-radius: 999px;
+			border: 1px solid #d8e6ff;
+			background: #f1f7ff;
+			color: #1f4d9d;
+			font: 600 0.78rem/1 "Space Grotesk", sans-serif;
+			padding: 9px 12px;
+			white-space: nowrap;
+		}
+
+		.layout {
+			display: grid;
+			grid-template-columns: minmax(320px, 380px) 1fr;
+			gap: 16px;
+		}
+
+		.card {
+			border-radius: var(--radius-lg);
+			border: 1px solid var(--line);
+			background: var(--surface);
+			box-shadow: var(--shadow);
+			padding: 18px;
+			animation: reveal .5s ease;
+		}
+
+		.card h2 {
+			margin: 0;
+			font: 700 1.08rem/1.2 "Space Grotesk", sans-serif;
+		}
+
+		.hint {
+			margin: 8px 0 0;
+			color: var(--muted);
+			font-size: 0.86rem;
+			line-height: 1.5;
+		}
+
+		.form {
+			margin-top: 14px;
+			display: grid;
+			gap: 11px;
+		}
+
+		.field {
+			display: grid;
+			gap: 6px;
+		}
+
+		.field label {
+			font: 700 0.76rem/1.2 "Space Grotesk", sans-serif;
+			letter-spacing: 0.03em;
+			color: #4b5a75;
+		}
+
+		.control {
+			width: 100%;
+			border: 1px solid #d5deed;
+			background: #fff;
+			border-radius: 10px;
+			padding: 10px 11px;
+			color: var(--ink);
+			font: 500 0.9rem/1.3 "Manrope", sans-serif;
+			transition: border-color .2s ease, box-shadow .2s ease;
+		}
+
+		.control:focus {
+			border-color: #6ea7f5;
+			box-shadow: 0 0 0 3px rgba(11, 102, 228, 0.12);
+			outline: 0;
+		}
+
+		.dropzone {
+			position: relative;
+			border: 1.5px dashed #9cb9e7;
+			border-radius: 12px;
+			background: linear-gradient(180deg, #f7fbff, #f2f8ff);
+			padding: 16px;
+			text-align: center;
+			transition: all .2s ease;
+		}
+
+		.dropzone.drag {
+			border-color: #0b66e4;
+			background: #eaf3ff;
+			transform: translateY(-1px);
+		}
+
+		.dropzone p {
+			margin: 0;
+			color: #4f6487;
+			font-size: 0.86rem;
+		}
+
+		.dropzone .pick {
+			margin-top: 8px;
+			display: inline-block;
+			font: 700 0.83rem/1 "Space Grotesk", sans-serif;
+			color: #0b66e4;
+		}
+
+		.dropzone input {
+			position: absolute;
+			inset: 0;
+			opacity: 0;
+			cursor: pointer;
+		}
+
+		.filename {
+			margin-top: 8px;
+			color: #335484;
+			font-size: 0.8rem;
+			word-break: break-word;
+		}
+
+		.btn {
+			border: 0;
+			border-radius: 10px;
+			padding: 11px 13px;
+			font: 700 0.88rem/1 "Space Grotesk", sans-serif;
+			letter-spacing: 0.02em;
+			cursor: pointer;
+			transition: transform .15s ease, filter .2s ease;
+		}
+
+		.btn:hover {
+			transform: translateY(-1px);
+			filter: brightness(1.02);
+		}
+
+		.btn:disabled {
+			cursor: wait;
+			opacity: 0.68;
+			transform: none;
+		}
+
+		.btn-primary {
+			background: linear-gradient(135deg, var(--brand), #118be4);
+			color: #fff;
+		}
+
+		.btn-link {
+			display: inline-flex;
+			justify-content: center;
+			align-items: center;
+			text-decoration: none;
+			background: #ecf4ff;
+			color: #1d4f9f;
+			border: 1px solid #cee0ff;
+			margin-top: 8px;
+		}
+
+		.status {
+			display: none;
+			margin-top: 9px;
+			border-radius: 10px;
+			padding: 9px 11px;
+			font-size: 0.83rem;
+			line-height: 1.45;
+		}
+
+		.status.show {
+			display: block;
+			animation: pop .22s ease;
+		}
+
+		.status.ok {
+			border: 1px solid #bce6d0;
+			color: #0f6a40;
+			background: #edfaf3;
+		}
+
+		.status.err {
+			border: 1px solid #f2c2c0;
+			color: #8f2321;
+			background: #fff3f2;
+		}
+
+		.right-col {
+			display: grid;
+			gap: 12px;
+		}
+
+		.metrics {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(120px, 1fr));
+			gap: 10px;
+		}
+
+		.metric {
+			border-radius: var(--radius-md);
+			border: 1px solid var(--line);
+			background: var(--surface-soft);
+			padding: 12px;
+		}
+
+		.metric p {
+			margin: 0;
+			color: #6b7891;
+			font: 700 0.68rem/1.3 "Space Grotesk", sans-serif;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+
+		.metric h3 {
+			margin: 9px 0 0;
+			font: 700 clamp(1.2rem, 2.6vw, 1.7rem)/1 "Space Grotesk", sans-serif;
+			letter-spacing: -0.02em;
+		}
+
+		.panel {
+			border-radius: var(--radius-md);
+			border: 1px solid var(--line);
+			background: #fff;
+			padding: 13px;
+		}
+
+		.panel h3 {
+			margin: 0;
+			font: 700 0.9rem/1.2 "Space Grotesk", sans-serif;
+		}
+
+		.chart-wrap {
+			margin-top: 10px;
+			height: 290px;
+		}
+
+		.video-wrap {
+			margin-top: 10px;
+			border: 1px solid var(--line);
+			border-radius: 10px;
+			overflow: hidden;
+			background: #0f172a;
+		}
+
+		.video-wrap video {
+			display: block;
+			width: 100%;
+			height: auto;
+			max-height: 360px;
+			background: #000;
+		}
+
+		.video-placeholder {
+			padding: 16px;
+			font-size: 0.85rem;
+			color: #5f6f8f;
+			background: #f7faff;
+		}
+
+		.skeleton {
+			display: inline-block;
+			width: 100%;
+			height: 10px;
+			border-radius: 999px;
+			background: linear-gradient(90deg, #eef3fb 10%, #e2eafa 35%, #eef3fb 60%);
+			background-size: 200% 100%;
+			animation: shimmer 1.4s linear infinite;
+		}
+
+		@keyframes reveal {
+			from {
+				opacity: 0;
+				transform: translateY(8px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		@keyframes pop {
+			from {
+				opacity: 0;
+				transform: translateY(4px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		@keyframes shimmer {
+			0% { background-position: 100% 0; }
+			100% { background-position: -100% 0; }
+		}
+
+		@media (max-width: 1080px) {
+			.layout {
+				grid-template-columns: 1fr;
+			}
+
+			.metrics {
+				grid-template-columns: repeat(2, minmax(140px, 1fr));
+			}
+		}
+
+		@media (max-width: 560px) {
+			.page {
+				padding: 16px 14px 24px;
+			}
+
+			.hero {
+				padding: 16px;
+			}
+
+			.hero-top {
+				flex-direction: column;
+				align-items: flex-start;
+			}
+
+			.metrics {
+				grid-template-columns: 1fr;
+			}
+
+			.chart-wrap {
+				height: 260px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main class="page">
+		<section class="hero">
+			<div class="hero-top">
+				<div>
+					<p class="eyebrow">Retail Video Intelligence</p>
+					<h1>Upload In-Store Video and Generate Attention Insights</h1>
+					<p class="sub">Analyze shopper behavior from DMart-like aisle footage. Get attention score, dwell trends, and processing metrics in one professional analytics view.</p>
+				</div>
+				<div class="chip">AI Pipeline + Live Charts</div>
+			</div>
+		</section>
+
+		<section class="layout">
+			<aside class="card">
+				<h2>Video Analysis Input</h2>
+				<p class="hint">Choose store details and upload one camera video clip. The backend will process frames and produce attention analytics.</p>
+
+				<form id="videoForm" class="form">
+					<div class="field">
+						<label for="storeId">Store ID</label>
+						<input id="storeId" class="control" type="number" min="1" value="1" required>
+					</div>
+
+					<div class="field">
+						<label for="cameraSelect">Camera</label>
+						<select id="cameraSelect" class="control" required disabled>
+							<option value="">Select a store first</option>
+						</select>
+					</div>
+
+					<div class="field">
+						<label for="maxFrames">Max Frames</label>
+						<input id="maxFrames" class="control" type="number" min="30" max="5000" value="300" required>
+					</div>
+
+					<div class="field">
+						<label for="confThreshold">Confidence Threshold</label>
+						<input id="confThreshold" class="control" type="number" min="0.01" max="1" step="0.01" value="0.25" required>
+					</div>
+
+					<div class="field">
+						<label>Video File</label>
+						<label id="dropzone" class="dropzone">
+							<p>Drag and drop a file here, or click to browse</p>
+							<span class="pick">MP4, AVI, MOV, MKV</span>
+							<input id="videoFile" type="file" accept=".mp4,.avi,.mov,.mkv" required>
+						</label>
+						<div id="fileName" class="filename">No file selected.</div>
+					</div>
+
+					<button id="submitBtn" class="btn btn-primary" type="submit">Upload and Analyze</button>
+					<a class="btn btn-link" href="/reports">Back to Reports</a>
+					
+					
+				</form>
+
+				<div id="status" class="status"></div>
+			</aside>
+
+			<section class="right-col">
+				<article class="card">
+					<div class="metrics">
+						<div class="metric">
+							<p>Processed Frames</p>
+							<h3 id="processedFrames">0</h3>
+						</div>
+						<div class="metric">
+							<p>Analytics Records</p>
+							<h3 id="records">0</h3>
+						</div>
+						<div class="metric">
+							<p>Avg Attention</p>
+							<h3 id="avgAttention">0.0%</h3>
+						</div>
+						<div class="metric">
+							<p>Avg Dwell Time</p>
+							<h3 id="avgDwell">0.00</h3>
+						</div>
+					</div>
+				</article>
+
+				<article class="card">
+					<div class="panel" style="margin-top: 12px;">
+						<h3>Uploaded Video Preview</h3>
+						<div class="video-wrap">
+							<video id="uploadedVideo" controls playsinline preload="metadata"></video>
+						</div>
+						<div id="videoPlaceholder" class="video-placeholder">Select a video to preview. After analysis, the uploaded server copy will be shown here.</div>
+					</div>
+					
+				</article>
+			</section>
+		</section>
+	</main>
+
+	<script>
+		const token = localStorage.getItem("access_token") || "";
+
+		const els = {
+			form: document.getElementById("videoForm"),
+			storeId: document.getElementById("storeId"),
+			cameraSelect: document.getElementById("cameraSelect"),
+			maxFrames: document.getElementById("maxFrames"),
+			confThreshold: document.getElementById("confThreshold"),
+			videoFile: document.getElementById("videoFile"),
+			dropzone: document.getElementById("dropzone"),
+			fileName: document.getElementById("fileName"),
+			status: document.getElementById("status"),
+			submitBtn: document.getElementById("submitBtn"),
+			processedFrames: document.getElementById("processedFrames"),
+			records: document.getElementById("records"),
+			avgAttention: document.getElementById("avgAttention"),
+			avgDwell: document.getElementById("avgDwell"),
+			uploadedVideo: document.getElementById("uploadedVideo"),
+			videoPlaceholder: document.getElementById("videoPlaceholder")
+		};
+
+		let attentionChart;
+		let dwellChart;
+		let localPreviewUrl = "";
+
+		function getCanvasContext(id) {
+			const canvas = document.getElementById(id);
+			if (!canvas || typeof canvas.getContext !== "function") {
+				return null;
+			}
+			return canvas.getContext("2d");
+		}
+
+		function showStatus(message, kind = "ok") {
+			els.status.className = `status show ${kind}`;
+			els.status.textContent = message;
+		}
+
+		function safe(value, fallback = 0) {
+			const n = Number(value);
+			return Number.isFinite(n) ? n : fallback;
+		}
+
+		function updateKPIs(result) {
+			const pipeline = result.pipeline || {};
+			const metrics = result.metrics || {};
+
+			const processedFrames = safe(pipeline.processed_frames || metrics.processed_frames);
+			const records = safe(metrics.records || pipeline.analytics_saved || metrics.analytics_saved);
+
+			els.processedFrames.textContent = processedFrames.toLocaleString();
+			els.records.textContent = records.toLocaleString();
+			els.avgAttention.textContent = `${safe(metrics.avg_attention_score).toFixed(1)}%`;
+			els.avgDwell.textContent = safe(metrics.avg_dwell_time).toFixed(2);
+		}
+
+		function renderCharts(charts) {
+			if (typeof Chart === "undefined") {
+				return;
+			}
+
+			const labels = Array.isArray(charts.labels) && charts.labels.length ? charts.labels : ["No data"];
+			const attention = Array.isArray(charts.attention_series) && charts.attention_series.length
+				? charts.attention_series
+				: [0];
+			const dwell = Array.isArray(charts.dwell_series) && charts.dwell_series.length
+				? charts.dwell_series
+				: [0];
+			const attentionCtx = getCanvasContext("attentionChart");
+			const dwellCtx = getCanvasContext("dwellChart");
+
+			if (attentionChart) {
+				attentionChart.destroy();
+				attentionChart = null;
+			}
+			if (dwellChart) {
+				dwellChart.destroy();
+				dwellChart = null;
+			}
+
+			if (attentionCtx) {
+			attentionChart = new Chart(attentionCtx, {
+				type: "line",
+				data: {
+					labels,
+					datasets: [{
+						label: "Attention Score",
+						data: attention,
+						borderColor: "#0b66e4",
+						backgroundColor: "rgba(11, 102, 228, 0.14)",
+						borderWidth: 2,
+						tension: 0.32,
+						pointRadius: 1.9,
+						fill: true
+					}]
+				},
+				options: {
+					maintainAspectRatio: false,
+					responsive: true,
+					scales: {
+						y: { beginAtZero: true, suggestedMax: 100 },
+						x: { ticks: { maxTicksLimit: 12 } }
+					},
+					plugins: {
+						legend: { labels: { boxWidth: 10, usePointStyle: true } }
+					}
+				}
+			});
+			}
+
+			if (dwellCtx) {
+			dwellChart = new Chart(dwellCtx, {
+				type: "bar",
+				data: {
+					labels,
+					datasets: [{
+						label: "Dwell Time (s)",
+						data: dwell,
+						backgroundColor: "rgba(0, 168, 184, 0.62)",
+						borderColor: "#00a8b8",
+						borderWidth: 1.2,
+						borderRadius: 7
+					}]
+				},
+				options: {
+					maintainAspectRatio: false,
+					responsive: true,
+					scales: {
+						y: { beginAtZero: true },
+						x: { ticks: { maxTicksLimit: 12 } }
+					},
+					plugins: {
+						legend: { labels: { boxWidth: 10, usePointStyle: true } }
+					}
+				}
+			});
+			}
+		}
+
+		async function loadCamerasForStore() {
+			if (!els.cameraSelect) {
+				return;
+			}
+
+			const storeId = String(els.storeId.value || "").trim();
+			if (!storeId) {
+				els.cameraSelect.innerHTML = '<option value="">Select a store first</option>';
+				els.cameraSelect.disabled = true;
+				return;
+			}
+
+			els.cameraSelect.disabled = true;
+			els.cameraSelect.innerHTML = '<option value="">Loading cameras...</option>';
+
+			try {
+				const response = await fetch(`/api/production/cameras?store_id=${encodeURIComponent(storeId)}&page=1&page_size=200`, {
+					headers: token ? { Authorization: `Bearer ${token}` } : {}
+				});
+				if (!response.ok) {
+					throw new Error("Unable to load cameras for this store");
+				}
+
+				const cameras = await response.json();
+				const validCameras = Array.isArray(cameras) ? cameras.filter((camera) => camera && camera.id != null) : [];
+				if (!validCameras.length) {
+					els.cameraSelect.innerHTML = '<option value="">No cameras found for this store</option>';
+					return;
+				}
+
+				els.cameraSelect.innerHTML = validCameras
+					.map((camera) => `<option value="${camera.id}">${camera.camera_name || "Unnamed camera"} (ID: ${camera.id})</option>`)
+					.join("");
+				els.cameraSelect.disabled = false;
+			} catch (error) {
+				console.error(error);
+				els.cameraSelect.innerHTML = '<option value="">Camera list unavailable</option>';
+				els.cameraSelect.disabled = true;
+				showStatus("Could not load cameras for the selected store.", "err");
+			}
+		}
+
+		async function handleSubmit(event) {
+			event.preventDefault();
+
+			if (!els.videoFile.files[0]) {
+				showStatus("Please choose a video file first.", "err");
+				return;
+			}
+
+			const selectedCamera = els.cameraSelect ? els.cameraSelect.value : "";
+			if (!selectedCamera) {
+				showStatus("Please select a camera for the chosen store before uploading.", "err");
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append("store_id", String(els.storeId.value || 1));
+			formData.append("camera_id", selectedCamera);
+			formData.append("video_file", els.videoFile.files[0]);
+			formData.append("max_frames", String(els.maxFrames.value || 300));
+			formData.append("conf_threshold", String(els.confThreshold.value || 0.25));
+
+			els.submitBtn.disabled = true;
+			els.submitBtn.textContent = "Processing...";
+			showStatus("Uploading and processing video. Please wait...", "ok");
+
+			try {
+				const response = await fetch("/analytics/video/analyze", {
+					method: "POST",
+					headers: token ? { Authorization: `Bearer ${token}` } : {},
+					body: formData
+				});
+
+				const result = await response.json();
+				if (!response.ok) {
+					throw new Error(result.detail || "Video analysis failed.");
+				}
+
+				updateKPIs(result);
+				renderCharts(result.charts || {});
+				if (result.video_url) {
+					els.uploadedVideo.src = result.video_url;
+					els.videoPlaceholder.textContent = `Showing uploaded server video: ${result.video_file || "video"}`;
+				}
+				const generatedReports = Array.isArray(result.reports) ? result.reports.length : 0;
+				showStatus(`Analysis complete for ${result.video_file || "uploaded video"}. ${generatedReports || 5} reports are ready on the Reports Dashboard.`, "ok");
+			} catch (error) {
+				showStatus(error.message || "Unexpected error during analysis.", "err");
+			} finally {
+				els.submitBtn.disabled = false;
+				els.submitBtn.textContent = "Upload and Analyze";
+			}
+		}
+
+		function setupDropzone() {
+			const dz = els.dropzone;
+
+			["dragenter", "dragover"].forEach((evt) => {
+				dz.addEventListener(evt, (e) => {
+					e.preventDefault();
+					dz.classList.add("drag");
+				});
+			});
+
+			["dragleave", "drop"].forEach((evt) => {
+				dz.addEventListener(evt, (e) => {
+					e.preventDefault();
+					dz.classList.remove("drag");
+				});
+			});
+
+			dz.addEventListener("drop", (e) => {
+				const dt = e.dataTransfer;
+				if (dt && dt.files && dt.files.length) {
+					els.videoFile.files = dt.files;
+					els.fileName.textContent = dt.files[0].name;
+				}
+			});
+		}
+
+		els.storeId.addEventListener("change", loadCamerasForStore);
+		els.storeId.addEventListener("blur", loadCamerasForStore);
+		loadCamerasForStore();
+		els.videoFile.addEventListener("change", () => {
+			const file = els.videoFile.files[0];
+			els.fileName.textContent = file ? file.name : "No file selected.";
+
+			if (!file) {
+				return;
+			}
+
+			if (localPreviewUrl) {
+				URL.revokeObjectURL(localPreviewUrl);
+			}
+
+			localPreviewUrl = URL.createObjectURL(file);
+			els.uploadedVideo.src = localPreviewUrl;
+			els.videoPlaceholder.textContent = `Local preview: ${file.name}`;
+		});
+
+		els.form.addEventListener("submit", handleSubmit);
+		setupDropzone();
+
+		// Render initial empty charts for visual consistency before first upload.
+		renderCharts({ labels: [], attention_series: [], dwell_series: [] });
+	</script>
+</body>
+</html>

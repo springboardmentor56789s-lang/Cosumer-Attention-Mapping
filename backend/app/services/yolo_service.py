@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
@@ -11,12 +12,42 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     YOLO = None
 
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional dependency
+    torch = None
+
 
 class YOLOService:
     def __init__(self, model_name: Optional[str] = None, device: str = "cpu"):
-        self.model_name = model_name or os.getenv("YOLO_MODEL", "yolov8n.pt")
-        self.device = device
+        deployment_weights = Path(__file__).resolve().parents[2] / "models" / "product_detector" / "best.pt"
+        active_run_weights = (
+            Path(__file__).resolve().parents[2]
+            / "runs"
+            / "sku110k_yolov8n"
+            / "weights"
+            / "best.pt"
+        )
+        # An explicit model/environment override wins. Otherwise use the SKU-110K
+        # checkpoint once training has installed it, retaining the stock model as
+        # a development fallback before the first training run completes.
+        self.model_name = model_name or os.getenv("YOLO_MODEL") or (
+            str(deployment_weights)
+            if deployment_weights.is_file()
+            else str(active_run_weights)
+            if active_run_weights.is_file()
+            else "yolov8n.pt"
+        )
+        self.device = self._resolve_device(device)
         self.model = None
+
+    def _resolve_device(self, requested_device: str) -> str:
+        if requested_device and requested_device.lower() not in {"auto", "cpu"}:
+            return requested_device
+
+        if torch is not None and torch.cuda.is_available():
+            return "cuda:0"
+        return "cpu"
 
     def _load_model(self):
         if self.model is not None:
@@ -29,12 +60,15 @@ class YOLOService:
             raise RuntimeError("ultralytics is not installed. Install it with: pip install ultralytics")
 
         model_path = os.getenv("YOLO_MODEL_PATH")
-        if model_path and os.path.exists(model_path):
-            self.model = YOLO(model_path)
-        else:
-            self.model = YOLO(self.model_name)
+        selected_model = model_path if model_path and os.path.exists(model_path) else self.model_name
+        self.model = YOLO(selected_model)
 
-        self.model.to(self.device)
+        try:
+            self.model.to(self.device)
+        except Exception:
+            # Fall back to CPU if CUDA is unavailable/misconfigured at runtime.
+            self.device = "cpu"
+            self.model.to(self.device)
         return self.model
 
     def predict_frame(self, frame, conf_threshold: float = 0.25) -> List[Dict[str, Any]]:

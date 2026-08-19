@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, ConfigDict
 from app.model import UserRole
+from typing import Optional
 
 # Register
 class RegisterUser(BaseModel):
@@ -84,3 +85,36 @@ class StoreManagerOverview(BaseModel):
     top_shelf: str
     attention_focus: str
     shelf_stats: list[ShelfMetric]
+    
+
+class ShelfBase(BaseModel):
+    shelf_name: str
+    shelf_number: str
+    store_id: int
+    category: str
+    aisle: str
+    capacity: int
+    status: str
+
+
+class ShelfCreate(ShelfBase):
+    pass
+
+
+class ShelfUpdate(BaseModel):
+    shelf_name: Optional[str] = None
+    shelf_number: Optional[str] = None
+    store_id: Optional[int] = None
+    category: Optional[str] = None
+    aisle: Optional[str] = None
+    capacity: Optional[int] = None
+    status: Optional[str] = None
+
+
+class ShelfResponse(ShelfBase):
+    id: int
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }

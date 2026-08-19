@@ -1,0 +1,21 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "C:\\Users\\parni\\Desktop\\AI_Consumer_Attension_Mapping_System\\Parnika_AI_Consumer-Attention-Mapping-System\\backend\\datasets",
+  "weights_dir": "weights",
+  "runs_dir": "runs",
+  "uuid": "b71c8a6f9879f8c2050adf1393eff3ad52a863277239ad5f3726e2a4df4390a6",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

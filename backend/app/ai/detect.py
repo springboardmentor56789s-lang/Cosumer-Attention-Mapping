@@ -11,7 +11,7 @@ from app.services.yolo_service import YOLOService
 class ObjectDetector:
     """Handles object detection using YOLO model."""
     
-    def __init__(self, model_name: str = "yolov8n.pt", device: str = "cpu"):
+    def __init__(self, model_name: Optional[str] = None, device: str = "cpu"):
         """
         Initialize the object detector.
         

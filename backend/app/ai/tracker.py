@@ -97,7 +97,8 @@ class CentroidTracker:
             return self.objects
         
         # Match detections to tracked objects
-        tracked_centroids = np.array([self.objects[oid] for oid in self.objects.keys()])
+        object_ids = list(self.objects.keys())
+        tracked_centroids = np.array([self.objects[oid] for oid in object_ids])
         d = self._distance_matrix(tracked_centroids, input_centroids)
         
         rows, cols = np.where(d <= self.max_distance)
@@ -112,7 +113,13 @@ class CentroidTracker:
             if d[row, col] > self.max_distance:
                 continue
             
-            object_id = list(self.objects.keys())[row]
+            if row >= len(object_ids):
+                continue
+
+            object_id = object_ids[row]
+            if object_id not in self.objects:
+                continue
+
             self.objects[object_id] = tuple(input_centroids[col])
             self.disappeared[object_id] = 0
             
@@ -121,11 +128,22 @@ class CentroidTracker:
         
         # Handle unmatched objects
         unused_rows = set(range(0, d.shape[0])).difference(used_rows)
+        to_deregister = []
         for row in unused_rows:
-            object_id = list(self.objects.keys())[row]
+            if row >= len(object_ids):
+                continue
+
+            object_id = object_ids[row]
+            if object_id not in self.disappeared:
+                continue
+
             self.disappeared[object_id] += 1
             
             if self.disappeared[object_id] > self.max_disappeared:
+                to_deregister.append(object_id)
+
+        for object_id in to_deregister:
+            if object_id in self.objects:
                 self.deregister(object_id)
         
         # Register unmatched detections

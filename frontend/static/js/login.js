@@ -1,6 +1,14 @@
 const form = document.getElementById("loginForm");
 
-form.addEventListener("submit", async function (e) {
+const dashboardRoutes = {
+    admin: "/admin/dashboard",
+    store_manager: "/store/dashboard",
+    retail_analyst: "/retail/dashboard",
+    marketing_analyst: "/marketing/dashboard"
+};
+
+if (form) {
+    form.addEventListener("submit", async function (e) {
 
     e.preventDefault();
 
@@ -41,27 +49,11 @@ form.addEventListener("submit", async function (e) {
 
             alert("Login Successful");
 
-            switch (result.role) {
-
-                case "admin":
-                    window.location.href = "/admin/dashboard";
-                    break;
-
-                case "store_manager":
-                    window.location.href = "/store/dashboard";
-                    break;
-
-                case "retail_analyst":
-                    window.location.href = "/retail/dashboard";
-                    break;
-
-                case "marketing_analyst":
-                    window.location.href = "/marketing/dashboard";
-                    break;
-
-                default:
-                    alert("Unknown user role.");
-                    break;
+            const dashboardUrl = dashboardRoutes[result.role];
+            if (dashboardUrl) {
+                window.location.href = dashboardUrl;
+            } else {
+                alert("Unknown user role.");
             }
 
         } else {
@@ -77,4 +69,21 @@ form.addEventListener("submit", async function (e) {
 
     }
 
-});
+    });
+}
+
+
+const googleBtn = document.getElementById("googleLoginBtn");
+
+if (googleBtn) {
+
+    googleBtn.addEventListener("click", function (e) {
+
+        e.preventDefault();
+
+        // Redirect to FastAPI Google OAuth endpoint
+        window.location.href = "/api/auth/google/login";
+
+    });
+
+}

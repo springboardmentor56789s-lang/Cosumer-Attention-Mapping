@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict
 
 
@@ -7,6 +7,8 @@ class DetectionCreate(BaseModel):
     camera_id: int
     store_id: int
     shelf_id: Optional[int] = None
+    zone_id: Optional[int] = None
+    track_id: Optional[int] = None
     detected_class: str
     confidence: float
     bbox_x: int
@@ -18,6 +20,8 @@ class DetectionCreate(BaseModel):
 class DetectionResponse(DetectionCreate):
     id: int
     created_at: datetime
+    class_name: Optional[str] = None
+    bbox: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -9,18 +9,55 @@ function setText(id, value) {
     if (el) el.textContent = value;
 }
 
-function buildCharts(data) {
-    const visitorCtx = document.getElementById("visitorChart");
-    const cameraCtx = document.getElementById("cameraChart");
+function getCanvasContext(id) {
+    const canvas = document.getElementById(id);
+    if (!canvas || typeof canvas.getContext !== "function") {
+        return null;
+    }
+    return canvas.getContext("2d");
+}
+
+function destroyCanvasChart(canvas, chartInstance) {
+    if (chartInstance && typeof chartInstance.destroy === "function") chartInstance.destroy();
+    if (typeof Chart !== "undefined" && typeof Chart.getChart === "function" && canvas) {
+        const existing = Chart.getChart(canvas);
+        if (existing && existing !== chartInstance) existing.destroy();
+    }
+}
+
+let visitorChart;
+let cameraChart;
+
+function buildCharts(summary, series) {
+    if (typeof Chart === "undefined") {
+        return;
+    }
+
+    summary = summary && typeof summary === "object" ? summary : {};
+    series = series && typeof series === "object" ? series : {};
+    const visitorCanvas = document.getElementById("visitorChart");
+    const cameraCanvas = document.getElementById("cameraChart");
+    const visitorCtx = getCanvasContext("visitorChart");
+    const cameraCtx = getCanvasContext("cameraChart");
+
+    destroyCanvasChart(visitorCanvas, visitorChart);
+    visitorChart = null;
+    destroyCanvasChart(cameraCanvas, cameraChart);
+    cameraChart = null;
 
     if (visitorCtx) {
-        new Chart(visitorCtx, {
+        const hourlyVisitors = Array.isArray(series.hourly_visitors)
+                ? series.hourly_visitors.filter((row) => row)
+                : [];
+            const labels = hourlyVisitors.map((row) => row.label);
+            const values = hourlyVisitors.map((row) => row.value);
+        visitorChart = new Chart(visitorCtx, {
             type: "line",
             data: {
-                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                labels,
                 datasets: [{
                     label: "Visitors",
-                    data: [1200, 1400, 1350, 1600, 1750, 2200, 2100],
+                    data: values,
                     borderColor: "#3b82f6",
                     backgroundColor: "rgba(59, 130, 246, 0.2)",
                     tension: 0.35,
@@ -37,12 +74,12 @@ function buildCharts(data) {
     }
 
     if (cameraCtx) {
-        new Chart(cameraCtx, {
+        cameraChart = new Chart(cameraCtx, {
             type: "doughnut",
             data: {
                 labels: ["Online", "Offline"],
                 datasets: [{
-                    data: [data.active_ai_cameras || 0, Math.max((data.total_cameras || 0) - (data.active_ai_cameras || 0), 0)],
+                    data: [summary.camera_status?.online || 0, summary.camera_status?.offline || 0],
                     backgroundColor: ["#22c55e", "#f59e0b"],
                     borderWidth: 0
                 }]
@@ -64,7 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     try {
-        const response = await fetch("/api/dashboard/overview", {
+        const response = await fetch("/api/dashboard/live", {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -74,21 +111,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             throw new Error("Failed to load dashboard data");
         }
 
-        const data = await response.json();
+        const payload = await response.json();
+        const data = payload.summary || {};
+        const series = payload.series || {};
 
-        setText("totalUsers", data.total_users);
-        setText("totalStores", data.total_stores);
-        setText("totalCameras", data.total_cameras);
-        setText("totalProducts", data.total_products);
-        setText("totalShelves", data.total_shelves);
-        setText("totalVisitors", data.todays_visitors);
-        setText("averageDwellTime", `${data.avg_dwell_time_mins} min`);
-        setText("mostViewedProduct", data.product_engagement_score ? `${data.product_engagement_score}%` : "N/A");
+        setText("totalUsers", data.total_users ?? "N/A");
+        setText("totalStores", data.total_stores ?? "N/A");
+        setText("totalCameras", data.total_cameras ?? "N/A");
+        setText("totalProducts", data.total_products ?? "N/A");
+        setText("totalShelves", data.total_shelves ?? "N/A");
+        setText("totalVisitors", data.todays_visitors ?? "N/A");
+        setText("averageDwellTime", `${data.avg_dwell_time_mins ?? 0} min`);
+        setText("mostViewedProduct", data.most_viewed_product || "N/A");
         setText("activeAiCameras", data.active_ai_cameras || 0);
-        setText("engagementScore", data.product_engagement_score ? `${data.product_engagement_score}%` : "N/A");
-        setText("attentionFocus", (data.product_engagement_score || 0) > 80 ? "High" : "Medium");
+        setText("engagementScore", data.avg_attention_score ? `${data.avg_attention_score}%` : "N/A");
+        setText("attentionFocus", data.attention_focus || "Medium");
 
-        buildCharts(data);
+        buildCharts(data, series);
 
     } catch (error) {
         console.error(error);
@@ -113,9 +152,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             throw new Error("Failed to load users");
         }
 
-        const users = await usersResponse.json();
+        const usersPayload = await usersResponse.json();
+        const users = Array.isArray(usersPayload) ? usersPayload.filter((user) => user && typeof user === "object") : [];
         const table = document.getElementById("userTable");
-
+        if (!table) return;
         table.innerHTML = "";
 
         users.slice(0, 5).forEach((user) => {

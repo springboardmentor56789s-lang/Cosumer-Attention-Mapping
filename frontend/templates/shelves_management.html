@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Shelves Management</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+</head>
+
+<body class="bg-slate-100">
+
+<!-- Header -->
+
+<header class="bg-white shadow">
+
+<div class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+
+<h1 class="text-3xl font-bold text-slate-800">
+Shelf Management
+</h1>
+
+<button
+  id="addShelfBtn"
+  type="button"
+  class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-lg">
+
+  <i class="fa-solid fa-plus"></i>
+
+  Add Shelf
+
+  </button>
+
+</div>
+
+</header>
+
+<div class="max-w-7xl mx-auto mt-8 px-6">
+
+<!-- Search & Filter -->
+
+<div class="bg-white rounded-xl shadow p-5 mb-6">
+
+<div class="grid md:grid-cols-3 gap-4">
+
+<input
+type="text"
+id="searchShelf"
+placeholder="Search Shelf..."
+class="border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+
+<select
+id="statusFilter"
+class="border rounded-lg px-4 py-3">
+
+<option value="">All Status</option>
+
+<option value="Active">
+Active
+</option>
+
+<option value="Available">
+Available
+</option>
+
+<option value="Occupied">
+Occupied
+</option>
+
+<option value="Maintenance">
+Maintenance
+</option>
+
+</select>
+
+<button
+id="applyFilterBtn"
+class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+
+<i class="fa-solid fa-filter"></i>
+
+Apply Filter
+
+</button>
+
+</div>
+
+<div id="pageMessage" class="hidden mt-4 rounded-lg px-4 py-3 text-sm"></div>
+
+</div>
+
+<!-- Shelves Table -->
+
+<div class="bg-white rounded-xl shadow overflow-hidden">
+
+<div class="overflow-x-auto">
+
+<table class="min-w-full">
+
+<thead class="bg-slate-800 text-white">
+
+<tr>
+
+<th class="py-3 px-4">ID</th>
+
+<th class="py-3 px-4">Shelf Name</th>
+
+<th class="py-3 px-4">Shelf Number</th>
+
+<th class="py-3 px-4">Store ID</th>
+
+<th class="py-3 px-4">Category</th>
+
+<th class="py-3 px-4">Aisle</th>
+
+<th class="py-3 px-4">Capacity</th>
+
+<th class="py-3 px-4">Status</th>
+
+<th class="py-3 px-4">Created At</th>
+
+<th class="py-3 px-4 text-center">
+Actions
+</th>
+
+</tr>
+
+</thead>
+
+<tbody id="shelfTableBody">
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- Add Shelf Modal -->
+
+<div
+id="addShelfModal"
+class="fixed inset-0 bg-black/40 hidden items-center justify-center">
+
+<div class="bg-white rounded-xl w-full max-w-lg p-6">
+
+<h2 class="text-2xl font-bold mb-6">
+<span id="modalTitle">Add New Shelf</span>
+</h2>
+
+<form id="shelfForm">
+
+<div class="grid gap-4">
+
+<input
+id="shelf_name"
+type="text"
+placeholder="Shelf Name"
+class="border rounded-lg px-4 py-3">
+
+<input
+id="shelf_number"
+type="text"
+placeholder="Shelf Number"
+class="border rounded-lg px-4 py-3">
+
+<input
+id="store_id"
+type="number"
+placeholder="Store ID"
+class="border rounded-lg px-4 py-3">
+
+<input
+id="category"
+type="text"
+placeholder="Category"
+class="border rounded-lg px-4 py-3">
+
+<input
+id="aisle"
+type="text"
+placeholder="Aisle"
+class="border rounded-lg px-4 py-3">
+
+<input
+id="capacity"
+type="number"
+placeholder="Capacity"
+class="border rounded-lg px-4 py-3">
+
+<select
+id="status"
+class="border rounded-lg px-4 py-3">
+
+<option value="Active">Active</option>
+
+<option value="Available">Available</option>
+
+<option value="Occupied">Occupied</option>
+
+<option value="Maintenance">Maintenance</option>
+
+</select>
+
+</div>
+
+<div id="shelfMessage" class="hidden mt-4 rounded-lg px-4 py-3 text-sm"></div>
+
+<div class="flex justify-end gap-4 mt-6">
+
+<button
+type="button"
+id="closeModal"
+class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded">
+
+Cancel
+
+</button>
+
+<button
+type="submit"
+id="saveShelfBtn"
+class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded">
+
+Save Shelf
+
+</button>
+
+</div>
+
+</form>
+
+</div>
+
+</div>
+
+<script src="/static/js/shelves_management.js?v=20260804"></script>

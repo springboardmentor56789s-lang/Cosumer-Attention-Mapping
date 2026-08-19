@@ -1,75 +1,29 @@
 from datetime import date
-from typing import List
+from typing import Optional
+from fastapi import Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, text
+templates = Jinja2Templates(directory="templates")
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from app import model, schema
 from app.dependencies import get_current_user, require_admin, require_store_manager
+from app.services.production_service import ProductionAnalyticsService
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
+service = ProductionAnalyticsService()
 
 
-@router.get("/superstore-insights")
-def get_superstore_insights(
-    db: Session = Depends(get_db),
-    current_user: model.User = Depends(get_current_user),
-):
-    """Return live sales insights from the CSV imported during successful login."""
-    imported = db.execute(text("""
-        SELECT dataset_name, imported_at, row_count
-        FROM dataset_imports
-        WHERE dataset_name = 'samplesuperstore.csv'
-    """)).mappings().first()
-    if not imported:
-        raise HTTPException(status_code=404, detail="Superstore dataset has not been imported yet.")
-
-    summary = db.execute(text("""
-        SELECT
-            COALESCE(SUM(sales), 0) AS total_sales,
-            COALESCE(SUM(profit), 0) AS total_profit,
-            COUNT(DISTINCT order_id) AS total_orders,
-            COUNT(DISTINCT customer_id) AS total_customers,
-            COALESCE(SUM(sales) / NULLIF(COUNT(DISTINCT order_id), 0), 0) AS average_order_value,
-            COALESCE(SUM(profit) / NULLIF(SUM(sales), 0) * 100, 0) AS profit_margin,
-            COALESCE((SELECT product_name FROM superstore_sales GROUP BY product_name ORDER BY SUM(sales) DESC LIMIT 1), 'No data') AS top_product,
-            COALESCE((SELECT region FROM superstore_sales GROUP BY region ORDER BY SUM(sales) DESC LIMIT 1), 'No data') AS top_region,
-            COALESCE((SELECT segment FROM superstore_sales GROUP BY segment ORDER BY SUM(sales) DESC LIMIT 1), 'No data') AS top_segment
-        FROM superstore_sales
-    """)).mappings().one()
-
-    monthly_sales = db.execute(text("""
-        SELECT TO_CHAR(DATE_TRUNC('month', order_date), 'Mon YYYY') AS month,
-               SUM(sales) AS sales, SUM(profit) AS profit
-        FROM superstore_sales
-        GROUP BY DATE_TRUNC('month', order_date)
-        ORDER BY DATE_TRUNC('month', order_date)
-    """)).mappings().all()
-    categories = db.execute(text("""
-        SELECT category, SUM(sales) AS sales, SUM(profit) AS profit, SUM(quantity) AS quantity
-        FROM superstore_sales GROUP BY category ORDER BY sales DESC
-    """)).mappings().all()
-    segments = db.execute(text("""
-        SELECT segment, SUM(sales) AS sales, SUM(profit) AS profit,
-               COUNT(DISTINCT customer_id) AS customers
-        FROM superstore_sales GROUP BY segment ORDER BY sales DESC
-    """)).mappings().all()
-    regions = db.execute(text("""
-        SELECT region, SUM(sales) AS sales, SUM(profit) AS profit,
-               COUNT(DISTINCT order_id) AS orders
-        FROM superstore_sales GROUP BY region ORDER BY sales DESC
-    """)).mappings().all()
-
-    return {
-        "dataset": dict(imported),
-        "summary": dict(summary),
-        "monthly_sales": [dict(row) for row in monthly_sales],
-        "categories": [dict(row) for row in categories],
-        "segments": [dict(row) for row in segments],
-        "regions": [dict(row) for row in regions],
-    }
+@router.get("/live")
+def get_live_dashboard(db: Session = Depends(get_db), current_user: model.User = Depends(get_current_user)):
+    summary = service.get_dashboard_summary(db)
+    series = service.get_dashboard_series(db)
+    return {"summary": summary, "series": series}
 
 
 @router.get("/overview", response_model=schema.OverviewMetrics)
@@ -77,23 +31,17 @@ def get_dashboard_overview(
     db: Session = Depends(get_db),
     admin_user: model.User = Depends(require_admin)
 ):
-    total_stores = db.query(model.Store).count()
-    total_users = db.query(model.User).count()
-    total_cameras = db.query(model.Camera).count()
-    active_cameras = db.query(model.Camera).filter(model.Camera.status == "Online").count()
-    total_products = db.query(model.Product).count()
-    total_shelves = db.query(model.Shelf).count()
-
+    summary = service.get_dashboard_summary(db)
     return schema.OverviewMetrics(
-        total_stores=total_stores,
-        total_users=total_users,
-        total_cameras=total_cameras,
-        total_products=total_products,
-        total_shelves=total_shelves,
-        todays_visitors=2840,
-        avg_dwell_time_mins=6.4,
-        active_ai_cameras=active_cameras,
-        product_engagement_score=87.5
+        total_stores=summary["total_stores"],
+        total_users=summary["total_users"],
+        total_cameras=summary["total_cameras"],
+        total_products=summary["total_products"],
+        total_shelves=summary["total_shelves"],
+        todays_visitors=summary["todays_visitors"],
+        avg_dwell_time_mins=summary["avg_dwell_time_mins"],
+        active_ai_cameras=summary["active_ai_cameras"],
+        product_engagement_score=summary["product_engagement_score"],
     )
 
 
@@ -184,4 +132,17 @@ def get_store_manager_overview(
         top_shelf=top_shelf.name if top_shelf else "No shelf data",
         attention_focus=attention_focus,
         shelf_stats=shelf_stats,
+    )
+
+@router.get("/shelves_management", response_class=HTMLResponse)
+def shelves_page(
+    request: Request,
+    current_user: model.User = Depends(get_current_user)
+):
+    return templates.TemplateResponse(
+        "shelves_management.html",
+        {
+            "request": request,
+            "user": current_user
+        }
     )
