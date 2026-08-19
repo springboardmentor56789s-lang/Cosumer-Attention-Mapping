@@ -11,6 +11,7 @@ const maxFrames = document.getElementById("maxFrames");
 const confThreshold = document.getElementById("confThreshold");
 const runBtn = document.getElementById("runBtn");
 const statusBox = document.getElementById("statusBox");
+const annotatedVideo = document.getElementById("annotatedVideo");
 
 const mProcessed = document.getElementById("mProcessed");
 const mRows = document.getElementById("mRows");
@@ -64,6 +65,26 @@ function headers() {
     return {
         Authorization: `Bearer ${token}`
     };
+}
+
+async function displayAnnotatedVideo(videoUrl) {
+    if (!annotatedVideo || !videoUrl) {
+        throw new Error("Annotated video URL was not returned by the analysis service.");
+    }
+
+    const response = await fetch(videoUrl, { method: "HEAD", cache: "no-store" });
+    console.info("Annotated video HTTP status:", response.status, videoUrl);
+    if (!response.ok) {
+        throw new Error(`Annotated video is unavailable (HTTP ${response.status}).`);
+    }
+
+    annotatedVideo.pause();
+    annotatedVideo.removeAttribute("src");
+    annotatedVideo.load();
+    annotatedVideo.src = videoUrl;
+    annotatedVideo.classList.add("show");
+    console.info("Annotated video src:", annotatedVideo.src);
+    annotatedVideo.load();
 }
 
 async function loadStores() {
@@ -298,6 +319,9 @@ videoForm.addEventListener("submit", async (event) => {
             Array.isArray(charts.attention_series) ? charts.attention_series : [],
             Array.isArray(charts.dwell_series) ? charts.dwell_series : []
         );
+
+        console.info("Video analysis API response URL:", result.video_url);
+        await displayAnnotatedVideo(result.video_url);
 
         const generatedReports = Array.isArray(result.reports) ? result.reports.length : 0;
         localStorage.setItem("reports_store_id", String(result.store_id || selectedStore));

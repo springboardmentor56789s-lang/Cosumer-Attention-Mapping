@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from typing import List
@@ -16,6 +17,7 @@ from app.services.video_pipeline_service import VideoPipelineService
 from app.services.yolo_service import YOLOService
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+logger = logging.getLogger(__name__)
 yolo_service = YOLOService()
 video_pipeline_service = VideoPipelineService()
 video_preprocessing_service = VideoPreprocessingService()
@@ -152,11 +154,12 @@ async def analyze_uploaded_video(
     uploads_dir.mkdir(parents=True, exist_ok=True)
     saved_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}{suffix}"
     saved_path = uploads_dir / saved_name
-    annotated_name = f"annotated_{saved_name}"
+    annotated_name = f"annotated_{Path(saved_name).stem}.mp4"
     annotated_path = uploads_dir / annotated_name
 
     with saved_path.open("wb") as output:
         output.write(await video_file.read())
+    logger.info("Uploaded video saved: input=%s", saved_path)
 
     try:
         processed_path = video_preprocessing_service.preprocess(saved_path, uploads_dir)
@@ -285,7 +288,18 @@ async def analyze_uploaded_video(
     tracks_saved = int(result.get("customer_tracks_saved", 0) or 0)
 
     source_video_url = f"/uploads/{saved_name}"
-    annotated_video_url = _to_upload_url(result.get("annotated_video_path")) or source_video_url
+    annotated_output_path = Path(result.get("annotated_video_path") or "")
+    if not annotated_output_path.is_file() or annotated_output_path.stat().st_size == 0:
+        raise HTTPException(status_code=500, detail="Annotated video output is missing or empty.")
+    annotated_video_url = f"{_to_upload_url(str(annotated_output_path))}?v={annotated_output_path.stat().st_mtime_ns}"
+    logger.info(
+        "Uploaded-video analysis response: input=%s annotated_output=%s exists=%s size_bytes=%s video_url=%s",
+        saved_path.resolve(),
+        annotated_output_path.resolve(),
+        annotated_output_path.is_file(),
+        annotated_output_path.stat().st_size,
+        annotated_video_url,
+    )
     heatmap_url = _to_upload_url(result.get("heatmap_image_path"))
 
     metrics = {

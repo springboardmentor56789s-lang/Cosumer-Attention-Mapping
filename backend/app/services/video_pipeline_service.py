@@ -2,8 +2,11 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import logging
 import math
+import os
 from pathlib import Path
+import subprocess
 import time
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -45,6 +48,8 @@ PRODUCT_CLASSES = {
     "bowl",
     "refrigerator",
 }
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -368,11 +373,17 @@ class VideoPipelineService:
         analysis_fps = (fps / sample_interval) if fps > 0 else self._TARGET_ANALYSIS_FPS
 
         video_writer = None
+        annotated_video_written = False
+        annotated_frame_count = 0
         if output_video_path and frame_width > 0 and frame_height > 0:
             Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             writer_fps = analysis_fps if analysis_fps > 0 else self._TARGET_ANALYSIS_FPS
             video_writer = cv2.VideoWriter(output_video_path, fourcc, writer_fps, (frame_width, frame_height))
+            if not video_writer.isOpened():
+                video_writer.release()
+                video_writer = None
+                raise RuntimeError("Unable to create the annotated video output.")
 
         heatmap_accumulator = None
         if np is not None and frame_width > 0 and frame_height > 0:
@@ -393,6 +404,10 @@ class VideoPipelineService:
                     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
                     writer_fps = analysis_fps if analysis_fps > 0 else self._TARGET_ANALYSIS_FPS
                     video_writer = cv2.VideoWriter(output_video_path, fourcc, writer_fps, (frame_width, frame_height))
+                    if not video_writer.isOpened():
+                        video_writer.release()
+                        video_writer = None
+                        raise RuntimeError("Unable to create the annotated video output.")
                 if heatmap_accumulator is None and np is not None and frame_width > 0 and frame_height > 0:
                     heatmap_accumulator = np.zeros((frame_height, frame_width), dtype=np.float32)
 
@@ -423,6 +438,8 @@ class VideoPipelineService:
             gaze_result: Dict[str, Any] = {}
             if face.get("success"):
                 gaze_result = self.gaze.detect_gaze_direction(face.get("landmarks", {}))
+
+            frame_attention: Dict[int, Dict[str, Any]] = {}
 
             for detection in detections:
                 x1 = detection.get("x1")
@@ -519,6 +536,10 @@ class VideoPipelineService:
                 summary["latest"] = enriched
                 attention_values.append(float(enriched.attention_score or 0.0))
                 dwell_values.append(float(enriched.dwell_time or 0.0))
+                frame_attention[int(obj_id)] = {
+                    "state": "ATTENTIVE" if enriched.looking_at_shelf or enriched.looking_at_product else "NOT ATTENTIVE",
+                    "score": float(enriched.attention_score or 0.0),
+                }
 
                 if blueprint_replay_enabled:
                     blueprint_point = self._map_customer_point_to_blueprint(centroid, camera)
@@ -551,12 +572,40 @@ class VideoPipelineService:
                     unique_customer_count=len(unique_customer_ids),
                     total_product_detections=sum(product_counter.values()),
                     heatmap=heatmap_accumulator,
+                    gaze_result=gaze_result,
+                    attention_by_track=frame_attention,
+                    shopper_labels=True,
                 )
                 video_writer.write(annotated_frame)
+                annotated_video_written = True
+                annotated_frame_count += 1
 
         cap.release()
         if video_writer is not None:
             video_writer.release()
+
+        if output_video_path:
+            artifact_path = Path(output_video_path)
+            if not annotated_video_written or annotated_frame_count == 0:
+                raise RuntimeError("Video analysis completed without rendering annotated output frames.")
+            if not artifact_path.is_file() or artifact_path.stat().st_size == 0:
+                raise RuntimeError("Annotated video output was not created or is empty.")
+            self._encode_annotated_video_for_browser(artifact_path)
+            verification_capture = cv2.VideoCapture(str(artifact_path))
+            try:
+                is_readable, _ = verification_capture.read()
+            finally:
+                verification_capture.release()
+            if not is_readable:
+                raise RuntimeError("Annotated video output could not be read after rendering.")
+            logger.info(
+                "Annotated video verified: input=%s output=%s exists=%s size_bytes=%s rendered_frames=%s",
+                camera.video_path or camera.rtsp_url,
+                artifact_path.resolve(),
+                artifact_path.is_file(),
+                artifact_path.stat().st_size,
+                annotated_frame_count,
+            )
 
         pending_detections.extend(detection_events.values())
         detection_rows_saved = len(pending_detections)
@@ -617,8 +666,9 @@ class VideoPipelineService:
         camera.last_active_at = datetime.now(timezone.utc)
         camera.fps = fps if fps > 0 else float(camera.fps or 0.0)
 
+        annotated_video_path = output_video_path if annotated_video_written else None
         heatmap_image_path = None
-        if output_video_path and heatmap_accumulator is not None and np is not None:
+        if annotated_video_path and heatmap_accumulator is not None and np is not None:
             heatmap_image_path = str(Path(output_video_path).with_name(f"{Path(output_video_path).stem}_heatmap.png"))
             self._save_heatmap_image(heatmap_accumulator, heatmap_image_path)
 
@@ -646,7 +696,7 @@ class VideoPipelineService:
                             "avg_dwell_time": avg_dwell,
                         },
                         "artifacts": {
-                            "annotated_video_path": output_video_path,
+                            "annotated_video_path": annotated_video_path,
                             "heatmap_image_path": heatmap_image_path,
                         },
                         "top_products": top_products,
@@ -669,7 +719,7 @@ class VideoPipelineService:
             "reports_generated": 0,
             "total_product_detections": sum(product_counter.values()),
             "top_products": top_products,
-            "annotated_video_path": output_video_path,
+            "annotated_video_path": annotated_video_path,
             "heatmap_image_path": heatmap_image_path,
             "avg_attention_score": avg_attention,
             "avg_dwell_time": avg_dwell,
@@ -687,6 +737,43 @@ class VideoPipelineService:
             source = camera.rtsp_url
 
         return cv2.VideoCapture(source)
+
+    @staticmethod
+    def _encode_annotated_video_for_browser(artifact_path: Path) -> None:
+        """Replace OpenCV's MP4V output with an H.264 MP4 suitable for browser playback."""
+        temporary_path = artifact_path.with_name(f"{artifact_path.stem}_h264{artifact_path.suffix}")
+        command = [
+            os.getenv("FFMPEG_PATH", "ffmpeg"),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(artifact_path),
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            "-an",
+            "-y",
+            str(temporary_path),
+        ]
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True, timeout=1800)
+        except FileNotFoundError as error:
+            raise RuntimeError("FFmpeg is required to create a browser-compatible annotated video.") from error
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError("Annotated video encoding timed out.") from error
+        except subprocess.CalledProcessError as error:
+            details = (error.stderr or "").strip()
+            raise RuntimeError(f"Annotated video encoding failed: {details[-500:]}") from error
+
+        if not temporary_path.is_file() or temporary_path.stat().st_size == 0:
+            raise RuntimeError("Browser-compatible annotated video was not created.")
+        temporary_path.replace(artifact_path)
 
     def _build_frame_analytics(
         self,
@@ -792,6 +879,9 @@ class VideoPipelineService:
         unique_customer_count: Optional[int] = None,
         total_product_detections: Optional[int] = None,
         heatmap: Optional[Any] = None,
+        gaze_result: Optional[Dict[str, Any]] = None,
+        attention_by_track: Optional[Dict[int, Dict[str, Any]]] = None,
+        shopper_labels: bool = False,
     ) -> Any:
         if cv2 is None:
             return frame
@@ -843,7 +933,7 @@ class VideoPipelineService:
                 continue
 
             cv2.rectangle(annotated, (int(x1), int(y1)), (int(x2), int(y2)), (40, 220, 120), 2)
-            label = f"ID {int(track_id)}"
+            label = f"SHOPPER-{int(track_id)}" if shopper_labels else f"ID {int(track_id)}"
             cv2.putText(
                 annotated,
                 label,
@@ -854,6 +944,27 @@ class VideoPipelineService:
                 2,
                 cv2.LINE_AA,
             )
+
+            if shopper_labels:
+                attention = (attention_by_track or {}).get(int(track_id), {})
+                gaze_direction = str((gaze_result or {}).get("direction", "unknown")).upper()
+                gaze_confidence = float((gaze_result or {}).get("confidence", 0.0) or 0.0)
+                attention_state = str(attention.get("state", "NOT ATTENTIVE"))
+                attention_score = float(attention.get("score", 0.0) or 0.0)
+                annotation = (
+                    f"Gaze: {gaze_direction} {gaze_confidence:.0%} | "
+                    f"{attention_state} {attention_score:.1f}%"
+                )
+                cv2.putText(
+                    annotated,
+                    annotation,
+                    (int(x1), min(annotated.shape[0] - 8, int(y2) + 20)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    (40, 220, 120),
+                    1,
+                    cv2.LINE_AA,
+                )
 
         overlay_lines = [
             f"Customers in frame: {customer_count if customer_count is not None else len(tracked_objects)}",

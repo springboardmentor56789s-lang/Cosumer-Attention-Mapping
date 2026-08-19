@@ -740,10 +740,8 @@
 
 				updateKPIs(result);
 				renderCharts(result.charts || {});
-				if (result.video_url) {
-					els.uploadedVideo.src = result.video_url;
-					els.videoPlaceholder.textContent = `Showing uploaded server video: ${result.video_file || "video"}`;
-				}
+				console.info("Video analysis API response URL:", result.video_url);
+				showAnalyzedVideo(getAnnotatedVideoUrl(result), result.video_file);
 				const generatedReports = Array.isArray(result.reports) ? result.reports.length : 0;
 				showStatus(`Analysis complete for ${result.video_file || "uploaded video"}. ${generatedReports || 5} reports are ready on the Reports Dashboard.`, "ok");
 			} catch (error) {
@@ -780,6 +778,78 @@
 			});
 		}
 
+		function getAnnotatedVideoUrl(result) {
+			// The current API returns the browser-safe /uploads URL as `video_url`.
+			// Keep the aliases for compatibility with older response payloads.
+			const candidates = [
+				result?.video_url,
+				result?.annotated_video_url,
+				result?.pipeline?.video_url,
+				result?.pipeline?.annotated_video_url
+			];
+			const videoUrl = candidates.find((value) => typeof value === "string" && value.trim());
+			if (!videoUrl) {
+				throw new Error("Analysis completed, but the response did not include an annotated video URL.");
+			}
+			return videoUrl;
+		}
+
+		function showAnalyzedVideo(videoUrl, videoFileName) {
+			if (typeof videoUrl !== "string" || !videoUrl.trim()) {
+				throw new Error("Analysis completed, but no annotated video URL was returned.");
+			}
+
+			let previewUrl;
+			try {
+				const parsedUrl = new URL(videoUrl, window.location.origin);
+				if (!["http:", "https:"].includes(parsedUrl.protocol) || parsedUrl.origin !== window.location.origin) {
+					throw new Error("invalid video URL");
+				}
+				parsedUrl.searchParams.set("v", String(Date.now()));
+				previewUrl = parsedUrl.href;
+			} catch (_error) {
+				throw new Error("Analysis returned an invalid annotated video URL.");
+			}
+			console.info("Final frontend annotated video URL:", previewUrl);
+
+			const video = els.uploadedVideo;
+			video.pause();
+			video.removeAttribute("src");
+			video.load();
+			video.controls = true;
+			video.preload = "auto";
+			video.hidden = false;
+			video.style.display = "block";
+			video.onloadeddata = () => {
+				console.info("Annotated video loaded:", {
+					url: video.currentSrc,
+					readyState: video.readyState,
+					duration: video.duration
+				});
+			};
+			video.onerror = () => {
+				video.onerror = null;
+				console.error("Annotated video preview load error:", {
+					url: previewUrl,
+					networkState: video.networkState,
+					readyState: video.readyState,
+					mediaError: video.error ? { code: video.error.code, message: video.error.message } : null
+				});
+				if (els.videoPlaceholder) {
+					els.videoPlaceholder.textContent = "Analysis finished, but the annotated video preview could not be loaded.";
+					els.videoPlaceholder.style.display = "block";
+				}
+				showStatus("Annotated video preview is unavailable. Please try the analysis again.", "err");
+			};
+			video.src = previewUrl;
+			video.load();
+
+			if (els.videoPlaceholder) {
+				els.videoPlaceholder.textContent = `Showing annotated video: ${videoFileName || "video"}`;
+				els.videoPlaceholder.style.display = "none";
+			}
+		}
+
 		els.storeId.addEventListener("change", loadCamerasForStore);
 		els.storeId.addEventListener("blur", loadCamerasForStore);
 		loadCamerasForStore();
@@ -797,6 +867,9 @@
 
 			localPreviewUrl = URL.createObjectURL(file);
 			els.uploadedVideo.src = localPreviewUrl;
+			els.uploadedVideo.controls = true;
+			els.uploadedVideo.style.display = "block";
+			els.uploadedVideo.load();
 			els.videoPlaceholder.textContent = `Local preview: ${file.name}`;
 		});
 
