@@ -28,12 +28,12 @@ def test_gaze_detector_uses_eye_and_nose_geometry_for_direction():
     assert gaze["horizontal"] != 0 or gaze["vertical"] != 0
 
 
-def test_mediapipe_service_returns_face_data_for_real_frame_shape():
+def test_mediapipe_service_does_not_fabricate_face_data_when_no_face_is_detected():
     service = MediaPipeService()
     frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
     result = service.detect_face_landmarks(frame)
 
-    assert result["success"] is True
-    assert "landmarks" in result
-    assert "face_center" in result["landmarks"]
+    assert result["success"] is False
+    assert result["face_detected"] is False
+    assert "landmarks" not in result

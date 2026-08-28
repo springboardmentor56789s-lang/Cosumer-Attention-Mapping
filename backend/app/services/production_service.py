@@ -111,6 +111,10 @@ class ProductionAnalyticsService:
                 "sku": product.sku,
                 "views": len(records),
                 "attention": round(sum(r.attention_score or 0 for r in records) / len(records), 2) if records else 0.0,
+                "dwell_time": round(sum(float(r.dwell_time or 0) for r in records) / len(records), 2) if records else 0.0,
+                "engagement": round(
+                    sum(1 for r in records if r.looking_at_shelf or r.looking_at_product) * 100 / len(records), 2
+                ) if records else 0.0,
             })
 
         shelf_rows = []

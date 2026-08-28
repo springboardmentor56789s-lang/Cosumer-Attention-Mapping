@@ -480,12 +480,18 @@ class VideoPipelineService:
                 centroid = track.get("centroid", (0.0, 0.0))
                 heat_points.append((float(centroid[0]), float(centroid[1])))
 
-                runtime_metrics = self._update_track_runtime(track_runtime, int(obj_id), centroid, analysis_fps, frame_idx)
+                # Frame index/FPS is stable for files; wall-clock time is the
+                # only reliable duration source for RTSP streams without FPS.
+                source_timestamp = (
+                    float(source_frame_idx) / fps if fps > 0.0 else time.monotonic()
+                )
+                runtime_metrics = self._update_track_runtime(track_runtime, int(obj_id), centroid, source_timestamp)
                 nearest_product, distance_to_product = self._nearest_product(centroid, product_dets)
                 association = self._associate_customer_location(
                     centroid, zones, frame_width, frame_height, gaze_result,
-                    runtime_metrics["dwell_time"], attention_values[-1] if attention_values else 0.0,
+                    runtime_metrics["dwell_time"],
                 )
+                attention_score = self._calculate_attention_score(gaze_result, association, centroid)
                 self._record_customer_transition(
                     track_runtime[int(obj_id)], int(obj_id), association, runtime_metrics["dwell_time"],
                     gaze_result, meaningful_events,
@@ -504,9 +510,10 @@ class VideoPipelineService:
                     walking_speed=runtime_metrics["walking_speed"],
                     dwell_time=runtime_metrics["dwell_time"],
                     customer_path=runtime_metrics["customer_path"],
+                    attention_score=attention_score,
                 )
                 enriched.shelf_id = association.get("shelf_id")
-                enriched.looking_at_shelf = bool(association.get("engaged"))
+                enriched.looking_at_shelf = bool(association.get("engaged") and attention_score >= 45.0)
                 enriched.looking_at_product = bool(association.get("engaged") and nearest_product)
 
                 aggregate_key = (
@@ -802,12 +809,12 @@ class VideoPipelineService:
         walking_speed: float = 0.0,
         dwell_time: Optional[float] = None,
         customer_path: Optional[str] = None,
+        attention_score: Optional[float] = None,
     ) -> FrameAnalytics:
         face_direction = str(gaze_result.get("direction", "forward"))
         confidence = float(gaze_result.get("confidence", 0.0) or 0.0)
-        looking = confidence >= 0.2
-
-        attention_score = max(0.0, min(100.0, 40.0 + (confidence * 60.0)))
+        looking = confidence >= 0.35
+        score = max(0.0, min(100.0, float(attention_score or 0.0)))
         dwell = round(dwell_time if dwell_time is not None else (frame_idx / 30.0), 2)
 
         return FrameAnalytics(
@@ -822,7 +829,7 @@ class VideoPipelineService:
             looking_at_product=looking and viewed_product is not None,
             walking_speed=round(max(0.0, walking_speed), 3),
             customer_path=customer_path or f"({int(centroid[0])},{int(centroid[1])})",
-            attention_score=round(attention_score, 2),
+            attention_score=round(score, 2),
         )
 
     def _associate_customer_location(
@@ -833,9 +840,8 @@ class VideoPipelineService:
         frame_height: int,
         gaze_result: Dict[str, Any],
         dwell_time: float,
-        attention_score: float,
     ) -> Dict[str, Any]:
-        """Use ROI, nearest shelf distance, dwell, and reliable gaze to stabilize shopper association."""
+        """Use configured ROI and measured head-pose reliability to locate a shopper."""
         containing_zone = next((zone for zone in zones if self._point_in_roi(centroid, zone.roi, frame_width, frame_height)), None)
         candidates = [shelf for zone in zones for shelf in zone.shelves if shelf.roi]
         nearest_shelf, nearest_distance = None, float("inf")
@@ -843,14 +849,16 @@ class VideoPipelineService:
             points = (shelf.roi or {}).get("points") or []
             if not points:
                 continue
-            center = (sum(float(point["x"]) for point in points) / len(points), sum(float(point["y"]) for point in points) / len(points))
+            center = self._roi_center_in_frame(shelf.roi, frame_width, frame_height)
+            if center is None:
+                continue
             distance = math.dist(centroid, center)
             if distance < nearest_distance:
                 nearest_shelf, nearest_distance = shelf, distance
         containing_shelf = next((shelf for shelf in (containing_zone.shelves if containing_zone else []) if self._point_in_roi(centroid, shelf.roi, frame_width, frame_height)), None)
         gaze_confidence = float(gaze_result.get("confidence", 0.0) or 0.0)
         nearby = nearest_shelf and nearest_distance <= max(80.0, min(frame_width, frame_height) * 0.18)
-        engaged = bool(containing_shelf or (nearby and (gaze_confidence >= 0.2 or attention_score >= 55 or dwell_time >= 2.0)))
+        engaged = bool(containing_shelf or (nearby and gaze_confidence >= 0.35 and dwell_time >= 0.25))
         shelf = containing_shelf or (nearest_shelf if engaged else None)
         zone = containing_zone or (shelf.zone if shelf else None)
         return {
@@ -859,7 +867,50 @@ class VideoPipelineService:
             "shelf_id": shelf.id if shelf else None,
             "shelf_name": shelf.shelf_name if shelf else None,
             "engaged": engaged,
+            "inside_shelf": bool(containing_shelf),
+            "nearby": bool(nearby),
+            "shelf_center": self._roi_center_in_frame(shelf.roi, frame_width, frame_height) if shelf else None,
         }
+
+    @staticmethod
+    def _roi_center_in_frame(roi: Any, frame_width: int, frame_height: int) -> Optional[Tuple[float, float]]:
+        if not isinstance(roi, dict):
+            return None
+        points = roi.get("points") or []
+        if not points:
+            return None
+        reference = roi.get("reference_frame") or {}
+        scale_x = float(frame_width) / float(reference.get("width") or frame_width or 1)
+        scale_y = float(frame_height) / float(reference.get("height") or frame_height or 1)
+        return (
+            sum(float(point.get("x", 0.0)) * scale_x for point in points) / len(points),
+            sum(float(point.get("y", 0.0)) * scale_y for point in points) / len(points),
+        )
+
+    @staticmethod
+    def _calculate_attention_score(
+        gaze_result: Dict[str, Any], association: Dict[str, Any], centroid: Tuple[float, float]
+    ) -> float:
+        """Score observed attention from face/head pose and an actual shelf relationship.
+
+        No face landmarks or no associated shelf means attention is unavailable,
+        represented as 0 rather than an invented baseline.
+        """
+        vector = gaze_result.get("gaze_vector")
+        shelf_center = association.get("shelf_center")
+        if not isinstance(vector, (tuple, list)) or len(vector) < 2 or not shelf_center:
+            return 0.0
+        pose_reliability = max(0.0, min(1.0, float(gaze_result.get("confidence", 0.0) or 0.0)))
+        gx, gy = float(vector[0]), float(vector[1])
+        gaze_magnitude = math.hypot(gx, gy)
+        sx, sy = float(shelf_center[0]) - centroid[0], float(shelf_center[1]) - centroid[1]
+        shelf_distance = math.hypot(sx, sy)
+        if gaze_magnitude < 0.05 or shelf_distance < 1.0:
+            alignment = 0.7  # forward-facing, close-to-shelf observation
+        else:
+            alignment = max(0.0, min(1.0, ((gx * sx + gy * sy) / (gaze_magnitude * shelf_distance) + 1.0) / 2.0))
+        relationship = 1.0 if association.get("inside_shelf") else 0.65 if association.get("nearby") else 0.0
+        return round(100.0 * ((0.45 * pose_reliability) + (0.30 * alignment) + (0.25 * relationship)), 2)
 
     @staticmethod
     def _record_customer_transition(
@@ -1128,13 +1179,13 @@ class VideoPipelineService:
         runtime_state: Dict[int, Dict[str, Any]],
         customer_id: int,
         centroid: Tuple[float, float],
-        fps: float,
-        frame_idx: int,
+        timestamp_seconds: float,
     ) -> Dict[str, Any]:
         state = runtime_state.setdefault(
             customer_id,
             {
-                "start_frame": frame_idx,
+                "started_at_seconds": timestamp_seconds,
+                "last_timestamp_seconds": timestamp_seconds,
                 "last_centroid": centroid,
                 "path": [centroid],
                 "distance": 0.0,
@@ -1147,15 +1198,15 @@ class VideoPipelineService:
         state["last_centroid"] = centroid
         state["path"].append(centroid)
 
-        frames_seen = max(1, frame_idx - int(state.get("start_frame", frame_idx)) + 1)
-        fps_value = fps if fps > 0 else 30.0
-        dwell_time = frames_seen / fps_value
+        started_at = float(state.get("started_at_seconds", timestamp_seconds) or timestamp_seconds)
+        dwell_time = max(0.0, timestamp_seconds - started_at)
+        state["last_timestamp_seconds"] = timestamp_seconds
         walking_speed = state["distance"] / max(dwell_time, 1e-6)
 
         return {
             "dwell_time": dwell_time,
             "walking_speed": walking_speed,
-            "customer_path": "",
+            "customer_path": self._serialize_path(state["path"]),
         }
 
     def _serialize_path(self, points: List[Tuple[float, float]]) -> str:

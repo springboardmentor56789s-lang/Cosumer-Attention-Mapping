@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - package optional at runtime
 
 
 class MediaPipeService:
-    """MediaPipe-based detection service with a geometrically valid fallback path."""
+    """MediaPipe-based face landmark detection. Never synthesizes face data."""
 
     def __init__(self):
         self.face_detector = None
@@ -54,21 +54,7 @@ class MediaPipeService:
         width = frame.shape[1] if hasattr(frame, "shape") else 640
 
         if not self.mp_available:
-            fallback_landmarks = {
-                "face_center": (width / 2.0, height / 2.0),
-                "left_eye": {"x": width * 0.42, "y": height * 0.42},
-                "right_eye": {"x": width * 0.58, "y": height * 0.42},
-                "nose": {"x": width * 0.5, "y": height * 0.46},
-                "mouth": {"x": width * 0.5, "y": height * 0.58},
-                "chin": {"x": width * 0.5, "y": height * 0.72},
-            }
-            result = {
-                "success": True,
-                "face_detected": True,
-                "landmarks": fallback_landmarks,
-                "frame_shape": (height, width),
-                "fallback": True,
-            }
+            result = {"success": False, "face_detected": False, "frame_shape": (height, width), "error": "MediaPipe is unavailable"}
             self.detection_history.append(result)
             return result
 
@@ -79,15 +65,7 @@ class MediaPipeService:
             face_mesh = mp.solutions.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
             result_mesh = face_mesh.process(rgb)
             if result_mesh.multi_face_landmarks is None:
-                fallback_landmarks = {
-                    "face_center": (width / 2.0, height / 2.0),
-                    "left_eye": {"x": width * 0.42, "y": height * 0.42},
-                    "right_eye": {"x": width * 0.58, "y": height * 0.42},
-                    "nose": {"x": width * 0.5, "y": height * 0.46},
-                    "mouth": {"x": width * 0.5, "y": height * 0.58},
-                    "chin": {"x": width * 0.5, "y": height * 0.72},
-                }
-                result = {"success": True, "face_detected": True, "landmarks": fallback_landmarks, "frame_shape": (height, width), "fallback": True}
+                result = {"success": False, "face_detected": False, "frame_shape": (height, width), "error": "No face detected"}
                 self.detection_history.append(result)
                 return result
 
@@ -110,15 +88,7 @@ class MediaPipeService:
             self.detection_history.append(result)
             return result
         except Exception as exc:
-            fallback_landmarks = {
-                "face_center": (width / 2.0, height / 2.0),
-                "left_eye": {"x": width * 0.42, "y": height * 0.42},
-                "right_eye": {"x": width * 0.58, "y": height * 0.42},
-                "nose": {"x": width * 0.5, "y": height * 0.46},
-                "mouth": {"x": width * 0.5, "y": height * 0.58},
-                "chin": {"x": width * 0.5, "y": height * 0.72},
-            }
-            result = {"success": True, "face_detected": True, "landmarks": fallback_landmarks, "frame_shape": (height, width), "fallback": True, "error": str(exc)}
+            result = {"success": False, "face_detected": False, "frame_shape": (height, width), "error": str(exc)}
             self.detection_history.append(result)
             return result
 

@@ -170,6 +170,12 @@ class GazeDetector:
 
     @staticmethod
     def _calculate_gaze_confidence(gaze_vector: Tuple[float, float]) -> float:
+        """Return head-pose reliability, not a fabricated attention score.
+
+        A face pointing roughly forward is the most reliable pose for relating
+        head direction to a nearby shelf; extreme yaw/pitch is progressively
+        less reliable.
+        """
         gaze_x, gaze_y = gaze_vector
         magnitude = float(np.hypot(gaze_x, gaze_y))
-        return float(np.clip(magnitude * 1.5, 0.0, 1.0))
+        return float(np.clip(1.0 - (magnitude / 0.75), 0.0, 1.0))

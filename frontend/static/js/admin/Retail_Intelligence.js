@@ -170,7 +170,7 @@ function renderOpportunities(rows) {
         renderEmptyRow(
             "opportunityTable",
             4,
-            "No attention-to-sales opportunities need action."
+            "No attention-to-interaction opportunities need action."
         );
 
         return;
@@ -239,37 +239,27 @@ function calculateProductAttractiveness(products) {
         return [];
     }
 
-    const maxViews = Math.max(
-        ...products.map((product) => Number(product.views || 0)),
-        1
-    );
-
     const maxAttention = Math.max(
         ...products.map((product) => Number(product.attention || 0)),
         1
     );
+    const maxDwell = Math.max(
+        ...products.map((product) => Number(product.dwell_time || 0)),
+        1
+    );
 
     /*
-     * The current dashboard API provides:
-     *
-     * - views
-     * - attention
-     *
-     * If your backend later provides:
-     * - dwell_time
-     * - engagement
-     * - revisit_rate
-     *
-     * this function can directly use those values.
-     *
-     * For now, normalized product interaction signals are used
-     * without inventing unsupported purchase behavior.
+     * This score uses recorded attention, dwell, and engagement only.
+     * Sales/purchase data is not present in this application, so it is not
+     * inferred from views or included in the score.
      */
 
     return products.map((product) => {
 
         const views = Number(product.views || 0);
         const attention = Number(product.attention || 0);
+        const dwellTime = Number(product.dwell_time || 0);
+        const engagement = Number(product.engagement || 0);
 
         // Attention normalized to 0-100
         const attentionScore = Math.min(
@@ -277,43 +267,16 @@ function calculateProductAttractiveness(products) {
             (attention / maxAttention) * 100
         );
 
-        // Interaction intensity normalized to 0-100
-        const interactionScore = Math.min(
+        const dwellScore = Math.min(
             100,
-            (views / maxViews) * 100
+            (dwellTime / maxDwell) * 100
         );
-
-        /*
-         * Current data does not expose real dwell/revisit values.
-         *
-         * Therefore:
-         * - interactionScore is used as the available engagement signal
-         * - revisit is kept as 0 until backend revisit data exists
-         *
-         * This avoids falsely claiming that revisit/dwell data exists.
-         */
-
-        const dwellScore = interactionScore;
-        const engagementScore =
-            (attentionScore * 0.6) +
-            (interactionScore * 0.4);
-
-        const revisitScore = 0;
-
-        /*
-         * Product attractiveness:
-         *
-         * Attention       = 40%
-         * Dwell           = 20%
-         * Engagement      = 30%
-         * Revisit         = 10%
-         */
+        const engagementScore = Math.max(0, Math.min(100, engagement));
 
         const attractivenessScore =
             (attentionScore * 0.40) +
-            (dwellScore * 0.20) +
-            (engagementScore * 0.30) +
-            (revisitScore * 0.10);
+            (dwellScore * 0.30) +
+            (engagementScore * 0.30);
 
         return {
             ...product,
@@ -321,7 +284,7 @@ function calculateProductAttractiveness(products) {
             attentionScore,
             dwellScore,
             engagementScore,
-            revisitScore,
+            dwellTime,
 
             attractivenessScore: Math.max(
                 0,
@@ -558,7 +521,7 @@ function buildCharts(
                 callbacks: {
 
                     label: (context) =>
-                        `${context.raw.label}: ${context.raw.x} sales-performance signals, ${context.raw.y.toFixed(1)}% attention`
+                        `${context.raw.label}: ${context.raw.x} product-view signals, ${context.raw.y.toFixed(1)}% attention`
 
                 }
 
@@ -571,7 +534,7 @@ function buildCharts(
             x: {
                 title: {
                     display: true,
-                    text: "Sales performance (recorded demand signals)"
+                    text: "Recorded product-view signals"
                 },
 
                 beginAtZero: true
@@ -594,7 +557,7 @@ function buildCharts(
     };
 
 
-    // Sales × Attention
+    // Product-view signals × Attention
     const salesContext =
         getCanvasContext("salesAttentionChart");
 
@@ -792,7 +755,11 @@ document.addEventListener(
 
                             attention: Number(
                                 item.attention || 0
-                            )
+                            ),
+
+                            dwell_time: Number(item.dwell_time || 0),
+
+                            engagement: Number(item.engagement || 0)
                         }
 
                     ])
@@ -813,7 +780,11 @@ document.addEventListener(
 
                         views: 0,
 
-                        attention: 0
+                        attention: 0,
+
+                        dwell_time: 0,
+
+                        engagement: 0
 
                     })
 
@@ -1030,13 +1001,13 @@ document.addEventListener(
                             product.name,
 
                         opportunity:
-                            "High attention, low sales performance",
+                            "High attention with limited observed interaction",
 
                         reason:
-                            `${product.attention.toFixed(1)}% attention is not translating into demand (${product.views} signals).`,
+                            `${product.attention.toFixed(1)}% attention with ${product.views} recorded product-view signals.`,
 
                         direction:
-                            "Review placement, pricing, and conversion messaging."
+                            "Review placement, shelf communication, and product visibility."
 
                     }))
 
@@ -1068,9 +1039,9 @@ document.addEventListener(
 
                             product.stock_quantity === 0
 
-                                ? `${product.views} demand views · out of stock`
+                                ? `${product.views} recorded views · out of stock`
 
-                                : `${product.views} demand views · ${product.stock_quantity} units left`,
+                                : `${product.views} recorded views · ${product.stock_quantity} units left`,
 
                         decision:
 
@@ -1091,7 +1062,7 @@ document.addEventListener(
 
                 risks,
 
-                "No demand-linked inventory risks detected."
+                "No product-view-linked inventory risks detected."
 
             );
 
@@ -1113,11 +1084,11 @@ document.addEventListener(
 
             const insightItems = [
 
-                `${opportunities.length} products attract above-baseline attention but have weak sales performance, indicating a conversion opportunity.`,
+                `${opportunities.length} products attract above-baseline attention but have limited recorded product-view signals.`,
 
-                `${stockRisks.length} inventory positions could interrupt observed demand, placing ${demandAtRisk} sales-performance signals at risk.`,
+                `${stockRisks.length} inventory positions could interrupt recorded product interest across ${demandAtRisk} product-view signals.`,
 
-                `${weakPerformers.length} products have weak attention and weak sales performance, which may warrant an assortment review.`
+                `${weakPerformers.length} products have weak recorded attention and product interaction, which may warrant a visibility review.`
 
             ];
 
@@ -1150,7 +1121,7 @@ document.addEventListener(
 
                 actions.push(
 
-                    `High priority: replenish or pause promotion for ${stockRisks[0].name}, where availability conflicts with recorded demand.`
+                    `High priority: replenish or pause promotion for ${stockRisks[0].name}, where availability conflicts with recorded product interest.`
 
                 );
 
@@ -1161,7 +1132,7 @@ document.addEventListener(
 
                 actions.push(
 
-                    `High priority: review ${opportunities[0].name} placement, pricing, and conversion strategy because customer attention is not becoming sales performance.`
+                    `High priority: review ${opportunities[0].name} placement and shelf communication because attention is not accompanied by many recorded product-view signals.`
 
                 );
 
@@ -1183,7 +1154,7 @@ document.addEventListener(
 
                 actions.push(
 
-                    "Medium priority: investigate low-attention, low-sales products for an assortment or promotion intervention."
+                    "Medium priority: investigate low-attention, low-interaction products for a visibility or assortment review."
 
                 );
 
