@@ -117,7 +117,7 @@ templates = Jinja2Templates(
 @app.get("/login", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse(
-        "login.html",
+        "auth/login.html",
         {"request": request}
     )
     
@@ -127,7 +127,7 @@ async def home(request: Request):
 @app.get("/register", response_class=HTMLResponse)
 async def user_register_page(request: Request):
     return templates.TemplateResponse(
-        "register.html",
+        "auth/register.html",
         {"request": request}
     )
 
@@ -143,7 +143,7 @@ async def admin_dashboard(request: Request):
         db.close()
 
     return templates.TemplateResponse(
-        "admin_dashboard.html",
+        "admin/admin_dashboard.html",
         {
             "request": request,
             "dashboard_summary": dashboard_summary,
@@ -154,7 +154,7 @@ async def admin_dashboard(request: Request):
 @app.get("/store/dashboard", response_class=HTMLResponse)
 async def store_dashboard(request: Request):
     return templates.TemplateResponse(
-        "store_dashboard.html",
+        "store_manager/store_dashboard.html",
         {"request": request}
     )
 
@@ -162,15 +162,21 @@ async def store_dashboard(request: Request):
 @app.get("/retail/dashboard", response_class=HTMLResponse)
 async def retail_dashboard(request: Request):
     return templates.TemplateResponse(
-        "retail_dashboard.html",
+        "retail_analysts/retail_analysts_dashboard.html",
         {"request": request}
     )
 
+@app.get("/admin/retail-intelligence", response_class=HTMLResponse)
+async def retail_intelligence(request: Request):
+    return templates.TemplateResponse(
+        "admin/Retail_Intelligence.html",
+        {"request": request}
+    )
 
 @app.get("/marketing/dashboard", response_class=HTMLResponse)
 async def marketing_dashboard(request: Request):
     return templates.TemplateResponse(
-        "marketing_dashboard.html",
+        "marketing_analysts/marketing_dashboard.html",
         {"request": request}
     )
 
@@ -179,7 +185,7 @@ async def marketing_dashboard(request: Request):
 @app.get("/live_insights.html", response_class=HTMLResponse)
 async def live_insights_dashboard(request: Request):
     return templates.TemplateResponse(
-        "live_insights.html",
+        "admin/live_insights.html",
         {"request": request}
     )
 
@@ -188,7 +194,7 @@ async def live_insights_dashboard(request: Request):
 @app.get("/store_management.html", response_class=HTMLResponse)
 async def store_management_page(request: Request):
     return templates.TemplateResponse(
-        "store_management.html",
+        "admin/store_management.html",
         {"request": request}
     )
 
@@ -196,7 +202,7 @@ async def store_management_page(request: Request):
 @app.get("/camera_management", response_class=HTMLResponse)
 async def camera_management_page(request: Request):
     return templates.TemplateResponse(
-        "camera_management.html",
+        "admin/camera_management.html",
         {"request": request}
     )
     
@@ -204,7 +210,7 @@ async def camera_management_page(request: Request):
 @app.get("/shelves_management.html", response_class=HTMLResponse)
 async def shelves_management_page(request: Request):
     return templates.TemplateResponse(
-        "shelves_management.html",
+        "admin/shelves_management.html",
         {"request": request}
     )
     
@@ -220,7 +226,7 @@ async def project_management_page(request: Request):
 @app.get("/product_management.html", response_class=HTMLResponse)
 async def product_management_page(request: Request):
     return templates.TemplateResponse(
-        "product_management.html",
+        "admin/product_management.html",
         {"request": request}
     )
 
@@ -228,7 +234,7 @@ async def product_management_page(request: Request):
 @app.get("/video-analytics-upload", response_class=HTMLResponse)
 async def video_analytics_upload_page(request: Request):
     return templates.TemplateResponse(
-        "video_analytics_upload.html",
+        "admin/video_upload.html",
         {"request": request}
     )
 
@@ -241,7 +247,7 @@ async def video_analytics_upload_legacy_redirect():
 @app.get("/video-upload", response_class=HTMLResponse)
 async def video_upload_page(request: Request):
     return templates.TemplateResponse(
-        "video_upload.html",
+        "admin/video_upload.html",
         {"request": request}
     )
 
@@ -254,7 +260,7 @@ async def video_upload_legacy_redirect():
 @app.get("/blueprint-editor", response_class=HTMLResponse)
 async def blueprint_editor_page(request: Request):
     return templates.TemplateResponse(
-        "blueprint_editor.html",
+        "admin/blueprint_editor.html",
         {"request": request}
     )
 
@@ -263,7 +269,15 @@ async def blueprint_editor_page(request: Request):
 @app.get("/reports.html", response_class=HTMLResponse)
 async def reports_page(request: Request):
     return templates.TemplateResponse(
-        "reports.html",
+        "admin/reports.html",
+        {"request": request}
+    )
+
+
+@app.get("/heatmap", response_class=HTMLResponse)
+async def heatmap_page(request: Request):
+    return templates.TemplateResponse(
+        "admin/heatmap.html",
         {"request": request}
     )
     

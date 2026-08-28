@@ -351,6 +351,7 @@ class VideoPipelineService:
         peak_customer_count = 0
         product_counter: Counter[str] = Counter()
         track_runtime: Dict[int, Dict[str, Any]] = {}
+        meaningful_events: List[Dict[str, Any]] = []
         analytics_aggregates: Dict[Tuple[int, Optional[int], Optional[str]], Dict[str, Any]] = {}
         track_summaries: Dict[int, Dict[str, Any]] = {}
         detection_events: Dict[Tuple[str, Optional[int], Optional[int], Optional[int]], model.Detection] = {}
@@ -481,6 +482,14 @@ class VideoPipelineService:
 
                 runtime_metrics = self._update_track_runtime(track_runtime, int(obj_id), centroid, analysis_fps, frame_idx)
                 nearest_product, distance_to_product = self._nearest_product(centroid, product_dets)
+                association = self._associate_customer_location(
+                    centroid, zones, frame_width, frame_height, gaze_result,
+                    runtime_metrics["dwell_time"], attention_values[-1] if attention_values else 0.0,
+                )
+                self._record_customer_transition(
+                    track_runtime[int(obj_id)], int(obj_id), association, runtime_metrics["dwell_time"],
+                    gaze_result, meaningful_events,
+                )
 
                 if heatmap_accumulator is not None:
                     self._accumulate_heatmap_point(heatmap_accumulator, int(centroid[0]), int(centroid[1]))
@@ -496,6 +505,9 @@ class VideoPipelineService:
                     dwell_time=runtime_metrics["dwell_time"],
                     customer_path=runtime_metrics["customer_path"],
                 )
+                enriched.shelf_id = association.get("shelf_id")
+                enriched.looking_at_shelf = bool(association.get("engaged"))
+                enriched.looking_at_product = bool(association.get("engaged") and nearest_product)
 
                 aggregate_key = (
                     enriched.customer_id,
@@ -675,6 +687,8 @@ class VideoPipelineService:
         top_products = [{"name": name, "count": count} for name, count in product_counter.most_common(5)]
         avg_attention = round(sum(attention_values) / len(attention_values), 2) if attention_values else 0.0
         avg_dwell = round(sum(dwell_values) / len(dwell_values), 2) if dwell_values else 0.0
+        self._add_terminal_behavior_events(track_runtime, track_summaries, meaningful_events)
+        run_intelligence = self._build_run_intelligence(track_runtime, meaningful_events)
 
         if heat_points:
             db.add(
@@ -700,6 +714,7 @@ class VideoPipelineService:
                             "heatmap_image_path": heatmap_image_path,
                         },
                         "top_products": top_products,
+                        "intelligence": run_intelligence,
                     },
                 )
             )
@@ -723,6 +738,7 @@ class VideoPipelineService:
             "heatmap_image_path": heatmap_image_path,
             "avg_attention_score": avg_attention,
             "avg_dwell_time": avg_dwell,
+            "intelligence": run_intelligence,
         }
 
     def _open_capture(self, camera: model.Camera):
@@ -808,6 +824,105 @@ class VideoPipelineService:
             customer_path=customer_path or f"({int(centroid[0])},{int(centroid[1])})",
             attention_score=round(attention_score, 2),
         )
+
+    def _associate_customer_location(
+        self,
+        centroid: Tuple[float, float],
+        zones: List[model.CameraZone],
+        frame_width: int,
+        frame_height: int,
+        gaze_result: Dict[str, Any],
+        dwell_time: float,
+        attention_score: float,
+    ) -> Dict[str, Any]:
+        """Use ROI, nearest shelf distance, dwell, and reliable gaze to stabilize shopper association."""
+        containing_zone = next((zone for zone in zones if self._point_in_roi(centroid, zone.roi, frame_width, frame_height)), None)
+        candidates = [shelf for zone in zones for shelf in zone.shelves if shelf.roi]
+        nearest_shelf, nearest_distance = None, float("inf")
+        for shelf in candidates:
+            points = (shelf.roi or {}).get("points") or []
+            if not points:
+                continue
+            center = (sum(float(point["x"]) for point in points) / len(points), sum(float(point["y"]) for point in points) / len(points))
+            distance = math.dist(centroid, center)
+            if distance < nearest_distance:
+                nearest_shelf, nearest_distance = shelf, distance
+        containing_shelf = next((shelf for shelf in (containing_zone.shelves if containing_zone else []) if self._point_in_roi(centroid, shelf.roi, frame_width, frame_height)), None)
+        gaze_confidence = float(gaze_result.get("confidence", 0.0) or 0.0)
+        nearby = nearest_shelf and nearest_distance <= max(80.0, min(frame_width, frame_height) * 0.18)
+        engaged = bool(containing_shelf or (nearby and (gaze_confidence >= 0.2 or attention_score >= 55 or dwell_time >= 2.0)))
+        shelf = containing_shelf or (nearest_shelf if engaged else None)
+        zone = containing_zone or (shelf.zone if shelf else None)
+        return {
+            "zone_id": zone.id if zone else None,
+            "zone_name": zone.zone_name if zone else None,
+            "shelf_id": shelf.id if shelf else None,
+            "shelf_name": shelf.shelf_name if shelf else None,
+            "engaged": engaged,
+        }
+
+    @staticmethod
+    def _record_customer_transition(
+        state: Dict[str, Any],
+        customer_id: int,
+        association: Dict[str, Any],
+        dwell_time: float,
+        gaze_result: Dict[str, Any],
+        events: List[Dict[str, Any]],
+    ) -> None:
+        candidate = (association.get("zone_id"), association.get("shelf_id"))
+        if candidate != state.get("association_candidate"):
+            state["association_candidate"] = candidate
+            state["association_samples"] = 1
+            return
+        state["association_samples"] = int(state.get("association_samples", 0)) + 1
+        if state["association_samples"] < 2:
+            return
+        previous_zone = state.get("zone_id")
+        previous_shelf = state.get("shelf_id")
+        zone_id = association.get("zone_id")
+        shelf_id = association.get("shelf_id")
+        label = association.get("shelf_name") or association.get("zone_name") or "Store Floor"
+        journey = state.setdefault("journey", ["Entrance"])
+        if label != journey[-1]:
+            journey.append(label)
+        if previous_zone != zone_id:
+            if previous_zone is not None: events.append({"type": "CUSTOMER_EXIT_ZONE", "customer_id": customer_id})
+            if zone_id is not None: events.append({"type": "CUSTOMER_ENTER_ZONE", "customer_id": customer_id})
+        if previous_shelf != shelf_id:
+            if previous_shelf is not None: events.append({"type": "SHELF_EXIT", "customer_id": customer_id})
+            if shelf_id is not None:
+                if shelf_id in state.setdefault("visited_shelves", set()): events.append({"type": "SHELF_REVISIT", "customer_id": customer_id})
+                state["visited_shelves"].add(shelf_id)
+                events.append({"type": "SHELF_ENTER", "customer_id": customer_id})
+        attentive = bool(association.get("engaged") and float(gaze_result.get("confidence", 0.0) or 0.0) >= 0.2)
+        if attentive != state.get("attentive", False): events.append({"type": "ATTENTION_START" if attentive else "ATTENTION_END", "customer_id": customer_id})
+        state.update({"zone_id": zone_id, "shelf_id": shelf_id, "attentive": attentive, "last_dwell": dwell_time})
+
+    @staticmethod
+    def _add_terminal_behavior_events(track_runtime: Dict[int, Dict[str, Any]], track_summaries: Dict[int, Dict[str, Any]], events: List[Dict[str, Any]]) -> None:
+        for customer_id, state in track_runtime.items():
+            if float(state.get("last_dwell", 0.0)) < 3.0:
+                events.append({"type": "QUICK_PASS", "customer_id": customer_id})
+            summary = track_summaries.get(customer_id, {})
+            if float(summary.get("attention_total", 0.0)) / max(1, int(summary.get("sample_count", 0))) >= 70:
+                events.append({"type": "HIGH_INTEREST", "customer_id": customer_id})
+
+    @staticmethod
+    def _build_run_intelligence(track_runtime: Dict[int, Dict[str, Any]], events: List[Dict[str, Any]]) -> Dict[str, Any]:
+        paths: Counter[str] = Counter()
+        flows: Counter[Tuple[str, str]] = Counter()
+        for customer_id, state in track_runtime.items():
+            journey = state.get("journey", ["Entrance"])
+            if len(journey) > 1:
+                paths[" → ".join(journey)] += 1
+                flows.update(zip(journey, journey[1:]))
+        total = max(1, len(track_runtime))
+        return {
+            "common_paths": [{"path": path, "customer_count": count, "percentage": round(count * 100 / total, 1), "average_journey_duration": 0.0} for path, count in paths.most_common(10)],
+            "customer_flow": [{"from": start, "to": end, "count": count, "percentage": round(count * 100 / total, 1)} for (start, end), count in flows.most_common(20)],
+            "event_counts": dict(Counter(event["type"] for event in events)),
+        }
 
     def _persist_stream_tracks(
         self,
@@ -1040,7 +1155,7 @@ class VideoPipelineService:
         return {
             "dwell_time": dwell_time,
             "walking_speed": walking_speed,
-            "customer_path": self._serialize_path(state["path"]),
+            "customer_path": "",
         }
 
     def _serialize_path(self, points: List[Tuple[float, float]]) -> str:

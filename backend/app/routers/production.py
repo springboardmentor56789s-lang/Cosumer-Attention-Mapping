@@ -1,6 +1,6 @@
 import csv
 import io
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, time, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -67,7 +67,72 @@ def get_dashboard_series(db: Session = Depends(get_db)):
 def get_live_analytics(db: Session = Depends(get_db)):
     summary = service.get_dashboard_summary(db)
     series = service.get_dashboard_series(db)
-    return {"summary": summary, "series": series}
+    tracks = db.query(model.CustomerTrack).order_by(model.CustomerTrack.created_at.desc()).limit(1000).all()
+    shelves = {shelf.id: shelf for shelf in db.query(model.Shelf).all()}
+    zones = {zone.id: zone for zone in db.query(model.CameraZone).all()}
+    track_count = max(1, len(tracks))
+    engaged = [track for track in tracks if track.looking_at_shelf or track.looking_at_product]
+    quick_pass = [track for track in tracks if float(track.dwell_time or 0) < 3]
+    high_interest = [track for track in tracks if float(track.attention_score or 0) >= 70]
+    latest_run = db.query(model.Heatmap).filter(model.Heatmap.heatmap_type == "movement").order_by(model.Heatmap.created_at.desc()).first()
+    run_artifact = (latest_run.coordinates or {}).get("intelligence", {}) if latest_run else {}
+    common_paths = run_artifact.get("common_paths", [])[:10]
+    flow = run_artifact.get("customer_flow", [])
+    event_counts = run_artifact.get("event_counts", {})
+    shelf_engagement: dict[int, list[model.CustomerTrack]] = defaultdict(list)
+    for track in tracks:
+        if track.shelf_id:
+            shelf_engagement[track.shelf_id].append(track)
+    shelf_metrics = [
+        {
+            "name": shelves[shelf_id].shelf_name,
+            "zone": zones.get(shelves[shelf_id].zone_id).zone_name if zones.get(shelves[shelf_id].zone_id) else "Unassigned",
+            "visitors": len({(track.camera_id, track.customer_id) for track in values}),
+            "average_dwell": round(sum(float(track.dwell_time or 0) for track in values) / max(1, len(values)), 2),
+            "engagement": round(sum(1 for track in values if track.looking_at_shelf or track.looking_at_product) * 100 / max(1, len(values)), 1),
+            "attention": round(sum(float(track.attention_score or 0) for track in values) / max(1, len(values)), 1),
+            "quick_pass_rate": round(sum(1 for track in values if float(track.dwell_time or 0) < 3) * 100 / max(1, len(values)), 1),
+            "revisit_rate": round(float(event_counts.get("SHELF_REVISIT", 0)) * 100 / max(1, len(values)), 1),
+        }
+        for shelf_id, values in shelf_engagement.items() if shelf_id in shelves
+    ]
+    zone_metrics = []
+    for zone_id, zone in zones.items():
+        values = [track for track in tracks if track.shelf_id in shelves and shelves[track.shelf_id].zone_id == zone_id]
+        zone_metrics.append({"name": zone.zone_name, "visitors": len({(track.camera_id, track.customer_id) for track in values}), "average_dwell": round(sum(float(track.dwell_time or 0) for track in values) / max(1, len(values)), 2), "attention": round(sum(float(track.attention_score or 0) for track in values) / max(1, len(values)), 1), "engagement": round(sum(1 for track in values if track.looking_at_shelf or track.looking_at_product) * 100 / max(1, len(values)), 1)})
+    zone_metrics.sort(key=lambda row: row["engagement"], reverse=True)
+    shelf_metrics.sort(key=lambda row: row["engagement"], reverse=True)
+    top_shelf = shelf_metrics[0]["name"] if shelf_metrics else None
+    top_zone = zone_metrics[0]["name"] if zone_metrics else None
+    browsing = max(0.0, 100.0 - (len(quick_pass) + len(high_interest)) * 100 / track_count)
+    heatmap_url = None
+    if latest_run:
+        image_path = ((latest_run.coordinates or {}).get("artifacts", {}) or {}).get("heatmap_image_path")
+        if image_path:
+            heatmap_url = f"/uploads/{Path(image_path).name}"
+    summary["consumer_intelligence"] = {
+        "customer_count": len({(track.camera_id, track.customer_id) for track in tracks}),
+        "average_dwell": round(sum(float(track.dwell_time or 0) for track in tracks) / track_count, 2),
+        "average_attention": round(sum(float(track.attention_score or 0) for track in tracks) / track_count, 1),
+        "engagement_rate": round(len(engaged) * 100 / track_count, 1),
+        "quick_pass_rate": round(len(quick_pass) * 100 / track_count, 1),
+        "high_interest_rate": round(len(high_interest) * 100 / track_count, 1),
+        "revisit_rate": round(float(event_counts.get("SHELF_REVISIT", 0)) * 100 / track_count, 1),
+        "common_paths": common_paths,
+        "shelf_zone_engagement": shelf_metrics,
+    }
+    return {
+        "summary": summary,
+        "series": series,
+        "consumer_intelligence": summary["consumer_intelligence"],
+        "zone_intelligence": zone_metrics,
+        "shelf_intelligence": shelf_metrics,
+        "behavior_distribution": {"quick_pass": summary["consumer_intelligence"]["quick_pass_rate"], "browsing": round(browsing, 1), "high_interest": summary["consumer_intelligence"]["high_interest_rate"], "revisit": summary["consumer_intelligence"]["revisit_rate"]},
+        "common_paths": common_paths,
+        "attention_heatmap": {"image_url": heatmap_url},
+        "customer_flow": flow,
+        "key_insights": [text for text in [f"{top_shelf} is the most engaged shelf." if top_shelf else None, f"{top_zone} has the highest engagement." if top_zone else None, f"{common_paths[0]['percentage']}% of customers follow the most common path." if common_paths else None] if text],
+    }
 
 
 @router.post("/analytics/record", response_model=AnalyticsResponse, status_code=status.HTTP_201_CREATED)
@@ -571,6 +636,145 @@ def delete_camera(camera_id: int, db: Session = Depends(get_db), admin_user: mod
         raise HTTPException(status_code=404, detail="Camera not found")
     db.delete(camera)
     db.commit()
+
+
+def _roi_points(roi: Any) -> list[dict[str, float]]:
+    if not isinstance(roi, dict):
+        return []
+    points = roi.get("points", [])
+    if not isinstance(points, list):
+        return []
+    normalized = []
+    for point in points:
+        if not isinstance(point, dict) or "x" not in point or "y" not in point:
+            continue
+        normalized.append({"x": float(point["x"]), "y": float(point["y"])})
+    return normalized
+
+
+def _roi_center(points: list[dict[str, float]]) -> tuple[float, float] | None:
+    if not points:
+        return None
+    return (
+        sum(point["x"] for point in points) / len(points),
+        sum(point["y"] for point in points) / len(points),
+    )
+
+
+def _spatial_heatmap_payload(db: Session, store_id: Optional[int] = None, camera_id: Optional[int] = None) -> dict[str, Any]:
+    cameras_query = db.query(model.Camera)
+    if store_id is not None:
+        cameras_query = cameras_query.filter(model.Camera.store_id == store_id)
+    if camera_id is not None:
+        cameras_query = cameras_query.filter(model.Camera.id == camera_id)
+    cameras = cameras_query.order_by(model.Camera.camera_name).all()
+    camera_ids = [camera.id for camera in cameras]
+
+    empty_datasets = {
+        "customer_traffic": [],
+        "customer_attention": [],
+        "dwell_time": [],
+        "shelf_engagement": [],
+        "zone_engagement": [],
+        "path_density": [],
+    }
+    if not camera_ids:
+        return {"cameras": [], "datasets": empty_datasets, "areas": {"shelves": [], "zones": []}}
+
+    trajectories = (
+        db.query(model.VideoTrajectoryEvent)
+        .filter(model.VideoTrajectoryEvent.camera_id.in_(camera_ids))
+        .order_by(model.VideoTrajectoryEvent.customer_id, model.VideoTrajectoryEvent.frame_number)
+        .all()
+    )
+    tracks = db.query(model.CustomerTrack).filter(model.CustomerTrack.camera_id.in_(camera_ids)).all()
+    analytics = db.query(model.Analytics).filter(model.Analytics.camera_id.in_(camera_ids)).all()
+    shelves = db.query(model.Shelf).filter(model.Shelf.store_id.in_([camera.store_id for camera in cameras])).all()
+    zones = db.query(model.CameraZone).filter(model.CameraZone.camera_id.in_(camera_ids)).all()
+
+    customer_metrics: dict[int, dict[str, float]] = defaultdict(lambda: {"attention": 0.0, "dwell": 0.0})
+    shelf_engagement: Counter[int] = Counter()
+    for row in [*tracks, *analytics]:
+        metrics = customer_metrics[int(row.customer_id)]
+        metrics["attention"] = max(metrics["attention"], float(row.attention_score or 0.0))
+        metrics["dwell"] = max(metrics["dwell"], float(row.dwell_time or 0.0))
+        if row.shelf_id and (row.looking_at_shelf or row.looking_at_product):
+            shelf_engagement[int(row.shelf_id)] += 1
+
+    trajectories_by_customer: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    zone_engagement: Counter[int] = Counter()
+    for event in trajectories:
+        point = {
+            "x": float(event.blueprint_x if event.blueprint_x is not None else event.camera_x),
+            "y": float(event.blueprint_y if event.blueprint_y is not None else event.camera_y),
+            "customer_id": int(event.customer_id),
+        }
+        trajectories_by_customer[int(event.customer_id)].append(point)
+        if event.zone_id is not None:
+            zone_engagement[int(event.zone_id)] += 1
+
+    datasets = {key: [] for key in empty_datasets}
+    for customer_id, points in trajectories_by_customer.items():
+        metrics = customer_metrics[customer_id]
+        for index, point in enumerate(points):
+            datasets["customer_traffic"].append({**point, "value": 1.0})
+            datasets["customer_attention"].append({**point, "value": metrics["attention"]})
+            datasets["dwell_time"].append({**point, "value": metrics["dwell"]})
+            datasets["path_density"].append({**point, "value": 1.0, "sequence": index})
+
+    # Older runs predate trajectory persistence. Keep their movement points usable for traffic and path-density views.
+    if not datasets["customer_traffic"]:
+        legacy_heatmaps = db.query(model.Heatmap).filter(model.Heatmap.camera_id.in_(camera_ids)).all()
+        for heatmap in legacy_heatmaps:
+            for index, point in enumerate((heatmap.coordinates or {}).get("points", [])):
+                if not isinstance(point, (list, tuple)) or len(point) < 2:
+                    continue
+                payload = {"x": float(point[0]), "y": float(point[1]), "customer_id": -1, "value": 1.0}
+                datasets["customer_traffic"].append(payload)
+                datasets["path_density"].append({**payload, "sequence": index})
+
+    shelf_areas = []
+    for shelf in shelves:
+        points = _roi_points(shelf.roi)
+        center = _roi_center(points)
+        if center:
+            datasets["shelf_engagement"].append({"x": center[0], "y": center[1], "value": float(shelf_engagement[shelf.id])})
+        if points:
+            shelf_areas.append({"id": shelf.id, "name": shelf.shelf_name, "points": points})
+
+    zone_areas = []
+    for zone in zones:
+        points = _roi_points(zone.roi)
+        center = _roi_center(points)
+        if center:
+            datasets["zone_engagement"].append({"x": center[0], "y": center[1], "value": float(zone_engagement[zone.id])})
+        if points:
+            zone_areas.append({"id": zone.id, "name": zone.zone_name, "points": points})
+
+    return {
+        "cameras": [
+            {
+                "id": camera.id,
+                "name": camera.camera_name or f"Camera {camera.id}",
+                "blueprint_url": camera.blueprint_url,
+                "blueprint_width": camera.blueprint_width or 0,
+                "blueprint_height": camera.blueprint_height or 0,
+            }
+            for camera in cameras
+        ],
+        "datasets": datasets,
+        "areas": {"shelves": shelf_areas, "zones": zone_areas},
+    }
+
+
+@router.get("/heatmaps/spatial")
+def get_spatial_heatmaps(
+    store_id: Optional[int] = Query(default=None),
+    camera_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    admin_user: model.User = Depends(require_admin),
+):
+    return _spatial_heatmap_payload(db, store_id=store_id, camera_id=camera_id)
 
 
 @router.get("/heatmaps", response_model=list[HeatmapResponse])

@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Live Analytics | AI Consumer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --ink:#1d2441; --muted:#788098; --line:#e8eaf2; --page:#f7f8fc; --violet:#7059de; --mint:#44ae89; --red:#d55d65; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--page); color: var(--ink); font: 14px Manrope, Arial, sans-serif; }
+        .shell { max-width: 1450px; margin: auto; padding: 28px 5vw 40px; }
+        .top { display: flex; justify-content: space-between; gap: 20px; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 25px; }
+        .brand { font-size: 19px; font-weight: 800; letter-spacing: -.7px; }
+        .brand i { display: inline-grid; place-items: center; height: 29px; width: 29px; border-radius: 9px; background: var(--violet); color: white; font-family: Georgia; font-style: normal; margin-right: 8px; }
+        .brand span { color: var(--violet); }
+        .eyebrow { font: 10px 'DM Mono'; letter-spacing: 1.4px; color: #858ba0; margin: 0 0 8px; }
+        h1 { font-size: 31px; line-height: 1; margin: 0; letter-spacing: -1.5px; }
+        .sub { color: var(--muted); margin: 9px 0 0; }
+        .back { color: #5a49ba; text-decoration: none; background: #eeeaff; padding: 10px 13px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+        .status-row { display: flex; justify-content: space-between; gap: 15px; margin: 24px 0; align-items: center; }
+        .live-status { display: inline-flex; align-items: center; gap: 8px; color: #397e69; background: #e7f7f0; padding: 8px 11px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .pulse { width: 7px; height: 7px; background: #45b689; border-radius: 50%; box-shadow: 0 0 0 4px #ceefe1; }
+        .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .card, .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+        .card { padding: 19px; }
+        .card p { font: 10px 'DM Mono'; letter-spacing: 1.1px; color: #858ba0; margin: 0; }
+        .card h2 { font-size: 25px; margin: 9px 0 3px; letter-spacing: -1px; }
+        .card small { font-size: 11px; color: #878da0; }
+        .recommendation-card { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-top:15px; border-color:#dcd5ff; background:linear-gradient(135deg, #fff 0%, #f5f2ff 100%); }
+        .recommendation-copy { display:flex; gap:13px; align-items:flex-start; }
+        .recommendation-icon { font-size:25px; line-height:1; }
+        .recommendation-card h2 { margin:0; font-size:18px; letter-spacing:-.5px; }
+        .recommendation-card p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+        .recommendation-button { border:0; border-radius:8px; padding:10px 13px; background:var(--violet); color:#fff; font:700 12px Manrope, Arial, sans-serif; cursor:pointer; white-space:nowrap; }
+        .recommendation-button:hover { filter:brightness(1.06); }
+        .recommendations-panel { margin-top:15px; }
+        .recommendations-panel[hidden] { display:none; }
+        .recommendation-list { display:grid; gap:10px; margin-top:16px; }
+        .recommendation { border:1px solid var(--line); border-left:5px solid var(--priority); border-radius:9px; padding:13px; }
+        .recommendation-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+        .priority { color:var(--priority); font:700 10px 'DM Mono'; letter-spacing:1px; }
+        .recommendation-problem { margin:8px 0 5px; font-weight:800; font-size:13px; }
+        .recommendation-action, .recommendation-metric { margin:0; font-size:12px; line-height:1.5; color:var(--muted); }
+        .recommendation-metric { margin-top:5px; color:#555e78; }
+        .content { display: grid; grid-template-columns: 1.38fr .95fr; gap: 15px; margin-top: 15px; }
+        .panel { padding: 20px; }
+        .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; }
+        .panel h3 { font-size: 16px; margin: 0; letter-spacing: -.4px; }
+        .hint { font-size: 10px; color: #8f95a7; }
+        .chart-wrap { height: 280px; padding-top: 20px; }
+        .table-wrap { overflow: auto; margin-top: 18px; }
+        .attention-section { grid-template-columns:1.55fr .8fr; }
+        .zone-layout { margin-top:16px; }
+        .zone-layout + .zone-layout { border-top:1px solid #eef0f4; margin-top:14px; padding-top:14px; }
+        .zone-label { font:10px 'DM Mono'; letter-spacing:1px; color:#858ba0; margin:0 0 9px; }
+        .layout-map { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 136px)); gap:10px; }
+        .shelf-tile { min-height:116px; border:1px solid var(--attention); border-top:6px solid var(--attention); border-radius:8px; padding:13px; background:var(--attention-bg); display:flex; flex-direction:column; justify-content:space-between; }
+        .shelf-tile strong { font-size:18px; letter-spacing:.4px; }
+        .shelf-tile .attention-value { font-size:22px; font-weight:800; color:var(--attention-text); letter-spacing:-.8px; }
+        .shelf-tile .attention-label { color:#5f6680; font-size:10px; font-family:'DM Mono'; letter-spacing:.7px; }
+        .legend { display:flex; align-items:center; gap:9px; margin-top:16px; color:var(--muted); font-size:11px; }
+        .legend-states { display:flex; align-items:center; gap:9px; }
+        .legend-state { display:inline-flex; align-items:center; gap:5px; }
+        .legend-swatch { width:11px; height:11px; border-radius:3px; }
+        .low { background:#6ebf90; } .medium { background:#e6a23c; } .high { background:#d55d65; }
+        .behavior-notes { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:12px; }
+        .behavior-note { color:var(--muted); font-size:11px; line-height:1.5; }
+        .insight-list { margin:16px 0 0; padding:0; list-style:none; }
+        .insight-list li { border-top:1px solid #eef0f4; padding:12px 0; line-height:1.5; }
+        table { border-collapse: collapse; width: 100%; text-align: left; }
+        th { font: 10px 'DM Mono'; letter-spacing: 1px; color: #9499aa; padding: 0 9px 10px; }
+        td { border-top: 1px solid #eef0f4; padding: 12px 9px; font-size: 12px; }
+        .error { background: #fff0f1; color: #b95058; }
+        .error .pulse { background: #d45a64; box-shadow: 0 0 0 4px #fde0e2; }
+        @media(max-width: 850px) {
+            .kpis { grid-template-columns: repeat(2, 1fr); }
+            .content { grid-template-columns: 1fr; }
+            .top, .status-row { align-items: flex-start; flex-direction: column; }
+        }
+        @media(max-width: 460px) {
+            .shell { padding: 20px 14px; }
+            .kpis { grid-template-columns: 1fr; }
+            h1 { font-size: 27px; }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <header class="top">
+            <div>
+                <div class="brand"><i>R</i>retail<span>pulse</span></div>
+                <p class="eyebrow" style="margin-top:27px">POSTGRESQL LIVE ANALYTICS</p>
+                <h1>Consumer attention intelligence.</h1>
+                <p class="sub">Live performance insights generated from video analytics and camera streams.</p>
+            </div>
+            <a class="back" href="/admin/dashboard">← Admin dashboard</a>
+        </header>
+
+        <section class="status-row">
+            <div id="liveStatus" class="live-status"><i class="pulse"></i><span>Connecting to live analytics…</span></div>
+            <span id="lastUpdated" class="hint">—</span>
+        </section>
+
+        <section class="kpis">
+            <article class="card"><p>TODAY'S VISITORS</p><h2 id="todaysVisitors">—</h2><small>Unique visitors today</small></article>
+            <article class="card"><p>CURRENT VISITORS</p><h2 id="currentVisitors">—</h2><small>Last 15 minutes</small></article>
+            <article class="card"><p>AVG ATTENTION SCORE</p><h2 id="avgAttention">—</h2><small>0 - 100 scale</small></article>
+            <article class="card"><p>AVG DWELL TIME</p><h2 id="avgDwell">—</h2><small>Minutes</small></article>
+        </section>
+
+        <section class="card recommendation-card" aria-labelledby="recommendationTitle">
+            <div class="recommendation-copy"><span class="recommendation-icon" aria-hidden="true">⭐</span><div><h2 id="recommendationTitle">Optimization Recommendations</h2><p id="recommendationSummary">Recommendations will appear after live metrics load.</p></div></div>
+            <button id="recommendationToggle" class="recommendation-button" type="button" aria-expanded="false" aria-controls="recommendationsPanel">View Recommendations</button>
+        </section>
+        <section id="recommendationsPanel" class="panel recommendations-panel" hidden>
+            <div class="panel-head"><div><p class="eyebrow">AGGREGATED SIGNALS</p><h3>Recommended next checks</h3></div><span class="hint">Based on recorded traffic, dwell, attention, engagement, and paths.</span></div>
+            <div id="recommendationsList" class="recommendation-list"><span class="hint">Loading recommendations...</span></div>
+        </section>
+
+        <section class="panel" style="margin-top:15px;" hidden>
+            <div class="panel-head"><div><p class="eyebrow">SHOPPER BEHAVIOR</p><h3>How customers engage with the store</h3></div></div>
+            <div class="chart-wrap"><canvas id="behaviorChart"></canvas></div>
+            <div class="behavior-notes"><span class="behavior-note"><b>Quick Pass:</b> brief visits with limited dwell.</span><span class="behavior-note"><b>Browsing:</b> balanced exploration across the store.</span><span class="behavior-note"><b>High Interest:</b> sustained attention around shelves.</span><span class="behavior-note"><b>Revisit:</b> customers returning to a shelf.</span></div>
+        </section>
+
+        <section class="panel" style="margin-top:15px;">
+            <div class="panel-head"><div><p class="eyebrow">TOP ENGAGED SHELVES</p><h3>Where attention is strongest</h3></div></div>
+            <div class="table-wrap"><table><thead><tr><th>SHELF</th><th>ZONE</th><th>VISITORS</th><th>AVG DWELL</th><th>ATTENTION</th><th>ENGAGEMENT</th><th>QUICK PASS</th><th>REVISIT</th></tr></thead><tbody id="shelfEngagementTable"><tr><td colspan="8">No shelf engagement yet.</td></tr></tbody></table></div>
+        </section>
+
+        <section class="panel" style="margin-top:15px;"><div class="panel-head"><div><p class="eyebrow">ZONE INTELLIGENCE</p><h3>Aggregate engagement by zone</h3></div></div><div class="table-wrap"><table><thead><tr><th>ZONE</th><th>VISITORS</th><th>AVG DWELL</th><th>ATTENTION</th><th>ENGAGEMENT</th></tr></thead><tbody id="zoneIntelligenceTable"><tr><td colspan="5">No zone intelligence yet.</td></tr></tbody></table></div></section>
+
+        <section class="panel" style="margin-top:15px;"><div class="panel-head"><div><p class="eyebrow">COMMON CUSTOMER PATHS</p><h3>Most frequent aggregate routes</h3></div></div><div class="table-wrap"><table><thead><tr><th>COMMON PATH</th><th>CUSTOMERS</th><th>SHARE</th><th>AVG JOURNEY</th></tr></thead><tbody id="commonPathsTable"><tr><td colspan="4">No aggregate paths yet.</td></tr></tbody></table></div></section>
+        <section class="panel" style="margin-top:15px;"><div class="panel-head"><div><p class="eyebrow">CUSTOMER FLOW</p><h3>Most common transitions</h3></div></div><div class="table-wrap"><table><thead><tr><th>FROM</th><th>TO</th><th>CUSTOMERS</th><th>SHARE</th></tr></thead><tbody id="customerFlowTable"><tr><td colspan="4">No aggregate flow yet.</td></tr></tbody></table></div></section>
+    </main>
+
+    <script>
+        const token = localStorage.getItem('access_token');
+        if (!token) window.location.href = '/';
+
+        const $ = (id) => document.getElementById(id);
+        let behaviorChart;
+
+        function getCanvasContext(id) {
+            const canvas = $(id);
+            if (!canvas || typeof canvas.getContext !== 'function') {
+                return null;
+            }
+            return canvas.getContext('2d');
+        }
+
+        function destroyCanvasChart(canvas, chartInstance) {
+            if (chartInstance && typeof chartInstance.destroy === 'function') chartInstance.destroy();
+            if (typeof Chart !== 'undefined' && typeof Chart.getChart === 'function' && canvas) {
+                const existing = Chart.getChart(canvas);
+                if (existing && existing !== chartInstance) existing.destroy();
+            }
+        }
+
+        function status(message, error = false) {
+            $('liveStatus').classList.toggle('error', error);
+            $('liveStatus').querySelector('span').textContent = message;
+        }
+
+        function numeric(value) {
+            const number = Number(value);
+            return Number.isFinite(number) ? number : 0;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+        }
+
+        function buildRecommendations(zoneRows, shelfRows, behavior, pathRows) {
+            const recommendations = [];
+            const add = (priority, problem, suggestion, metric) => recommendations.push({ priority, problem, suggestion, metric });
+            const zones = Array.isArray(zoneRows) ? zoneRows : [];
+            const shelves = Array.isArray(shelfRows) ? shelfRows : [];
+            const paths = Array.isArray(pathRows) ? pathRows : [];
+            const totalZoneVisitors = zones.reduce((total, row) => total + numeric(row.visitors), 0);
+
+            zones.forEach((zone) => {
+                const name = zone.name || 'An unassigned zone';
+                const trafficShare = totalZoneVisitors ? numeric(zone.visitors) * 100 / totalZoneVisitors : 0;
+                if (totalZoneVisitors && trafficShare < 10) add('High', `${name} has low traffic.`, 'Consider improving visibility, signage, or navigation into this zone.', `${trafficShare.toFixed(1)}% of recorded zone visitors (${numeric(zone.visitors)} visitors).`);
+                if (numeric(zone.average_dwell) < 3 && numeric(zone.visitors) > 0) add('Medium', `${name} has very short dwell time.`, 'Review whether wayfinding and shelf cues help shoppers understand what is available here.', `Average dwell: ${numeric(zone.average_dwell).toFixed(1)} s.`);
+                if (numeric(zone.average_dwell) > 30) add('Low', `${name} has unusually long dwell time.`, 'Review the area for helpful product information or possible navigation friction.', `Average dwell: ${numeric(zone.average_dwell).toFixed(1)} s.`);
+                if (numeric(zone.attention) < 40 && numeric(zone.visitors) > 0) add('High', `${name} has low attention.`, 'Test clearer shelf presentation, signage, or sightlines in this area.', `Attention: ${numeric(zone.attention).toFixed(1)}%.`);
+                if (numeric(zone.attention) >= 75) add('Low', `${name} has strong attention.`, 'Use this zone as a reference when reviewing nearby layouts and merchandising cues.', `Attention: ${numeric(zone.attention).toFixed(1)}%.`);
+                if (numeric(zone.engagement) < 40 && numeric(zone.visitors) > 0) add('High', `${name} has low zone engagement.`, 'Check accessibility and the clarity of the zone’s shopper cues.', `Engagement: ${numeric(zone.engagement).toFixed(1)}%.`);
+            });
+
+            shelves.forEach((shelf) => {
+                const name = shelf.name || 'An unnamed shelf';
+                if (numeric(shelf.engagement) < 40 && numeric(shelf.visitors) > 0) add('Medium', `${name} has low shelf engagement.`, 'Review shelf visibility, labeling, and product grouping.', `Engagement: ${numeric(shelf.engagement).toFixed(1)}%.`);
+                if (numeric(shelf.quick_pass_rate) >= 35) add('High', `${name} has a high quick-pass rate.`, 'Make the shelf’s purpose and key items easier to scan from the aisle.', `Quick-pass rate: ${numeric(shelf.quick_pass_rate).toFixed(1)}%.`);
+                if (numeric(shelf.revisit_rate) >= 20) add('Medium', `${name} has a high revisit rate.`, 'Review what draws shoppers back and whether nearby information supports that interest.', `Revisit rate: ${numeric(shelf.revisit_rate).toFixed(1)}%.`);
+            });
+
+            if (numeric(behavior.quick_pass) >= 35) add('High', 'The store has a high quick-pass pattern.', 'Review entrance-to-shelf wayfinding and the visibility of high-interest areas.', `Quick-pass rate: ${numeric(behavior.quick_pass).toFixed(1)}%.`);
+            if (numeric(behavior.revisit) >= 20) add('Medium', 'Revisit behavior is elevated.', 'Check recurring revisit locations for information gaps or sustained shopper interest.', `Revisit rate: ${numeric(behavior.revisit).toFixed(1)}%.`);
+            if (paths[0] && numeric(paths[0].percentage) >= 50) add('Medium', 'Customer paths are concentrated around one route.', 'Review whether adjacent zones are visible and easy to reach from the common path.', `${numeric(paths[0].percentage).toFixed(1)}% follow “${paths[0].path || 'the top path'}”.`);
+            const unusualPath = paths.find((path) => numeric(path.percentage) > 0 && numeric(path.percentage) <= 10);
+            if (unusualPath) add('Low', 'An uncommon customer path is appearing in the data.', 'Review this route alongside the store layout to understand the navigation pattern.', `${numeric(unusualPath.percentage).toFixed(1)}% follow “${unusualPath.path || 'an uncommon path'}”.`);
+
+            const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+            return recommendations.sort((left, right) => priorityOrder[left.priority] - priorityOrder[right.priority]);
+        }
+
+        function renderRecommendations(recommendations) {
+            const high = recommendations.filter((item) => item.priority === 'High').length;
+            const summary = recommendations.length ? `${recommendations.length} recommendation${recommendations.length === 1 ? '' : 's'} · ${high ? `${high} high priority` : 'no high-priority items'}` : 'No recommendations from the current aggregate metrics.';
+            $('recommendationSummary').textContent = summary;
+            $('recommendationsList').innerHTML = recommendations.map((item) => {
+                const color = item.priority === 'High' ? '#d55d65' : item.priority === 'Medium' ? '#e6a23c' : '#44ae89';
+                return `<article class="recommendation" style="--priority:${color}"><div class="recommendation-head"><span class="priority">${item.priority.toUpperCase()} PRIORITY</span></div><p class="recommendation-problem">${escapeHtml(item.problem)}</p><p class="recommendation-action">→ ${escapeHtml(item.suggestion)}</p><p class="recommendation-metric"><b>Supporting metric:</b> ${escapeHtml(item.metric)}</p></article>`;
+            }).join('') || '<span class="hint">No recommendation thresholds are met in the current aggregate data.</span>';
+        }
+
+        async function loadInsights() {
+            status('Refreshing live analytics…');
+            const response = await fetch('/api/production/analytics/live', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                throw new Error(body.detail || 'Unable to load live analytics');
+            }
+
+            const payload = await response.json();
+            const summary = payload && payload.summary && typeof payload.summary === 'object' ? payload.summary : {};
+            const intelligence = payload.consumer_intelligence || summary.consumer_intelligence || {};
+            const behavior = payload.behavior_distribution || {};
+
+            $('todaysVisitors').textContent = Number(summary.todays_visitors || 0).toLocaleString();
+            $('currentVisitors').textContent = Number(summary.current_visitors || 0).toLocaleString();
+            $('avgAttention').textContent = `${Number(summary.avg_attention_score || 0).toFixed(1)}%`;
+            $('avgDwell').textContent = `${Number(summary.avg_dwell_time_mins || 0).toFixed(1)} min`;
+
+            const behaviorCanvas = $('behaviorChart');
+            const behaviorCtx = getCanvasContext('behaviorChart');
+            destroyCanvasChart(behaviorCanvas, behaviorChart);
+            behaviorChart = null;
+            if (typeof Chart !== 'undefined' && behaviorCtx) behaviorChart = new Chart(behaviorCtx, { type: 'bar', data: { labels: ['Quick Pass', 'Browsing', 'High Interest', 'Revisit'], datasets: [{ data: [behavior.quick_pass || 0, behavior.browsing || 0, behavior.high_interest || 0, behavior.revisit || 0], backgroundColor: ['#d55d65', '#7059de', '#44ae89', '#e6a23c'], borderRadius: 6, barThickness: 22 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => `${context.raw}%` } } }, scales: { x: { beginAtZero: true, max: 100, ticks: { callback: (value) => `${value}%` } }, y: { grid: { display: false } } } } });
+
+            const shelves = payload.shelf_intelligence || intelligence.shelf_zone_engagement || [];
+            const zones = payload.zone_intelligence || [];
+            const paths = payload.common_paths || intelligence.common_paths || [];
+            renderRecommendations(buildRecommendations(zones, shelves, behavior, paths));
+            const shelvesByZone = shelves.reduce((groups, shelf) => {
+                const zone = shelf.zone || 'Unassigned Zone';
+                (groups[zone] ||= []).push(shelf);
+                return groups;
+            }, {});
+            const storeLayoutMap = $('storeLayoutMap');
+            if (storeLayoutMap) storeLayoutMap.innerHTML = Object.entries(shelvesByZone).map(([zone, zoneShelves]) => {
+                const tiles = zoneShelves.map((row) => {
+                    const attention = Math.max(0, Math.min(100, Number(row.attention || 0)));
+                    const level = attention >= 70 ? { label: 'High', color: '#d55d65', background: '#fff0f1', text: '#a63e47' } : attention >= 40 ? { label: 'Medium', color: '#e6a23c', background: '#fff8e9', text: '#9a6816' } : { label: 'Low', color: '#6ebf90', background: '#edf9f1', text: '#397e69' };
+                    return `<article class="shelf-tile" style="--attention:${level.color};--attention-bg:${level.background};--attention-text:${level.text}"><strong>${row.name}</strong><span class="attention-value">${attention.toFixed(1)}%</span><span class="attention-label">${level.label} attention</span></article>`;
+                }).join('');
+                return `<section class="zone-layout"><p class="zone-label">${zone}</p><div class="layout-map">${tiles}</div></section>`;
+            }).join('') || '<span class="hint">No aggregate shelf attention yet.</span>';
+            $('commonPathsTable').innerHTML = paths.map((row) => `<tr><td>${row.path}</td><td>${row.customer_count}</td><td>${row.percentage}%</td><td>${Number(row.average_journey_duration || 0).toFixed(1)} s</td></tr>`).join('') || '<tr><td colspan="4">No aggregate paths yet.</td></tr>';
+            $('shelfEngagementTable').innerHTML = shelves.map((row) => `<tr><td>${row.name}</td><td>${row.zone}</td><td>${row.visitors}</td><td>${Number(row.average_dwell || 0).toFixed(1)} s</td><td>${row.attention}%</td><td>${row.engagement}%</td><td>${row.quick_pass_rate || 0}%</td><td>${row.revisit_rate || 0}%</td></tr>`).join('') || '<tr><td colspan="8">No shelf engagement yet.</td></tr>';
+            $('zoneIntelligenceTable').innerHTML = zones.map((row) => `<tr><td>${row.name}</td><td>${row.visitors}</td><td>${Number(row.average_dwell || 0).toFixed(1)} s</td><td>${row.attention}%</td><td>${row.engagement}%</td></tr>`).join('') || '<tr><td colspan="5">No zone intelligence yet.</td></tr>';
+            $('customerFlowTable').innerHTML = (payload.customer_flow || []).map((row) => `<tr><td>${row.from}</td><td>${row.to}</td><td>${row.count}</td><td>${row.percentage}%</td></tr>`).join('') || '<tr><td colspan="4">No aggregate flow yet.</td></tr>';
+            const keyInsights = $('keyInsights');
+            if (keyInsights) keyInsights.innerHTML = (payload.key_insights || []).map((text) => `<li>${text}</li>`).join('') || '<li class="hint">No data yet.</li>';
+
+            const now = new Date().toLocaleTimeString();
+            $('lastUpdated').textContent = `Updated ${now}`;
+            status(`Live analytics updated at ${now}`);
+        }
+
+        function handleError(error) {
+            console.error(error);
+            status('Live analytics unavailable. Please sign in again.', true);
+        }
+
+        $('recommendationToggle').addEventListener('click', () => {
+            const panel = $('recommendationsPanel');
+            const willShow = panel.hidden;
+            panel.hidden = !willShow;
+            $('recommendationToggle').textContent = willShow ? 'Hide Recommendations' : 'View Recommendations';
+            $('recommendationToggle').setAttribute('aria-expanded', String(willShow));
+        });
+
+        loadInsights().catch(handleError);
+        setInterval(() => loadInsights().catch(handleError), 15000);
+    </script>
+</body>
+</html>

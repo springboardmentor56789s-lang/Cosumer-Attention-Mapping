@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>AI Consumer Attention Mapping</title>
+</head>
+
+<body class="min-h-screen bg-gradient-to-b from-white via-sky-100 to-slate-100 text-slate-900">
+
+<div class="min-h-screen flex items-center justify-center px-4 py-10">
+    <div class="relative w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/60 bg-white/30 shadow-2xl shadow-sky-200/40 backdrop-blur-xl">
+
+        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.25),transparent_20%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.18),transparent_18%)]"></div>
+        <div class="pointer-events-none absolute top-0 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-sky-200/40 blur-3xl"></div>
+
+        <div class="relative grid gap-10 px-6 py-12 md:grid-cols-[1.5fr_1fr] md:px-12 md:py-16">
+            <section class="space-y-8">
+                <div class="max-w-xl space-y-4">
+                    <p class="text-sm uppercase tracking-[0.35em] text-sky-600">Futuristic analytics</p>
+                    <h1 class="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">AI Consumer Attention Mapping</h1>
+                    <p class="text-base leading-8 text-slate-600 sm:text-lg">Visualize engagement patterns, optimize decision-making, and unlock customer focus with a modern platform designed for growth-minded teams.</p>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="rounded-[2rem] border border-white/60 bg-white/70 p-6 shadow-xl shadow-slate-200/40 transition-transform duration-500 hover:-translate-y-1">
+                        <p class="text-sm uppercase tracking-[0.25em] text-sky-500">Insight</p>
+                        <h2 class="mt-3 text-xl font-semibold text-slate-950">Real-time attention maps</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">See where users focus most and make smarter content decisions.</p>
+                    </div>
+                    <div class="rounded-[2rem] border border-white/60 bg-white/70 p-6 shadow-xl shadow-slate-200/40 transition-transform duration-500 hover:-translate-y-1">
+                        <p class="text-sm uppercase tracking-[0.25em] text-sky-500">Performance</p>
+                        <h2 class="mt-3 text-xl font-semibold text-slate-950">AI-powered recommendations</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">Optimize campaigns with data-driven suggestions and consumer behavior signals.</p>
+                    </div>
+                </div>
+            </section>
+
+        
+                <form id="loginForm" method="POST" action="/api/login" class="rounded-[2rem] border border-slate-200/70 bg-white/80 p-8 shadow-2xl shadow-slate-200/70 backdrop-blur-xl transition duration-500 hover:-translate-y-1">
+                <div class="mb-10 text-center">
+                    <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-xl shadow-sky-300/30">
+                    <i class="fas fa-lock text-2xl"></i>
+                    </div>
+                    <h2 class="text-3xl font-semibold tracking-tight text-slate-900">Welcome back</h2>
+                    <p class="mt-2 text-sm text-slate-600">Sign in to access your attention analytics dashboard.</p>
+                </div>
+                <div class="space-y-6">
+                    <div class="space-y-3">
+                    <label for="email" class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <i class="fas fa-envelope text-sky-500"></i>
+                        Email Address
+                    </label>
+                    <input id="email" type="email" name="email" placeholder="you@company.com"
+                        class="w-full rounded-[1.75rem] border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900 placeholder-slate-400 shadow-sm shadow-slate-100 outline-none transition duration-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-200/80">
+                    </div>
+                    <div class="space-y-3">
+                    <label for="password" class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <i class="fas fa-key text-sky-500"></i>
+                        Password
+                    </label>
+                    <input id="password" type="password" name="password" placeholder="Enter your password"
+                        class="w-full rounded-[1.75rem] border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900 placeholder-slate-400 shadow-sm shadow-slate-100 outline-none transition duration-300 focus:border-sky-400 focus:ring-2 focus:ring-sky-200/80">
+                    </div>
+
+                    <button type="submit"
+                    id="emailLoginBtn"
+                    class="w-full rounded-full bg-gradient-to-r from-sky-500 via-cyan-400 to-slate-900 px-5 py-4 text-base font-semibold text-white shadow-xl shadow-cyan-300/30 transition duration-300 hover:-translate-y-0.5 hover:shadow-cyan-400/40">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+                    </button>
+                    <button type="button"
+                        id="googleLoginBtn"
+                        data-google-url="/api/auth/google/login"
+                        class="flex w-full items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:bg-slate-50">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#4285F4" d="M21.6 12.23c0-.82-.07-1.6-.2-2.35H12v4.45h5.37a4.58 4.58 0 0 1-1.99 3.01v2.5h3.22c1.89-1.74 2.98-4.3 2.98-7.61z"/>
+                            <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.43l-3.22-2.5c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.12H3.08v2.58A10 10 0 0 0 12 22z"/>
+                            <path fill="#FBBC05" d="M6.39 13.91A6.02 6.02 0 0 1 6.39 10.1V7.52H3.08a10 10 0 0 0 0 12.78l3.31-2.59z"/>
+                            <path fill="#EA4335" d="M12 6.08c1.47 0 2.8.5 3.84 1.49l2.88-2.88A9.96 9.96 0 0 0 12 2a10 10 0 0 0-8.92 5.52l3.31 2.58C7.18 7.84 9.39 6.08 12 6.08z"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+                    <a href="/api/auth/google/login" class="hidden" aria-hidden="true"></a>
+                    <div class="mt-6 flex flex-col gap-3 text-center text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                    <a href="/forgot-password" class="inline-flex items-center justify-center gap-2 text-sky-600 transition duration-200 hover:text-sky-800">
+                        <i class="fas fa-question-circle text-xs"></i>Forgot your password?
+                    </a>
+                    <a href="/register" class="inline-flex items-center justify-center gap-2 text-sky-600 transition duration-200 hover:text-sky-800">
+                        <i class="fas fa-question-circle text-xs"></i>Register
+                    </a>
+                    
+                    </div>
+                </div>
+                </form>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/common/login.js"></script>
+</body>
+
+</html>

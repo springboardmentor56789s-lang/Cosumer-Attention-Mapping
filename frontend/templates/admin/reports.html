@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Reports Dashboard</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<link rel="stylesheet" href="/static/css/reports.css">
+</head>
+<body>
+<div class="reports-page">
+	<!-- reports.html (Part 1): Page layout -->
+	<header class="page-header glass">
+		<div>
+			<p class="eyebrow">Operations</p>
+			<h1>Reports Dashboard</h1>
+			<p class="subtitle">Generate, review, and export analytics reports from your live data.</p>
+		</div>
+		<div class="header-actions">
+			<label for="storeScopeId">Store ID</label>
+			<input id="storeScopeId" type="number" min="1" placeholder="Default">
+			<a class="btn btn-muted" href="/admin/dashboard">Back to Dashboard</a>
+		</div>
+	</header>
+
+	<section class="table-wrap glass">
+		<table>
+			<thead>
+			<tr>
+				<th>Report Name</th>
+				<th>Actions</th>
+			</tr>
+			</thead>
+			<tbody id="reportTableBody">
+			<tr>
+				<td colspan="2" class="empty-state">Loading reports...</td>
+			</tr>
+			</tbody>
+		</table>
+	</section>
+
+	<!-- reports.html (Part 2): Modals -->
+	<div class="modal" id="viewModal" aria-hidden="true">
+		<div class="modal-card">
+			<div class="modal-head">
+				<h3>View Report</h3>
+				<button class="icon-btn" data-close="viewModal">x</button>
+			</div>
+			<div class="modal-body">
+				<div id="viewReportContent" class="report-view-shell"></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal" id="exportModal" aria-hidden="true">
+		<div class="modal-card">
+			<div class="modal-head">
+				<h3>Export Report</h3>
+				<button class="icon-btn" data-close="exportModal">x</button>
+			</div>
+			<form id="exportForm" class="modal-form">
+				<label for="exportFormat">Export Format</label>
+				<select id="exportFormat" required>
+					<option value="csv">CSV</option>
+					<option value="xlsx">Excel (.xlsx)</option>
+					<option value="pdf">PDF</option>
+				</select>
+				<div class="modal-actions">
+					<button type="button" class="btn btn-muted" data-close="exportModal">Cancel</button>
+					<button type="submit" class="btn btn-secondary">Export</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+</div>
+
+<script src="/static/js/admin/reports.js?v=dynamic-catalog-1"></script>
+</body>
+</html>

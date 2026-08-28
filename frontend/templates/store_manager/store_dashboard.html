@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Manager Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-800" style="background: linear-gradient(135deg, #071a3a 0%, #0f2c5c 45%, #1d4ed8 100%);">
+    <div class="min-h-screen p-3 sm:p-5 lg:p-6">
+        <div class="flex min-h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-[32px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur-xl lg:flex-row">
+            <aside class="w-full bg-slate-900/90 p-5 text-white lg:w-72 lg:p-6">
+                <div class="rounded-2xl border border-white/10 bg-white/10 p-4 text-center shadow-lg">
+                    <div class="mb-3 flex justify-center">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-2xl shadow-inner">🏪</div>
+                    </div>
+                    <h1 class="text-2xl font-bold tracking-tight">AI Consumer</h1>
+                    <p class="mt-1 text-sm text-slate-300">Store Manager Panel</p>
+                </div>
+
+                <nav class="mt-6 space-y-2">
+                    <a href="#" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                        <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base">📊</span>
+                        Store Overview
+                    </a>
+                    <a href="#" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                        <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base">📦</span>
+                        Shelf Performance
+                    </a>
+                    <a href="#" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                        <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base">📹</span>
+                        Camera Status
+                    </a>
+                    <button id="logoutBtn" class="mt-4 flex w-full items-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-left text-sm font-medium text-red-200 transition-all duration-300 hover:bg-red-500/20 hover:text-white">
+                        <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/20 text-base">⎋</span>
+                        Logout
+                    </button>
+                </nav>
+            </aside>
+
+            <div class="flex-1 bg-slate-50/70 p-4 sm:p-6 lg:p-8">
+                <header class="mb-6 flex flex-col gap-4 rounded-[24px] border border-white/40 bg-white/80 p-5 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                    <div>
+                        <p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-600">Store Operations</p>
+                        <h2 id="welcomeText" class="text-2xl font-bold text-slate-900 sm:text-3xl">Welcome 👋</h2>
+                        <p id="storeName" class="mt-1 text-sm text-slate-500 sm:text-base">Loading store insights...</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">Live Monitoring</div>
+                        <span class="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-md">Store Manager</span>
+                    </div>
+                </header>
+
+                <section class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
+                        <p class="text-sm font-medium text-slate-500">Today's Visitors</p>
+                        <p id="todaysVisitors" class="mt-2 text-3xl font-bold text-slate-900">0</p>
+                    </div>
+                    <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
+                        <p class="text-sm font-medium text-slate-500">Avg. Dwell Time</p>
+                        <p id="avgDwellTime" class="mt-2 text-3xl font-bold text-slate-900">0 min</p>
+                    </div>
+                    <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
+                        <p class="text-sm font-medium text-slate-500">Active Cameras</p>
+                        <p id="activeCameras" class="mt-2 text-3xl font-bold text-slate-900">0</p>
+                    </div>
+                    <div class="rounded-[22px] border border-white/50 bg-white/80 p-5 shadow-lg">
+                        <p class="text-sm font-medium text-slate-500">Total Shelves</p>
+                        <p id="totalShelves" class="mt-2 text-3xl font-bold text-slate-900">0</p>
+                    </div>
+                </section>
+
+                <section class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                    <div class="rounded-[24px] border border-white/50 bg-white/80 p-5 shadow-lg">
+                        <div class="mb-4 flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-slate-900">Shelf Engagement</h3>
+                            <span class="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">Performance</span>
+                        </div>
+                        <canvas id="shelfChart" height="180"></canvas>
+                    </div>
+                    <div class="rounded-[24px] border border-white/50 bg-white/80 p-5 shadow-lg">
+                        <h3 class="text-lg font-semibold text-slate-900">Store Focus</h3>
+                        <div class="mt-4 space-y-4">
+                            <div class="rounded-2xl bg-slate-50 p-4">
+                                <p class="text-sm text-slate-500">Top Shelf</p>
+                                <p id="topShelf" class="mt-1 text-xl font-semibold text-slate-900">-</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-50 p-4">
+                                <p class="text-sm text-slate-500">Attention Focus</p>
+                                <p id="attentionFocus" class="mt-1 text-xl font-semibold text-slate-900">-</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-50 p-4">
+                                <p class="text-sm text-slate-500">Manager</p>
+                                <p id="managerName" class="mt-1 text-xl font-semibold text-slate-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <div class="overflow-hidden rounded-[24px] border border-white/50 bg-white/80 shadow-lg">
+                        <div class="p-5 sm:p-6">
+                            <h3 class="text-xl font-semibold text-slate-900">Shelf Performance Breakdown</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-slate-100/80 text-left text-sm text-slate-600">
+                                    <tr>
+                                        <th class="p-3 font-semibold">Shelf</th>
+                                        <th class="p-3 font-semibold">Visitors</th>
+                                        <th class="p-3 font-semibold">Engagement</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shelfTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/store_manager/store_dashboard.js"></script>
+</body>
+</html>

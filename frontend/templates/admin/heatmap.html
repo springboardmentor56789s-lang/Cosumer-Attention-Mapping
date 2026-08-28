@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Spatial Analytics | Admin</title>
+	<style>
+		:root { --ink: #13233a; --muted: #5c6b80; --line: #d7e0e8; --paper: #f5f7f5; --panel: #ffffff; --accent: #087e8b; --warm: #e85835; }
+		* { box-sizing: border-box; }
+		body { margin: 0; min-width: 320px; color: var(--ink); background: var(--paper); font-family: Georgia, "Times New Roman", serif; }
+		.shell { max-width: 1240px; margin: 0 auto; padding: 32px 28px 44px; }
+		.topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+		.eyebrow { margin: 0 0 7px; color: var(--accent); font-family: Verdana, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+		h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: 0; }
+		.back { color: var(--ink); font-family: Verdana, sans-serif; font-size: 13px; text-decoration: none; }
+		.back:hover { color: var(--accent); }
+		.controls { display: grid; grid-template-columns: minmax(230px, 1.5fr) minmax(190px, 1fr); gap: 16px; padding: 18px 0 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+		label { display: grid; gap: 7px; color: var(--muted); font-family: Verdana, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+		select { width: 100%; min-height: 42px; padding: 8px 12px; border: 1px solid #aebdca; border-radius: 4px; color: var(--ink); background: #fff; font: 15px Georgia, serif; }
+		.heading-row { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 25px 0 14px; }
+		h2 { margin: 0 0 6px; font-size: 23px; font-weight: 600; }
+		.description, .status { margin: 0; color: var(--muted); font-family: Verdana, sans-serif; font-size: 13px; line-height: 1.5; }
+		.status { white-space: nowrap; text-align: right; }
+		.map-frame { position: relative; min-height: 440px; overflow: hidden; border: 1px solid #c6d2db; background-color: #eaf0ed; background-image: linear-gradient(#d6e0dc 1px, transparent 1px), linear-gradient(90deg, #d6e0dc 1px, transparent 1px); background-size: 24px 24px; }
+		canvas { display: block; width: 100%; height: min(62vw, 640px); min-height: 440px; }
+		.legend { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 13px; color: var(--muted); font-family: Verdana, sans-serif; font-size: 12px; }
+		.scale { width: 180px; height: 8px; background: linear-gradient(90deg, #147d8a, #f2bc44, #df4932); }
+		.empty { display: grid; min-height: 440px; place-items: center; padding: 30px; color: var(--muted); font-family: Verdana, sans-serif; font-size: 14px; text-align: center; }
+		@media (max-width: 650px) { .shell { padding: 22px 16px 32px; } .topbar, .heading-row { align-items: start; flex-direction: column; gap: 12px; } .controls { grid-template-columns: 1fr; } h1 { font-size: 27px; } .status { white-space: normal; text-align: left; } canvas, .map-frame, .empty { min-height: 360px; } }
+	</style>
+</head>
+<body>
+	<main class="shell">
+		<header class="topbar">
+			<div>
+				<p class="eyebrow">Retail Operations</p>
+				<h1>Spatial Analytics</h1>
+			</div>
+			<a class="back" href="/admin/dashboard">Back to dashboard</a>
+		</header>
+
+		<section class="controls" aria-label="Heatmap filters">
+			<label for="heatmapType">Heatmap type
+				<select id="heatmapType">
+					<option value="customer_traffic">Customer Traffic Heatmap</option>
+					<option value="customer_attention">Customer Attention Heatmap</option>
+					<option value="dwell_time">Dwell-Time Heatmap</option>
+					<option value="shelf_engagement">Shelf Engagement Heatmap</option>
+					<option value="zone_engagement">Zone Engagement Heatmap</option>
+					<option value="path_density">Customer Path-Density Heatmap</option>
+				</select>
+			</label>
+			<label for="cameraFilter">Camera
+				<select id="cameraFilter"><option value="">All cameras</option></select>
+			</label>
+		</section>
+
+		<section aria-live="polite">
+			<div class="heading-row">
+				<div>
+					<h2 id="mapTitle">Customer Traffic Heatmap</h2>
+					<p id="mapDescription" class="description">Footfall distribution from tracked customer positions.</p>
+				</div>
+				<p id="status" class="status">Loading spatial data...</p>
+			</div>
+			<div id="mapFrame" class="map-frame">
+				<canvas id="heatmapCanvas" aria-label="Selected spatial heatmap"></canvas>
+			</div>
+			<div class="legend"><span>Lower engagement</span><span class="scale" aria-hidden="true"></span><span>Higher engagement</span></div>
+		</section>
+	</main>
+
+	<script>
+		const token = localStorage.getItem("access_token");
+		if (!token) window.location.href = "/login";
+
+		const heatmapType = document.getElementById("heatmapType");
+		const cameraFilter = document.getElementById("cameraFilter");
+		const canvas = document.getElementById("heatmapCanvas");
+		const frame = document.getElementById("mapFrame");
+		const status = document.getElementById("status");
+		const descriptions = {
+			customer_traffic: "Footfall distribution from tracked customer positions.",
+			customer_attention: "Gaze and attention-score intensity across observed customer positions.",
+			dwell_time: "Where customers accumulated the most observed dwell time.",
+			shelf_engagement: "Engagement intensity at configured shelf regions.",
+			zone_engagement: "Customer activity intensity across configured retail zones.",
+			path_density: "Repeated customer trajectory paths through the mapped space."
+		};
+		let spatialData = null;
+		let blueprint = null;
+
+		function setMapCopy() {
+			const label = heatmapType.options[heatmapType.selectedIndex].text;
+			document.getElementById("mapTitle").textContent = label;
+			document.getElementById("mapDescription").textContent = descriptions[heatmapType.value];
+		}
+
+		function updateCameraOptions(cameras) {
+			const selected = cameraFilter.value;
+			cameraFilter.innerHTML = '<option value="">All cameras</option>';
+			cameras.forEach((camera) => {
+				const option = document.createElement("option");
+				option.value = camera.id;
+				option.textContent = camera.name;
+				cameraFilter.appendChild(option);
+			});
+			cameraFilter.value = cameras.some((camera) => String(camera.id) === selected) ? selected : "";
+		}
+
+		function colorFor(value, maximum) {
+			const ratio = maximum > 0 ? Math.min(1, value / maximum) : 0;
+			const red = Math.round(20 + ratio * 203);
+			const green = Math.round(125 + ratio * 15);
+			const blue = Math.round(138 - ratio * 94);
+			return `rgba(${red}, ${green}, ${blue}, ${0.22 + ratio * 0.62})`;
+		}
+
+		function draw() {
+			if (!spatialData) return;
+			const points = spatialData.datasets[heatmapType.value] || [];
+			const rect = canvas.getBoundingClientRect();
+			const pixelRatio = window.devicePixelRatio || 1;
+			canvas.width = Math.floor(rect.width * pixelRatio);
+			canvas.height = Math.floor(rect.height * pixelRatio);
+			const context = canvas.getContext("2d");
+			context.scale(pixelRatio, pixelRatio);
+			context.clearRect(0, 0, rect.width, rect.height);
+
+			const activeCamera = spatialData.cameras.find((camera) => String(camera.id) === cameraFilter.value);
+			const width = (activeCamera && activeCamera.blueprint_width) || Math.max(1, ...points.map((point) => point.x), 100);
+			const height = (activeCamera && activeCamera.blueprint_height) || Math.max(1, ...points.map((point) => point.y), 100);
+			const toCanvas = (point) => ({ x: (point.x / width) * rect.width, y: (point.y / height) * rect.height });
+
+			if (blueprint && blueprint.complete && blueprint.naturalWidth) {
+				context.globalAlpha = 0.55;
+				context.drawImage(blueprint, 0, 0, rect.width, rect.height);
+				context.globalAlpha = 1;
+			}
+
+			const areas = heatmapType.value === "shelf_engagement" ? spatialData.areas.shelves : heatmapType.value === "zone_engagement" ? spatialData.areas.zones : [];
+			context.strokeStyle = "rgba(19, 35, 58, .55)";
+			context.lineWidth = 1.5;
+			areas.forEach((area) => {
+				if (!area.points.length) return;
+				context.beginPath();
+				area.points.map(toCanvas).forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
+				context.closePath();
+				context.stroke();
+			});
+
+			const maximum = Math.max(1, ...points.map((point) => Number(point.value) || 0));
+			points.forEach((point) => {
+				const position = toCanvas(point);
+				const radius = heatmapType.value === "path_density" ? 10 : 18;
+				const gradient = context.createRadialGradient(position.x, position.y, 1, position.x, position.y, radius);
+				gradient.addColorStop(0, colorFor(Number(point.value) || 0, maximum));
+				gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+				context.fillStyle = gradient;
+				context.beginPath();
+				context.arc(position.x, position.y, radius, 0, Math.PI * 2);
+				context.fill();
+			});
+			status.textContent = points.length ? `${points.length.toLocaleString()} spatial observations` : "No matching spatial observations";
+		}
+
+		function loadBlueprint() {
+			const camera = spatialData.cameras.find((item) => String(item.id) === cameraFilter.value);
+			blueprint = camera && camera.blueprint_url ? new Image() : null;
+			if (blueprint) {
+				blueprint.onload = draw;
+				blueprint.src = camera.blueprint_url;
+			}
+		}
+
+		async function loadSpatialData() {
+			status.textContent = "Loading spatial data...";
+			const query = cameraFilter.value ? `?camera_id=${encodeURIComponent(cameraFilter.value)}` : "";
+			const response = await fetch(`/api/production/heatmaps/spatial${query}`, { headers: { Authorization: `Bearer ${token}` } });
+			if (!response.ok) throw new Error("Unable to load heatmap data");
+			spatialData = await response.json();
+			updateCameraOptions(spatialData.cameras || []);
+			loadBlueprint();
+			draw();
+		}
+
+		heatmapType.addEventListener("change", () => { setMapCopy(); draw(); });
+		cameraFilter.addEventListener("change", () => loadSpatialData().catch(showError));
+		window.addEventListener("resize", draw);
+		function showError() { status.textContent = "Spatial analytics could not be loaded."; }
+		setMapCopy();
+		loadSpatialData().catch(showError);
+	</script>
+</body>
+</html>

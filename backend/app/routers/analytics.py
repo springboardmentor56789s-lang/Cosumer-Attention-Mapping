@@ -12,6 +12,7 @@ from database.database import get_db
 from app import model
 from app.dependencies import get_current_user
 from app.schemas.analytics import AnalyticsSummary, DetectionCreate, DetectionResponse
+from app.services.auto_layout_service import AutoLayoutService
 from app.services.video_preprocessing_service import FFmpegUnavailableError, VideoPreprocessingError, VideoPreprocessingService
 from app.services.video_pipeline_service import VideoPipelineService
 from app.services.yolo_service import YOLOService
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 yolo_service = YOLOService()
 video_pipeline_service = VideoPipelineService()
 video_preprocessing_service = VideoPreprocessingService()
+auto_layout_service = AutoLayoutService()
 
 
 @router.get("/video/runs", status_code=status.HTTP_200_OK)
@@ -190,6 +192,9 @@ async def analyze_uploaded_video(
                 detail="No camera found for this store. Add at least one camera or pass camera_id.",
             )
 
+    layout = auto_layout_service.ensure_layout(db, base_camera, str(processed_path), video_pipeline_service.detector)
+    logger.info("Camera layout %s for camera=%s: %s", layout["status"], base_camera.id, layout)
+
     # Do not insert uploaded videos into camera database.
     # Build a runtime-only camera-like object for processing the uploaded file,
     # while reusing an existing camera_id for FK-linked records.
@@ -335,6 +340,7 @@ async def analyze_uploaded_video(
         "video_id": str(saved_path),
         "video_file": saved_name,
         "processed_video_file": processed_path.name,
+        "layout": layout,
         "video_url": annotated_video_url,
         "source_video_url": source_video_url,
         "trajectory_url": trajectory_url,

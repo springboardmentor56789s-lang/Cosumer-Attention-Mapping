@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <div class="min-h-screen">
+
+        <!-- Top bar (replaces sidebar) -->
+        <header class="sticky top-0 z-10 border-b border-slate-200 bg-white">
+            <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-lg font-semibold text-white">RI</div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Decision Dashboard</p>
+                        <h2 id="welcomeText" class="text-lg font-semibold text-slate-900 sm:text-xl">Retail Intelligence</h2>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="liveStatus" class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">Loading decisions…</span>
+                    <a href="http://127.0.0.1:8000/admin/dashboard" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
+                        ← Admin dashboard
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+
+            <p class="mb-6 max-w-3xl text-sm text-slate-500">Prioritized commercial opportunities and risks from product attention and availability.</p>
+
+            <!-- KPIs -->
+            <section class="mb-6">
+                <div class="mb-3">
+                    <h3 class="text-base font-semibold text-slate-900">Business Health KPIs</h3>
+                    <p class="mt-1 text-sm text-slate-500">A decision-level view of commercial performance, opportunities, and exceptions.</p>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                    <div class="rounded-xl border border-slate-200 bg-white p-5">
+                        <p class="text-sm font-medium text-slate-500">Overall Business Health</p>
+                        <p id="businessHealth" class="mt-2 text-3xl font-bold text-slate-900">-</p>
+                        <p class="mt-1 text-xs text-slate-400">Based on observed opportunities and risks</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white p-5">
+                        <p class="text-sm font-medium text-slate-500">Sales Performance</p>
+                        <p id="salesPerformance" class="mt-2 text-3xl font-bold text-slate-900">-</p>
+                        <p class="mt-1 text-xs text-slate-400">Recorded demand signals across products</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white p-5">
+                        <p class="text-sm font-medium text-slate-500">Attention-to-Sales Efficiency</p>
+                        <p id="attentionSalesEfficiency" class="mt-2 text-3xl font-bold text-slate-900">-</p>
+                        <p class="mt-1 text-xs text-slate-400">Demand signals per attention point</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white p-5">
+                        <p class="text-sm font-medium text-slate-500">Opportunity Count</p>
+                        <p id="opportunityCount" class="mt-2 text-3xl font-bold text-slate-900">-</p>
+                        <p class="mt-1 text-xs text-slate-400">High attention with weak sales performance</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white p-5">
+                        <p class="text-sm font-medium text-slate-500">Risk Count</p>
+                        <p id="riskCount" class="mt-2 text-3xl font-bold text-slate-900">-</p>
+                        <p class="mt-1 text-xs text-slate-400">Demand-linked inventory or weak-performance risks</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts -->
+            <section class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                    <div class="mb-4">
+                        <h3 class="text-base font-semibold text-slate-900">Sales × Attention Analysis</h3>
+                        <p class="mt-1 text-sm text-slate-500">Recorded product demand is used as the available sales-performance signal to reveal conversion opportunities.</p>
+                    </div>
+                    <canvas id="salesAttentionChart" height="220"></canvas>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                    <div class="mb-4">
+                        <h3 class="text-base font-semibold text-slate-900">Opportunity / Risk Matrix</h3>
+                        <p class="mt-1 text-sm text-slate-500">Products are classified by sales performance and customer attention.</p>
+                    </div>
+                    <div class="mb-3 grid grid-cols-2 gap-2 text-xs">
+                        <span class="rounded-lg bg-emerald-50 px-3 py-2 font-medium text-emerald-800">High sales, high attention: strong performance</span>
+                        <span class="rounded-lg bg-sky-50 px-3 py-2 font-medium text-sky-800">High sales, low attention: efficient / monitor</span>
+                        <span class="rounded-lg bg-amber-50 px-3 py-2 font-medium text-amber-800">Low sales, high attention: opportunity</span>
+                        <span class="rounded-lg bg-rose-50 px-3 py-2 font-medium text-rose-800">Low sales, low attention: risk</span>
+                    </div>
+                    <canvas id="opportunityMatrixChart" height="220"></canvas>
+                </div>
+            </section>
+
+            <!-- Tables -->
+            <section class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="p-5">
+                        <h3 class="text-base font-semibold text-slate-900">Product Performance Opportunities</h3>
+                        <p class="mt-1 text-sm text-slate-500">Only products where attention is not translating into sales performance.</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="p-3 font-semibold">Product</th>
+                                    <th class="p-3 font-semibold">Opportunity</th>
+                                    <th class="p-3 font-semibold">Why It Matters</th>
+                                    <th class="p-3 font-semibold">Business Direction</th>
+                                </tr>
+                            </thead>
+                            <tbody id="opportunityTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="p-5">
+                        <h3 class="text-base font-semibold text-slate-900">Inventory &amp; Sales Risks</h3>
+                        <p class="mt-1 text-sm text-slate-500">Only availability risks where recorded demand could be lost.</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="p-3 font-semibold">Product</th>
+                                    <th class="p-3 font-semibold">Risk</th>
+                                    <th class="p-3 font-semibold">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riskTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Insights / Actions -->
+            <section class="grid grid-cols-1 gap-6 pb-10 xl:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-base font-semibold text-slate-900">Key Retail Insights</h3>
+                    <ul id="insightsList" class="mt-4 space-y-3 text-sm leading-6 text-slate-600"></ul>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-base font-semibold text-slate-900">Recommended Actions</h3>
+                    <ol id="actionsList" class="mt-4 space-y-3 text-sm leading-6 text-slate-700"></ol>
+                </div>
+            </section>
+
+        </main>
+    </div>
+    <script src="/static/js/admin/Retail_Intelligence.js?v=20260823"></script>
+</body>
+</html>

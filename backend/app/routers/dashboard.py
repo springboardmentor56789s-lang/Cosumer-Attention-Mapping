@@ -1,10 +1,12 @@
 from datetime import date
 from typing import Optional
+from pathlib import Path
+
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=Path(__file__).resolve().parents[3] / "frontend" / "templates")
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -140,7 +142,7 @@ def shelves_page(
     current_user: model.User = Depends(get_current_user)
 ):
     return templates.TemplateResponse(
-        "shelves_management.html",
+        "admin/shelves_management.html",
         {
             "request": request,
             "user": current_user
