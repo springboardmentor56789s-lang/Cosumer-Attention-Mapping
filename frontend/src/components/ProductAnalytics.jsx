@@ -161,7 +161,7 @@ function ProductAnalytics() {
                         
                         <div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                            <span>👁️ Attention (35%)</span>
+                            <span>👁️ Attention</span>
                             <span>{score.scores.attention_score.toFixed(0)}</span>
                           </div>
                           {renderProgressBar(score.scores.attention_score, "#38bdf8")}
@@ -169,7 +169,7 @@ function ProductAnalytics() {
 
                         <div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                            <span>✋ Interaction (25%)</span>
+                            <span>✋ Interaction</span>
                             <span>{score.scores.interaction_score.toFixed(0)}</span>
                           </div>
                           {renderProgressBar(score.scores.interaction_score, "#a855f7")}
@@ -177,7 +177,7 @@ function ProductAnalytics() {
 
                         <div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                            <span>🛒 Pickup (20%)</span>
+                            <span>🛒 Pickup</span>
                             <span>{score.scores.pickup_score.toFixed(0)}</span>
                           </div>
                           {renderProgressBar(score.scores.pickup_score, "#f97316")}
@@ -185,7 +185,7 @@ function ProductAnalytics() {
 
                         <div>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                            <span>💳 Purchase (15%)</span>
+                            <span>💳 Purchase</span>
                             <span>{score.scores.purchase_score.toFixed(0)}</span>
                           </div>
                           {renderProgressBar(score.scores.purchase_score, "#22c55e")}

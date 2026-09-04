@@ -27,6 +27,7 @@ from app.routers.product import router as product_router
 from app.routers.analytics import router as analytics_router
 from app.routers.behavior import router as behavior_router
 from app.routers.analytics_product import router as analytics_product_router
+from app.routers.dashboard_router import router as executive_dashboard_router
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
@@ -100,6 +101,11 @@ app.include_router(
 # Product Analytics Routes
 app.include_router(
     analytics_product_router
+)
+
+# Executive Role-Based Dashboards
+app.include_router(
+    executive_dashboard_router
 )
 
 # Mount uploads directory for serving shelf snapshots and other static files

@@ -12,6 +12,7 @@ import Layout from "./components/Layout";
 import GoogleCallback from "./pages/GoogleCallback";
 import BehaviorAnalytics from "./components/BehaviorAnalytics";
 import ProductAnalytics from "./components/ProductAnalytics";
+import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 
 function App() {
   return (
@@ -27,6 +28,14 @@ function App() {
           element={
             <Layout>
               <Dashboard />
+            </Layout>
+          } 
+        />
+        <Route 
+          path="/executive" 
+          element={
+            <Layout>
+              <ExecutiveDashboard />
             </Layout>
           } 
         />

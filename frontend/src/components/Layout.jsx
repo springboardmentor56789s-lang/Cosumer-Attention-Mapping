@@ -23,7 +23,8 @@ function Layout({ children }) {
   };
 
   const navItems = [
-    { path: "/dashboard", label: "📊 Dashboard" },
+    { path: "/dashboard", label: "📊 Live Operations" },
+    { path: "/executive", label: "👔 Executive Hub" },
     { path: "/stores", label: "🏪 Stores" },
     { path: "/shelves", label: "🗄️ Shelves" },
     { path: "/cameras", label: "🎥 Cameras" },
