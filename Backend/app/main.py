@@ -5,7 +5,7 @@ FastAPI Main Application Entrypoint
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import auth, stores, detection, tracking, streams, analytics, video_analysis
+from .routers import auth, stores, detection, tracking, streams, analytics, video_analysis, behavior, shelf
 from .auth import require_role
 
 app = FastAPI(title="Consumer Attention Mapping System API")
@@ -30,6 +30,8 @@ app.include_router(tracking.router, tags=["Tracking"])
 app.include_router(streams.router, tags=["Streams"])
 app.include_router(analytics.router, tags=["Analytics"])
 app.include_router(video_analysis.router, tags=["Video Analysis"])
+app.include_router(behavior.router, tags=["Behaviour Intelligence"])
+app.include_router(shelf.router, tags=["Shelf Planogram & Stock AI"])
 
 @app.get("/")
 def root_health_check():

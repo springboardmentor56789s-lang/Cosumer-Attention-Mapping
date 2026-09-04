@@ -1,8 +1,13 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import LiveCameraStream from "../../components/LiveCameraStream";
 import LiveFloorplanRadar from "../../components/LiveFloorplanRadar";
 import ShelfGazeHeatmap from "../../components/ShelfGazeHeatmap";
+import BehaviorIntelligence from "../../components/BehaviorIntelligence";
+import ShelfPlanogramAuditor from "../../components/ShelfPlanogramAuditor";
+import CommonPathwaysStudio from "../../components/CommonPathwaysStudio";
+import AttentionHeatmapsStudio from "../../components/AttentionHeatmapsStudio";
 
 // ==========================================
 // DESIGN TOKENS & STYLES
@@ -95,7 +100,7 @@ const INITIAL_USERS = [
   { id: "USR-001", name: "Sarah Jenkins", email: "sarah.j@retailai.corp", role: "Store Manager", store: "Downtown Flagship", status: "Active" },
   { id: "USR-002", name: "Raj Patel", email: "raj.p@retailai.corp", role: "Retail Analyst", store: "All Stores", status: "Active" },
   { id: "USR-003", name: "Elena Rostova", email: "elena.r@retailai.corp", role: "Marketing Manager", store: "All Stores", status: "Active" },
-  { id: "USR-004", name: "Marcus Chen", email: "marcus.c@retailai.corp", role: "Administrator", store: "System-Wide", status: "Active" },
+  { id: "USR-004", name: "Kushalini", email: "kushalini@retailai.corp", role: "Administrator", store: "System-Wide", status: "Active" },
 ];
 
 const SAMPLE_JOURNEYS = [
@@ -117,6 +122,7 @@ const SAMPLE_JOURNEYS = [
 ];
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedStore, setSelectedStore] = useState("All Stores");
   const [toast, setToast] = useState(null);
@@ -124,6 +130,18 @@ export default function AdminDashboard() {
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("token");
+    } catch (e) {
+      console.error(e);
+    }
+    showToast("🚪 Logging out... Returning to login.");
+    setTimeout(() => {
+      router.push("/login");
+    }, 500);
   };
 
   // NOTIFICATIONS
@@ -261,7 +279,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ backgroundColor: TOKENS.bg, minHeight: "100vh", color: TOKENS.text, fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ backgroundColor: TOKENS.bg, height: "100vh", width: "100vw", overflow: "hidden", color: TOKENS.text, fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
       
       {/* TOAST NOTIFICATION */}
       {toast && (
@@ -270,8 +288,8 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* HEADER BAR */}
-      <header style={{ height: "64px", backgroundColor: TOKENS.sidebarBg, borderBottom: `1px solid ${TOKENS.cardBorder}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
+      {/* HEADER BAR — FIXED AT TOP */}
+      <header style={{ height: "64px", flexShrink: 0, width: "100%", backgroundColor: TOKENS.sidebarBg, borderBottom: `1px solid ${TOKENS.cardBorder}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", zIndex: 100, boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{ width: "32px", height: "32px", borderRadius: "8px", backgroundColor: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "#1A1200" }}>
             AI
@@ -320,20 +338,25 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ================= MAIN CONTENT LAYOUT ================= */}
-      <div style={{ display: "flex", flex: 1 }}>
+      {/* ================= MAIN CONTENT LAYOUT CONTAINER ================= */}
+      <div style={{ display: "flex", flex: 1, height: "calc(100vh - 64px)", overflow: "hidden", width: "100%" }}>
 
-        {/* SIDEBAR NAVIGATION */}
-        <aside style={{ width: "240px", backgroundColor: TOKENS.sidebarBg, borderRight: `1px solid ${TOKENS.cardBorder}`, padding: "20px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        {/* SIDEBAR NAVIGATION — ATTACHED & FIXED */}
+        <aside style={{ width: "240px", backgroundColor: TOKENS.sidebarBg, borderRight: `1px solid ${TOKENS.cardBorder}`, padding: "20px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+          
+          {/* TOP NAV ITEMS */}
+          <nav style={{ display: "flex", flexDirection: "column", gap: "6px", overflowY: "auto", paddingRight: "2px" }}>
             {[
-              { id: "overview", label: "Dashboard Overview", icon: "📊" },
-              { id: "live-ai", label: "Live AI Video & Gaze HUD", icon: "🔴" },
-              { id: "journeys", label: "Customer Journey Tracking", icon: "🛣️" },
-              { id: "infrastructure", label: "Stores & Cameras (CRUD)", icon: "📹" },
-              { id: "users", label: "User Management (CRUD)", icon: "👤" },
-              { id: "system", label: "System & API Health", icon: "⚡" },
-              { id: "security", label: "Security & Permissions", icon: "🛡️" },
+              { id: "overview",        label: "Dashboard Overview",        icon: "📊" },
+              { id: "live-ai",         label: "Live AI Video & Gaze HUD",  icon: "🔴" },
+              { id: "heatmaps",        label: "Attention Heatmaps",        icon: "🔥" },
+              { id: "shelf-audit",     label: "Shelf Planogram AI Audit",  icon: "🛒" },
+              { id: "pathways",        label: "Common Pathways Flow",      icon: "🛣️" },
+              { id: "behaviour",       label: "Behaviour Intelligence",    icon: "🧠" },
+              { id: "journeys",        label: "Individual Journeys",       icon: "🚶" },
+              { id: "infrastructure",  label: "Stores & Cameras (CRUD)",   icon: "📹" },
+              { id: "users",           label: "User Management (CRUD)",    icon: "👤" },
+              { id: "security",        label: "Security & Permissions",    icon: "🛡️" },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -359,10 +382,52 @@ export default function AdminDashboard() {
               </button>
             ))}
           </nav>
+
+          {/* BOTTOM USER INFO & LOGOUT BUTTON */}
+          <div style={{ borderTop: `1px solid ${TOKENS.cardBorder}`, paddingTop: "14px", marginTop: "14px", display: "flex", flexDirection: "column", gap: "10px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 4px" }}>
+              <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "rgba(232,163,61,0.2)", border: `1px solid ${TOKENS.accent}`, color: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 800 }}>
+                K
+              </div>
+              <div style={{ overflow: "hidden" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.text, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                  Kushalini
+                </div>
+                <div style={{ fontSize: "10px", color: TOKENS.success, fontWeight: 600 }}>
+                  ● Administrator
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                padding: "9px 14px",
+                borderRadius: "8px",
+                border: "1px solid rgba(232,101,79,0.35)",
+                backgroundColor: "rgba(232,101,79,0.12)",
+                color: TOKENS.danger,
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 700,
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(232,101,79,0.25)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(232,101,79,0.12)"; }}
+            >
+              <span>🚪</span>
+              <span>Log out</span>
+            </button>
+          </div>
         </aside>
 
-        {/* BODY DASHBOARD PANEL */}
-        <main style={{ flex: 1, padding: "24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+        {/* BODY DASHBOARD PANEL — ONLY THIS AREA SCROLLS */}
+        <main style={{ flex: 1, height: "100%", padding: "24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px", boxSizing: "border-box" }}>
 
           {/* ================= VIEW 1: COMPREHENSIVE ENTERPRISE OVERVIEW ================= */}
           {activeTab === "overview" && (
@@ -584,6 +649,18 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ================= VIEW: ATTENTION HEATMAPS (MILESTONE 3) ================= */}
+          {activeTab === "heatmaps" && <AttentionHeatmapsStudio />}
+
+          {/* ================= VIEW: SHELF PLANOGRAM AI AUDIT ================= */}
+          {activeTab === "shelf-audit" && <ShelfPlanogramAuditor />}
+
+          {/* ================= VIEW: COMMON PATHWAYS FLOW STUDIO ================= */}
+          {activeTab === "pathways" && <CommonPathwaysStudio />}
+
+          {/* ================= VIEW: BEHAVIOUR INTELLIGENCE ENGINE ================= */}
+          {activeTab === "behaviour" && <BehaviorIntelligence />}
+
           {/* ================= VIEW 2: CUSTOMER JOURNEY TRACKING ================= */}
           {activeTab === "journeys" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -747,36 +824,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ================= VIEW 5: SYSTEM HEALTH ================= */}
-          {activeTab === "system" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-              <div style={cardStyle}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "12px" }}>FastAPI Backend Services</h3>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
-                  <span>Video Frame Analysis API</span>
-                  <span style={{ color: TOKENS.success }}>Operational</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
-                  <span>Excel Export Service</span>
-                  <span style={{ color: TOKENS.success }}>Operational</span>
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "12px" }}>AI Model Compute Status</h3>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
-                  <span>YOLOv8-Pose (Gaze Engine)</span>
-                  <span style={{ color: TOKENS.success }}>Loaded</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${TOKENS.cardBorder}`, fontSize: "12px" }}>
-                  <span>ByteTrack Multi-Tracker</span>
-                  <span style={{ color: TOKENS.success }}>Active</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ================= VIEW 6: SECURITY ================= */}
+          {/* ================= VIEW: SECURITY ================= */}
           {activeTab === "security" && (
             <div style={cardStyle}>
               <h2 style={{ fontSize: "18px", fontWeight: "700", margin: "0 0 14px 0" }}>🛡️ Audit Trail & Permissions</h2>

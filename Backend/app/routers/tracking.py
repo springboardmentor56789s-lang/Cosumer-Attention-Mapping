@@ -141,3 +141,9 @@ async def track_video(file: UploadFile = File(...), store: str = Form(...)):
     finally:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
+@router.get("/common-pathways")
+def get_common_pathways():
+    """Return dominant shopper navigation pathways and network metrics."""
+    from ..services.pathway_engine import get_common_pathways_data
+    return get_common_pathways_data()
