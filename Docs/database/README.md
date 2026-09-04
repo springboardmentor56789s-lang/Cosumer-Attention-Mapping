@@ -28,13 +28,5 @@ See `schema_backup.sql` for a full SQL export of the current schema (generated v
 2. Set `DATABASE_URL` in `Backend/.env`
 3. Run the backend once — SQLAlchemy auto-creates all tables via `Base.metadata.create_all()`
 
-# Dataset Usage
 
-## COCO Dataset ✅ Validated
-Ran YOLOv8 detection directly on real COCO dataset sample images (`test_coco_dataset.py`), confirming accurate multi-class detection (person, animals, objects) on the actual benchmark dataset. This validates that the model's person-detection capability — the core of Module 3 — is built on a properly trained, industry-standard dataset, not just tested on webcam footage.
-
-Sample results:
-- Correctly detected 4 persons, 2 horses, 1 dog in a group photo
-- Correctly identified giraffe, zebra, elephant in wildlife images
-- Correctly detected person + umbrella, person + elephant in mixed scenes
 
