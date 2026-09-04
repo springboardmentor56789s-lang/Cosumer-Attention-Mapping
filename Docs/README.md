@@ -2,7 +2,7 @@
 
 The Consumer Attention Mapping System follows an end-to-end retail analytics workflow from store setup to consumer behavior analysis and recommendations.
 
-📄 Detailed Workflow: [View Workflow](docs/WORKFLOW.md)
+📄 Detailed Workflow:
 
 Login
    ↓
