@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: consumer_attention_db
+    environment:
+      POSTGRES_DB: consumer_attention
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: consumer_attention_backend
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@database:5432/consumer_attention
+      - SECRET_KEY=antigravity_consumer_attention_secret_key_2026
+      - CORS_ORIGINS=*
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: consumer_attention_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: consumer_attention_ai_engine
+    environment:
+      - AI_MODEL_PATH=models/yolov8m.pt
+    restart: always
+
+volumes:
+  postgres_data:
