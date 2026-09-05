@@ -198,17 +198,13 @@ def ensure_schema_compatibility() -> None:
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_reports_report_id ON reports (report_id)"))
             except Exception:
                 pass
-            # report_type is intentionally constrained to the five dashboard
-            # reports.  Old report records are removed during this migration.
+            # Reports store definitions only; report data is derived from analytics.
             try:
-                conn.execute(text("DELETE FROM reports WHERE report_type NOT IN ('consumer_attention', 'product_engagement', 'shelf_performance', 'conversion', 'marketing_effectiveness')"))
+                conn.execute(text("ALTER TABLE reports DROP CONSTRAINT IF EXISTS ck_reports_supported_report_type"))
+                conn.execute(text("DELETE FROM reports WHERE report_type NOT IN ('consumer_attention', 'product_engagement', 'shelf_performance')"))
                 conn.execute(text("""
-                    DO $$ BEGIN
-                        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_reports_supported_report_type') THEN
-                            ALTER TABLE reports ADD CONSTRAINT ck_reports_supported_report_type
-                            CHECK (report_type IN ('consumer_attention', 'product_engagement', 'shelf_performance', 'conversion', 'marketing_effectiveness'));
-                        END IF;
-                    END $$;
+                    ALTER TABLE reports ADD CONSTRAINT ck_reports_supported_report_type
+                    CHECK (report_type IN ('consumer_attention', 'product_engagement', 'shelf_performance'));
                 """))
             except Exception:
                 pass

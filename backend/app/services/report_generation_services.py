@@ -8,8 +8,6 @@ REPORT_TYPES = (
     ("Consumer Attention Report", "consumer_attention"),
     ("Product Engagement Report", "product_engagement"),
     ("Shelf Performance Report", "shelf_performance"),
-    ("Conversion Report", "conversion"),
-    ("Marketing Effectiveness Report", "marketing_effectiveness"),
 )
 
 REPORT_TYPE_VALUES = frozenset(report_type for _, report_type in REPORT_TYPES)
@@ -53,9 +51,7 @@ def create_reports_for_video(
     filters["customer_track_ids"] = sorted({int(row_id) for row_id in customer_track_ids or []})
     filters["detection_ids"] = sorted({int(row_id) for row_id in detection_ids or []})
 
-    # Legacy report categories are no longer part of the product.  Remove their
-    # records as part of automatic regeneration so the dashboard contains only
-    # the five supported report types.
+    # Remove definitions for report categories no longer supported by Reports.
     db.query(model.Report).filter(
         model.Report.store_id == store_id,
         model.Report.created_by == user_id,

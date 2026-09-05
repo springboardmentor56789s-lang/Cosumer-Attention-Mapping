@@ -100,5 +100,6 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("full_name");
     localStorage.removeItem("role");
+    document.cookie = "access_token=; Max-Age=0; Path=/; SameSite=Lax";
     window.location.href = "/login";
 });

@@ -278,7 +278,6 @@ class VideoPipelineService:
             raise RuntimeError("OpenCV is not installed. Install opencv-python.")
 
         try:
-            # Start each stream with a fresh tracker state to avoid stale IDs.
             self.tracker.reset()
             frame_idx = 0
 
@@ -295,10 +294,15 @@ class VideoPipelineService:
                 tracked = self.tracker.update_tracks(person_dets, frame=frame).get("tracked_objects", {})
                 self._enrich_detections(camera, detections, tracked, self._camera_zones(db, camera.id) if db else [])
 
-                if db is not None and tracked:
-                    self._persist_stream_tracks(db, camera, tracked, frame_idx)
+                face = self.mediapipe.detect_face_landmarks(frame)
+                gaze_result: Dict[str, Any] = {}
+                if face.get("success"):
+                    gaze_result = self.gaze.detect_gaze_direction(face.get("landmarks", {}))
 
-                annotated = self._annotate_stream_frame(frame, detections, tracked)
+                if db is not None and tracked:
+                    self._persist_stream_tracks(db, camera, tracked, frame_idx, gaze_result=gaze_result)
+
+                annotated = self._annotate_stream_frame(frame, detections, tracked, gaze_result=gaze_result)
 
                 _, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 frame_bytes = buffer.tobytes()
@@ -480,8 +484,6 @@ class VideoPipelineService:
                 centroid = track.get("centroid", (0.0, 0.0))
                 heat_points.append((float(centroid[0]), float(centroid[1])))
 
-                # Frame index/FPS is stable for files; wall-clock time is the
-                # only reliable duration source for RTSP streams without FPS.
                 source_timestamp = (
                     float(source_frame_idx) / fps if fps > 0.0 else time.monotonic()
                 )
@@ -728,7 +730,6 @@ class VideoPipelineService:
 
         db.commit()
 
-
         return {
             "camera_id": camera.id,
             "processed_frames": frame_idx,
@@ -891,22 +892,27 @@ class VideoPipelineService:
     def _calculate_attention_score(
         gaze_result: Dict[str, Any], association: Dict[str, Any], centroid: Tuple[float, float]
     ) -> float:
-        """Score observed attention from face/head pose and an actual shelf relationship.
-
-        No face landmarks or no associated shelf means attention is unavailable,
-        represented as 0 rather than an invented baseline.
-        """
+        """Score observed attention from face/head pose and shelf relationships."""
         vector = gaze_result.get("gaze_vector")
         shelf_center = association.get("shelf_center")
-        if not isinstance(vector, (tuple, list)) or len(vector) < 2 or not shelf_center:
-            return 0.0
         pose_reliability = max(0.0, min(1.0, float(gaze_result.get("confidence", 0.0) or 0.0)))
+        
+        # Fallback scoring when gaze vector or explicit shelf centers are not configured
+        if not isinstance(vector, (tuple, list)) or len(vector) < 2 or not shelf_center:
+            if pose_reliability > 0.0:
+                direction = str(gaze_result.get("direction", "forward")).lower()
+                base_score = 75.0 if direction in ("forward", "center") else 40.0
+                return round(base_score * pose_reliability, 2)
+            elif association.get("engaged"):
+                return 50.0
+            return 0.0
+
         gx, gy = float(vector[0]), float(vector[1])
         gaze_magnitude = math.hypot(gx, gy)
         sx, sy = float(shelf_center[0]) - centroid[0], float(shelf_center[1]) - centroid[1]
         shelf_distance = math.hypot(sx, sy)
         if gaze_magnitude < 0.05 or shelf_distance < 1.0:
-            alignment = 0.7  # forward-facing, close-to-shelf observation
+            alignment = 0.7
         else:
             alignment = max(0.0, min(1.0, ((gx * sx + gy * sy) / (gaze_magnitude * shelf_distance) + 1.0) / 2.0))
         relationship = 1.0 if association.get("inside_shelf") else 0.65 if association.get("nearby") else 0.0
@@ -981,15 +987,21 @@ class VideoPipelineService:
         camera: model.Camera,
         tracked_objects: Dict[int, Dict[str, Any]],
         frame_idx: int,
+        gaze_result: Optional[Dict[str, Any]] = None,
     ) -> None:
         try:
+            gaze = gaze_result or {}
             for obj_id, track in tracked_objects.items():
                 centroid = track.get("centroid", (0.0, 0.0))
+                association = {"engaged": False, "shelf_center": None}
+                attention_score = self._calculate_attention_score(gaze, association, centroid)
+                
                 enriched = self._build_frame_analytics(
                     customer_id=int(obj_id),
                     centroid=centroid,
-                    gaze_result={},
+                    gaze_result=gaze,
                     frame_idx=frame_idx,
+                    attention_score=attention_score,
                 )
 
                 db.add(
@@ -1059,7 +1071,6 @@ class VideoPipelineService:
             colored = cv2.applyColorMap(normalized, cv2.COLORMAP_JET)
             annotated = cv2.addWeighted(annotated, 0.72, colored, 0.28, 0)
 
-        # Draw raw YOLO detections (thin blue boxes) for context.
         for detection in detections:
             x1 = detection.get("x1")
             y1 = detection.get("y1")
@@ -1088,7 +1099,6 @@ class VideoPipelineService:
                 cv2.LINE_AA,
             )
 
-        # Draw ByteTrack tracks (green boxes) with stable track IDs.
         for track_id, track in tracked_objects.items():
             bbox = track.get("bbox", {})
             x1 = bbox.get("x1")
@@ -1368,7 +1378,6 @@ class VideoPipelineService:
         scale_x = float(frame_width) / reference_width if frame_width and reference_width else 1.0
         scale_y = float(frame_height) / reference_height if frame_height and reference_height else 1.0
         x, y = point
-        # Rectangle and polygon are both represented as points; ray casting handles each.
         inside = False
         for index, current in enumerate(points):
             previous = points[index - 1]

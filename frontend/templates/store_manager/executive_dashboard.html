@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Executive Dashboard</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-800" style="background: linear-gradient(135deg, #071a3a 0%, #0f2c5c 45%, #1d4ed8 100%);">
+
+<div class="min-h-screen p-3 sm:p-5 lg:p-6">
+    <div class="flex min-h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-[32px] border border-white/20 bg-white/10 shadow-2xl backdrop-blur-xl lg:flex-row">
+
+        <!-- Sidebar (unchanged — same as admin dashboard) -->
+        <aside class="w-full bg-slate-900/90 p-5 text-white lg:w-72 lg:p-6">
+            <div class="rounded-2xl border border-white/10 bg-white/10 p-4 text-center shadow-lg">
+                <div class="mb-3 flex justify-center">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/20 text-2xl shadow-inner">
+                        ✦
+                    </div>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">
+                    AI Consumer
+                </h1>
+                <p class="mt-1 text-sm text-slate-300">
+                    Admin Panel
+                </p>
+            </div>
+
+            <nav class="mt-6 space-y-2">
+                <a href="#" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        ◉
+                    </span>
+                    Dashboard
+                </a>
+
+                <a href="/store-management" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        📊
+                    </span>
+                    Store Management
+                </a>
+
+                <a href="/shelves_management" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        📈
+                    </span>
+                    Shelves Management
+                </a>
+
+                <a href="/admin/retail-intelligence" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        ◈
+                    </span>
+                    Retail Intelligence
+                </a>
+
+                <a href="/camera_management" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        📈
+                    </span>
+                    Camera Management
+                </a>
+
+
+                <a href="/reports" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        🗂️
+                    </span>
+                    Reports
+                </a>
+
+                <a href="/heatmap" class="group flex items-center rounded-2xl px-4 py-3 text-sm font-medium text-slate-200 transition-all duration-300 hover:bg-white/10 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-base transition group-hover:bg-blue-500/20">
+                        🗂️
+                    </span>
+                    Heatmaps
+                </a>
+
+                <button id="logoutBtn" class="mt-4 flex w-full items-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-left text-sm font-medium text-red-200 transition-all duration-300 hover:bg-red-500/20 hover:text-white">
+                    <span class="mr-3 flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/20 text-base">
+                        ⎋
+                    </span>
+                    Logout
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto bg-slate-50/70 p-4 sm:p-6 lg:p-8">
+
+            <!-- 1. Header -->
+            <header class="mb-6 flex flex-col gap-4 rounded-[24px] border border-white/40 bg-white/80 p-5 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                <div>
+                    <p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
+                        Overview
+                    </p>
+                    <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">
+                        Executive Dashboard
+                    </h2>
+                    <p class="mt-1 text-sm text-slate-500 sm:text-base">
+                        Overall Shopper Behavior &amp; Store Performance
+                    </p>
+                    <p id="periodInfo" class="mt-2 hidden text-xs font-medium text-slate-400"></p>
+                </div>
+
+                <div class="flex flex-col items-start gap-2 sm:items-end">
+                    <span id="liveStatus" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+                        Loading executive analytics…
+                    </span>
+                    <span id="lastUpdated" class="text-xs text-slate-400"></span>
+                </div>
+            </header>
+
+            <!-- 2. Executive KPI Overview -->
+            <section aria-label="Executive KPIs" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm backdrop-blur">
+                    <p class="text-xs font-medium text-slate-500">Observed Shoppers</p>
+                    <p id="observedShoppers" class="mt-2 text-2xl font-bold text-slate-950">Loading...</p>
+                </article>
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm backdrop-blur">
+                    <p class="text-xs font-medium text-slate-500">Average Attention</p>
+                    <p id="averageAttention" class="mt-2 text-2xl font-bold text-slate-950">Loading...</p>
+                </article>
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm backdrop-blur">
+                    <p class="text-xs font-medium text-slate-500">Average Dwell Time</p>
+                    <p id="averageDwell" class="mt-2 text-2xl font-bold text-slate-950">Loading...</p>
+                </article>
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm backdrop-blur">
+                    <p class="text-xs font-medium text-slate-500">Revisit Rate</p>
+                    <p id="revisitRate" class="mt-2 text-2xl font-bold text-slate-950">Loading...</p>
+                </article>
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm backdrop-blur">
+                    <p class="text-xs font-medium text-slate-500">High Interest Rate</p>
+                    <p id="highInterestRate" class="mt-2 text-2xl font-bold text-slate-950">Loading...</p>
+                </article>
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm backdrop-blur">
+                    <p class="text-xs font-medium text-slate-500">Quick Pass Rate</p>
+                    <p id="quickPassRate" class="mt-2 text-2xl font-bold text-slate-950">Loading...</p>
+                </article>
+            </section>
+
+            <!-- 3. Performance vs Previous Period -->
+            <section class="mt-5 overflow-hidden rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur">
+                <div class="border-b border-slate-100 px-5 py-4">
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Trend</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Performance vs previous period</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-5 py-3 font-semibold">Metric</th>
+                                <th class="px-5 py-3 text-right font-semibold">Current</th>
+                                <th class="px-5 py-3 text-right font-semibold">Previous</th>
+                                <th class="px-5 py-3 text-right font-semibold">Change</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-5 py-4 font-semibold text-slate-900">Attention</td>
+                                <td id="attentionCurrent" class="px-5 py-4 text-right">—</td>
+                                <td id="attentionPrevious" class="px-5 py-4 text-right">—</td>
+                                <td id="attentionChange" class="px-5 py-4 text-right">—</td>
+                            </tr>
+                            <tr>
+                                <td class="px-5 py-4 font-semibold text-slate-900">Dwell Time</td>
+                                <td id="dwellCurrent" class="px-5 py-4 text-right">—</td>
+                                <td id="dwellPrevious" class="px-5 py-4 text-right">—</td>
+                                <td id="dwellChange" class="px-5 py-4 text-right">—</td>
+                            </tr>
+                            <tr>
+                                <td class="px-5 py-4 font-semibold text-slate-900">Revisit Rate</td>
+                                <td id="revisitCurrent" class="px-5 py-4 text-right">—</td>
+                                <td id="revisitPrevious" class="px-5 py-4 text-right">—</td>
+                                <td id="revisitChange" class="px-5 py-4 text-right">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. Shopper Behavior Overview + 7. Peak Activity -->
+            <section class="mt-5 grid gap-5 lg:grid-cols-3">
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-5 shadow-sm backdrop-blur lg:col-span-2">
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Shopper behavior</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Behavior overview</h2>
+                    <div class="relative mt-4 h-56">
+                        <canvas id="behaviorChart"></canvas>
+                    </div>
+                    <p id="behaviorEmpty" class="hidden mt-3 text-sm text-slate-400">No data available</p>
+                </article>
+
+                <article class="flex flex-col justify-center rounded-2xl border border-white/60 bg-white/90 p-5 shadow-sm backdrop-blur">
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Peak activity</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Highest observed activity</h2>
+                    <p id="peakActivity" class="mt-4 text-3xl font-bold text-blue-700">Loading...</p>
+                    <p id="peakActivityLabel" class="mt-1 text-sm text-slate-500">Highest observed shopper activity</p>
+                </article>
+            </section>
+
+            <!-- Store Attention Heatmap -->
+            <section class="mt-5 rounded-2xl border border-white/60 bg-white/90 p-5 shadow-sm backdrop-blur">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Spatial attention</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Store Attention Heatmap</h2>
+                    <p class="mt-1 text-sm text-slate-500">Attention intensity across configured shelf and zone ROIs.</p>
+                </div>
+                <div class="relative mt-4 h-72 overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
+                    <canvas id="executiveHeatmap" class="h-full w-full" aria-label="Store attention heatmap"></canvas>
+                    <p id="executiveHeatmapEmpty" class="absolute inset-0 flex items-center justify-center px-5 text-center text-sm text-slate-400">No spatial heatmap data available</p>
+                </div>
+                <div class="mt-3 flex items-center justify-between gap-3 text-xs font-medium text-slate-600"><span>Low</span><span class="h-2 w-40 rounded-full bg-gradient-to-r from-cyan-500 via-amber-400 to-rose-500" aria-hidden="true"></span><span>High</span></div>
+            </section>
+
+            <!-- 5. Top & Underperforming Shelves -->
+            <section class="mt-5 grid gap-5 lg:grid-cols-2">
+                <article class="overflow-hidden rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur">
+                    <div class="border-b border-slate-100 px-5 py-4">
+                        <p class="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">Top performers</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-950">Top 3 shelves</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-5 py-3 font-semibold">Shelf ID</th>
+                                    <th class="px-5 py-3 text-right font-semibold">Attention</th>
+                                    <th class="px-5 py-3 text-right font-semibold">Avg Dwell</th>
+                                    <th class="px-5 py-3 text-right font-semibold">High Interest</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topShelves" class="divide-y divide-slate-100">
+                                <tr><td colspan="4" class="px-5 py-8 text-center text-slate-400">No data available</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article class="overflow-hidden rounded-2xl border border-white/60 bg-white/90 shadow-sm backdrop-blur">
+                    <div class="border-b border-slate-100 px-5 py-4">
+                        <p class="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">Needs attention</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-950">Bottom 3 shelves</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-5 py-3 font-semibold">Shelf ID</th>
+                                    <th class="px-5 py-3 text-right font-semibold">Attention</th>
+                                    <th class="px-5 py-3 text-right font-semibold">Avg Dwell</th>
+                                    <th class="px-5 py-3 text-right font-semibold">High Interest</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bottomShelves" class="divide-y divide-slate-100">
+                                <tr><td colspan="4" class="px-5 py-8 text-center text-slate-400">No data available</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <!-- 6. Top 3 Product Attractiveness -->
+            <section class="mt-5 rounded-2xl border border-white/60 bg-white/90 p-5 shadow-sm backdrop-blur">
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Product attractiveness</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-950">Top 3 products</h2>
+                <ol id="topProducts" class="mt-4 grid gap-3 sm:grid-cols-3">
+                    <li class="text-sm text-slate-400">No data available</li>
+                </ol>
+            </section>
+
+            <!-- 8. Executive Key Insights + 9. Priority Actions -->
+            <section class="mt-5 grid gap-5 lg:grid-cols-2">
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-5 shadow-sm backdrop-blur">
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Executive summary</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Key insights</h2>
+                    <ul id="executiveInsights" class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                        <li class="text-slate-400">No data available</li>
+                    </ul>
+                </article>
+
+                <article class="rounded-2xl border border-white/60 bg-white/90 p-5 shadow-sm backdrop-blur">
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Management</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Priority actions</h2>
+                    <div id="priorityActions" class="mt-4 space-y-3">
+                        <p class="text-sm text-slate-400">No data available</p>
+                    </div>
+                </article>
+            </section>
+
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/store_manager/executive_dashboard.js"></script>
+
+</body>
+
+</html>

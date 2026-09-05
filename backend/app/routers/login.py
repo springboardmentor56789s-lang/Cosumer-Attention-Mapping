@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from app.model import Store, User
 from app.schema import LoginUser
-from app.auth import verify_password, create_access_token
+from app.auth import ACCESS_TOKEN_EXPIRE_MINUTES, verify_password, create_access_token
 
 router = APIRouter(
     prefix="/api",
@@ -13,8 +13,12 @@ router = APIRouter(
 
 
 @router.post("/auth/login")
-def login_with_auth_alias(user: LoginUser, db: Session = Depends(get_db)):
-    return login(user, db)
+def login_with_auth_alias(
+    user: LoginUser,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    return login(user, response, db)
 
 
 def _ensure_seed_data(db: Session) -> None:
@@ -32,7 +36,11 @@ def _ensure_seed_data(db: Session) -> None:
     db.commit()
 
 @router.post("/login")
-def login(user: LoginUser, db: Session = Depends(get_db)):
+def login(
+    user: LoginUser,
+    response: Response,
+    db: Session = Depends(get_db),
+):
 
     db_user = db.query(User).filter(
         User.email == user.email
@@ -57,6 +65,13 @@ def login(user: LoginUser, db: Session = Depends(get_db)):
             "sub": db_user.email,
             "role": db_user.role
         }
+    )
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+        samesite="lax",
     )
 
     return {

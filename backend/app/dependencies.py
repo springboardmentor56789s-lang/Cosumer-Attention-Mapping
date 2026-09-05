@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ security = HTTPBearer(auto_error=False)
 # ============================================================
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> model.User:
@@ -30,13 +31,16 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    if credentials is None:
-        raise credentials_exception
-
-    if credentials.scheme.lower() != "bearer":
-        raise credentials_exception
-
-    token = credentials.credentials
+    if credentials is not None:
+        if credentials.scheme.lower() != "bearer":
+            raise credentials_exception
+        token = credentials.credentials
+    else:
+        # Browser document navigation cannot attach an Authorization header.
+        # The login flow mirrors the same JWT in this same-site cookie.
+        token = request.cookies.get("access_token")
+        if not token:
+            raise credentials_exception
 
     try:
         payload = jwt.decode(
@@ -77,6 +81,87 @@ def require_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access Denied: Admin role required for this action.",
+        )
+
+    return current_user
+
+
+# ============================================================
+# ANALYTICS READ ACCESS
+# ============================================================
+
+def require_analytics_reader(
+    current_user: model.User = Depends(get_current_user),
+) -> model.User:
+    """Allow authenticated dashboard roles to read analytics."""
+    if current_user.role not in {
+        model.UserRole.ADMIN,
+        model.UserRole.RETAIL_ANALYST,
+        model.UserRole.STORE_MANAGER,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Admin, Retail Analyst, or Store Manager role required for analytics.",
+        )
+
+    return current_user
+
+
+def require_role(required_role: model.UserRole):
+    """Create an exact-role guard for a role-specific HTML dashboard."""
+    def role_guard(
+        current_user: model.User = Depends(get_current_user),
+    ) -> model.User:
+        if current_user.role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: this dashboard is assigned to another role.",
+            )
+        return current_user
+
+    role_guard.__name__ = f"require_{required_role.value}_dashboard"
+    return role_guard
+
+
+# ============================================================
+# REPORTS READ ACCESS
+# ============================================================
+
+def require_report_reader(
+    current_user: model.User = Depends(get_current_user),
+) -> model.User:
+    """Allow dashboard roles to list stored reports without mutation access."""
+    if current_user.role not in {
+        model.UserRole.ADMIN,
+        model.UserRole.RETAIL_ANALYST,
+        model.UserRole.STORE_MANAGER,
+        model.UserRole.MARKETING_ANALYST,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: report viewing permission is required.",
+        )
+
+    return current_user
+
+
+# ============================================================
+# HEATMAP READ ACCESS
+# ============================================================
+
+def require_heatmap_reader(
+    current_user: model.User = Depends(get_current_user),
+) -> model.User:
+    """Allow dashboard roles to view generated heatmap data without mutation access."""
+    if current_user.role not in {
+        model.UserRole.ADMIN,
+        model.UserRole.RETAIL_ANALYST,
+        model.UserRole.STORE_MANAGER,
+        model.UserRole.MARKETING_ANALYST,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: heatmap viewing permission is required.",
         )
 
     return current_user

@@ -3,70 +3,49 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Spatial Analytics | Admin</title>
-	<style>
-		:root { --ink: #13233a; --muted: #5c6b80; --line: #d7e0e8; --paper: #f5f7f5; --panel: #ffffff; --accent: #087e8b; --warm: #e85835; }
-		* { box-sizing: border-box; }
-		body { margin: 0; min-width: 320px; color: var(--ink); background: var(--paper); font-family: Georgia, "Times New Roman", serif; }
-		.shell { max-width: 1240px; margin: 0 auto; padding: 32px 28px 44px; }
-		.topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
-		.eyebrow { margin: 0 0 7px; color: var(--accent); font-family: Verdana, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
-		h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: 0; }
-		.back { color: var(--ink); font-family: Verdana, sans-serif; font-size: 13px; text-decoration: none; }
-		.back:hover { color: var(--accent); }
-		.controls { display: grid; grid-template-columns: minmax(230px, 1.5fr) minmax(190px, 1fr); gap: 16px; padding: 18px 0 22px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-		label { display: grid; gap: 7px; color: var(--muted); font-family: Verdana, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
-		select { width: 100%; min-height: 42px; padding: 8px 12px; border: 1px solid #aebdca; border-radius: 4px; color: var(--ink); background: #fff; font: 15px Georgia, serif; }
-		.heading-row { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 25px 0 14px; }
-		h2 { margin: 0 0 6px; font-size: 23px; font-weight: 600; }
-		.description, .status { margin: 0; color: var(--muted); font-family: Verdana, sans-serif; font-size: 13px; line-height: 1.5; }
-		.status { white-space: nowrap; text-align: right; }
-		.map-frame { position: relative; min-height: 440px; overflow: hidden; border: 1px solid #c6d2db; background-color: #eaf0ed; background-image: linear-gradient(#d6e0dc 1px, transparent 1px), linear-gradient(90deg, #d6e0dc 1px, transparent 1px); background-size: 24px 24px; }
-		canvas { display: block; width: 100%; height: min(62vw, 640px); min-height: 440px; }
-		.legend { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 13px; color: var(--muted); font-family: Verdana, sans-serif; font-size: 12px; }
-		.scale { width: 180px; height: 8px; background: linear-gradient(90deg, #147d8a, #f2bc44, #df4932); }
-		.empty { display: grid; min-height: 440px; place-items: center; padding: 30px; color: var(--muted); font-family: Verdana, sans-serif; font-size: 14px; text-align: center; }
-		@media (max-width: 650px) { .shell { padding: 22px 16px 32px; } .topbar, .heading-row { align-items: start; flex-direction: column; gap: 12px; } .controls { grid-template-columns: 1fr; } h1 { font-size: 27px; } .status { white-space: normal; text-align: left; } canvas, .map-frame, .empty { min-height: 360px; } }
-	</style>
+	<title>Heatmaps | Admin</title>
+	<script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-	<main class="shell">
-		<header class="topbar">
+	<body class="min-w-[320px] bg-slate-100 font-sans text-slate-900">
+	<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+		<header class="mb-7 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
 			<div>
-				<p class="eyebrow">Retail Operations</p>
-				<h1>Spatial Analytics</h1>
+				<p class="mb-2 text-xs font-bold uppercase tracking-widest text-cyan-700">Retail Operations</p>
+				<h1 class="text-3xl font-semibold tracking-normal text-slate-950">Spatial Heatmaps</h1>
 			</div>
-			<a class="back" href="/admin/dashboard">Back to dashboard</a>
+			<a class="text-sm font-medium text-slate-600 transition hover:text-cyan-700" href="/admin/dashboard">Back to dashboard</a>
 		</header>
 
-		<section class="controls" aria-label="Heatmap filters">
-			<label for="heatmapType">Heatmap type
-				<select id="heatmapType">
+		<section class="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2" aria-label="Heatmap filters">
+			<label class="grid gap-2 text-xs font-bold uppercase tracking-wide text-slate-600" for="heatmapType">Heatmap type
+				<select class="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none ring-cyan-600 transition focus:ring-2" id="heatmapType">
 					<option value="customer_traffic">Customer Traffic Heatmap</option>
 					<option value="customer_attention">Customer Attention Heatmap</option>
 					<option value="dwell_time">Dwell-Time Heatmap</option>
-					<option value="shelf_engagement">Shelf Engagement Heatmap</option>
-					<option value="zone_engagement">Zone Engagement Heatmap</option>
 					<option value="path_density">Customer Path-Density Heatmap</option>
 				</select>
 			</label>
-			<label for="cameraFilter">Camera
-				<select id="cameraFilter"><option value="">All cameras</option></select>
+			<label class="grid gap-2 text-xs font-bold uppercase tracking-wide text-slate-600" for="cameraFilter">Camera
+				<select class="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none ring-cyan-600 transition focus:ring-2" id="cameraFilter"><option value="">All cameras</option></select>
 			</label>
 		</section>
 
-		<section aria-live="polite">
-			<div class="heading-row">
+		<section class="mt-6" aria-live="polite">
+			<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 				<div>
-					<h2 id="mapTitle">Customer Traffic Heatmap</h2>
-					<p id="mapDescription" class="description">Footfall distribution from tracked customer positions.</p>
+					<h2 class="text-xl font-semibold text-slate-950" id="mapTitle">Customer Traffic Heatmap</h2>
+					<p class="mt-1 text-sm text-slate-600" id="mapDescription">Footfall distribution from tracked customer positions.</p>
 				</div>
-				<p id="status" class="status">Loading spatial data...</p>
+				<div class="flex flex-wrap items-center gap-2 text-xs font-medium">
+					<span class="rounded-full bg-slate-200 px-3 py-1.5 text-slate-700" id="selectedCamera">All cameras</span>
+					<span class="rounded-full bg-cyan-50 px-3 py-1.5 text-cyan-800" id="status">Loading spatial data...</span>
+				</div>
 			</div>
-			<div id="mapFrame" class="map-frame">
+			<div class="relative overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-lg" id="mapFrame">
 				<canvas id="heatmapCanvas" aria-label="Selected spatial heatmap"></canvas>
+				<div class="pointer-events-none absolute bottom-3 left-3 hidden max-w-xs rounded-md border border-slate-600 bg-slate-900/95 px-3 py-2 text-xs leading-5 text-slate-100 shadow-xl" id="roiInfo"></div>
 			</div>
-			<div class="legend"><span>Lower engagement</span><span class="scale" aria-hidden="true"></span><span>Higher engagement</span></div>
+			<div class="mt-3 flex items-center justify-between gap-3 text-xs font-medium text-slate-600"><span>Low</span><span class="h-2 w-40 rounded-full bg-gradient-to-r from-cyan-500 via-amber-400 to-rose-500" aria-hidden="true"></span><span>Medium</span><span>High</span></div>
 		</section>
 	</main>
 
@@ -77,18 +56,18 @@
 		const heatmapType = document.getElementById("heatmapType");
 		const cameraFilter = document.getElementById("cameraFilter");
 		const canvas = document.getElementById("heatmapCanvas");
-		const frame = document.getElementById("mapFrame");
 		const status = document.getElementById("status");
+		const selectedCamera = document.getElementById("selectedCamera");
+		const roiInfo = document.getElementById("roiInfo");
 		const descriptions = {
 			customer_traffic: "Footfall distribution from tracked customer positions.",
 			customer_attention: "Gaze and attention-score intensity across observed customer positions.",
 			dwell_time: "Where customers accumulated the most observed dwell time.",
-			shelf_engagement: "Engagement intensity at configured shelf regions.",
-			zone_engagement: "Customer activity intensity across configured retail zones.",
 			path_density: "Repeated customer trajectory paths through the mapped space."
 		};
 		let spatialData = null;
 		let blueprint = null;
+		let renderState = null;
 
 		function setMapCopy() {
 			const label = heatmapType.options[heatmapType.selectedIndex].text;
@@ -106,14 +85,58 @@
 				cameraFilter.appendChild(option);
 			});
 			cameraFilter.value = cameras.some((camera) => String(camera.id) === selected) ? selected : "";
+			selectedCamera.textContent = cameraFilter.value ? (cameras.find((camera) => String(camera.id) === cameraFilter.value)?.name || "Selected camera") : "All cameras";
 		}
 
-		function colorFor(value, maximum) {
+		function heatColor(value, maximum, alpha = 0.72) {
 			const ratio = maximum > 0 ? Math.min(1, value / maximum) : 0;
-			const red = Math.round(20 + ratio * 203);
-			const green = Math.round(125 + ratio * 15);
-			const blue = Math.round(138 - ratio * 94);
-			return `rgba(${red}, ${green}, ${blue}, ${0.22 + ratio * 0.62})`;
+			const start = ratio < 0.5 ? [14, 165, 180] : [251, 191, 36];
+			const end = ratio < 0.5 ? [251, 191, 36] : [244, 63, 94];
+			const progress = ratio < 0.5 ? ratio * 2 : (ratio - 0.5) * 2;
+			const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * progress));
+			return `rgba(${color.join(",")}, ${alpha})`;
+		}
+
+		function areas() { return [...(spatialData?.areas?.shelves || []), ...(spatialData?.areas?.zones || [])]; }
+
+		function containsPoint(area, point) {
+			let inside = false;
+			for (let current = 0, previous = area.points.length - 1; current < area.points.length; previous = current++) {
+				const a = area.points[current], b = area.points[previous];
+				if ((a.y > point.y) !== (b.y > point.y) && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+			}
+			return inside;
+		}
+
+		function areaMetrics(area, points, mode) {
+			const matches = points.filter((point) => containsPoint(area, point));
+			const values = matches.map((point) => Number(point.value)).filter(Number.isFinite);
+			const visitors = new Set(matches.map((point) => point.customer_id).filter((id) => id !== -1)).size;
+			if (!matches.length || (mode !== "customer_traffic" && !values.length)) return { matches, visitors, value: null };
+			return { matches, visitors, value: mode === "customer_traffic" || mode === "path_density" ? matches.length : values.reduce((sum, value) => sum + value, 0) / values.length };
+		}
+
+		function drawPolygon(context, area, toCanvas, fill, label) {
+			if (!area.points?.length) return;
+			const polygon = area.points.map(toCanvas);
+			context.beginPath();
+			polygon.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
+			context.closePath();
+			context.fillStyle = fill;
+			context.fill();
+			context.strokeStyle = "rgba(226, 232, 240, .9)";
+			context.lineWidth = 1.5;
+			context.stroke();
+			if (label) {
+				const center = polygon.reduce((sum, point) => ({ x: sum.x + point.x / polygon.length, y: sum.y + point.y / polygon.length }), { x: 0, y: 0 });
+				context.font = "600 12px sans-serif";
+				context.fillStyle = "rgba(15, 23, 42, .82)";
+				const text = `${area.name}: ${label}`;
+				const textWidth = context.measureText(text).width;
+				context.fillRect(center.x - textWidth / 2 - 6, center.y - 11, textWidth + 12, 22);
+				context.fillStyle = "#f8fafc";
+				context.fillText(text, center.x - textWidth / 2, center.y + 4);
+			}
 		}
 
 		function draw() {
@@ -124,13 +147,14 @@
 			canvas.width = Math.floor(rect.width * pixelRatio);
 			canvas.height = Math.floor(rect.height * pixelRatio);
 			const context = canvas.getContext("2d");
-			context.scale(pixelRatio, pixelRatio);
+			context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 			context.clearRect(0, 0, rect.width, rect.height);
 
 			const activeCamera = spatialData.cameras.find((camera) => String(camera.id) === cameraFilter.value);
 			const width = (activeCamera && activeCamera.blueprint_width) || Math.max(1, ...points.map((point) => point.x), 100);
 			const height = (activeCamera && activeCamera.blueprint_height) || Math.max(1, ...points.map((point) => point.y), 100);
 			const toCanvas = (point) => ({ x: (point.x / width) * rect.width, y: (point.y / height) * rect.height });
+			renderState = { areas: areas(), height, points, width };
 
 			if (blueprint && blueprint.complete && blueprint.naturalWidth) {
 				context.globalAlpha = 0.55;
@@ -138,30 +162,66 @@
 				context.globalAlpha = 1;
 			}
 
-			const areas = heatmapType.value === "shelf_engagement" ? spatialData.areas.shelves : heatmapType.value === "zone_engagement" ? spatialData.areas.zones : [];
-			context.strokeStyle = "rgba(19, 35, 58, .55)";
-			context.lineWidth = 1.5;
-			areas.forEach((area) => {
-				if (!area.points.length) return;
-				context.beginPath();
-				area.points.map(toCanvas).forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
-				context.closePath();
-				context.stroke();
-			});
+			const mode = heatmapType.value;
+			const roiMetrics = areas().map((area) => ({ area, ...areaMetrics(area, points, mode) }));
+			const measured = roiMetrics.filter((metric) => metric.value !== null);
+			const maximum = Math.max(...measured.map((metric) => metric.value), 1);
 
-			const maximum = Math.max(1, ...points.map((point) => Number(point.value) || 0));
-			points.forEach((point) => {
-				const position = toCanvas(point);
-				const radius = heatmapType.value === "path_density" ? 10 : 18;
-				const gradient = context.createRadialGradient(position.x, position.y, 1, position.x, position.y, radius);
-				gradient.addColorStop(0, colorFor(Number(point.value) || 0, maximum));
-				gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-				context.fillStyle = gradient;
-				context.beginPath();
-				context.arc(position.x, position.y, radius, 0, Math.PI * 2);
-				context.fill();
-			});
-			status.textContent = points.length ? `${points.length.toLocaleString()} spatial observations` : "No matching spatial observations";
+			if (mode === "customer_attention" || mode === "dwell_time") {
+				roiMetrics.forEach(({ area, value }) => drawPolygon(context, area, toCanvas, value === null ? "rgba(71, 85, 105, .30)" : heatColor(value, maximum), value === null ? "No data" : mode === "customer_attention" ? `${value.toFixed(1)}%` : `${value.toFixed(1)}s`));
+			} else {
+				areas().forEach((area) => drawPolygon(context, area, toCanvas, "rgba(15, 23, 42, .10)", area.name));
+				if (mode === "path_density") {
+					const paths = new Map();
+					points.forEach((point) => { if (!paths.has(point.customer_id)) paths.set(point.customer_id, []); paths.get(point.customer_id).push(point); });
+					paths.forEach((path) => {
+						if (path.length < 2) return;
+						context.strokeStyle = "rgba(251, 191, 36, .30)";
+						context.lineWidth = 3;
+						context.beginPath();
+						path.sort((a, b) => (a.sequence || 0) - (b.sequence || 0)).map(toCanvas).forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
+						context.stroke();
+					});
+				}
+				const pointMaximum = Math.max(...points.map((point) => Number(point.value) || 0), 1);
+				points.forEach((point) => {
+					const position = toCanvas(point), radius = mode === "path_density" ? 11 : 18;
+					const gradient = context.createRadialGradient(position.x, position.y, 1, position.x, position.y, radius);
+					gradient.addColorStop(0, heatColor(Number(point.value) || 0, pointMaximum, .72));
+					gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+					context.fillStyle = gradient;
+					context.beginPath(); context.arc(position.x, position.y, radius, 0, Math.PI * 2); context.fill();
+				});
+			}
+			status.textContent = points.length ? `${points.length.toLocaleString()} spatial observations` : "No data";
+		}
+
+		function updateRoiInfo(event) {
+			if (!renderState) return;
+			const rect = canvas.getBoundingClientRect();
+			const point = { x: ((event.clientX - rect.left) / rect.width) * renderState.width, y: ((event.clientY - rect.top) / rect.height) * renderState.height };
+			const area = renderState.areas.find((candidate) => containsPoint(candidate, point));
+			if (!area) { roiInfo.classList.add("hidden"); return; }
+			const mode = heatmapType.value;
+			const metric = areaMetrics(area, renderState.points, mode);
+			const label = area.name || "ROI";
+			let details;
+			if (mode === "customer_traffic") {
+				const traffic = renderState.points.length ? `${((metric.matches.length / renderState.points.length) * 100).toFixed(1)}%` : "No data";
+				details = `Customer Visits: ${metric.matches.length || "No data"}<br>Traffic: ${traffic}`;
+			} else if (mode === "customer_attention") {
+				details = `Attention: ${metric.value === null ? "No data" : `${metric.value.toFixed(1)}%`}<br>Customers: ${metric.visitors || "No data"}`;
+			} else if (mode === "dwell_time") {
+				details = `Avg Dwell: ${metric.value === null ? "No data" : `${metric.value.toFixed(1)}s`}<br>Customers: ${metric.visitors || "No data"}`;
+			} else {
+				details = `Path Count: ${metric.matches.length || "No data"}<br>Visitors: ${metric.visitors || "No data"}`;
+			}
+			roiInfo.innerHTML = `<strong class="text-cyan-300">${escapeHtml(label)}</strong><br>${details}`;
+			roiInfo.classList.remove("hidden");
+		}
+
+		function escapeHtml(value) {
+			return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 		}
 
 		function loadBlueprint() {
@@ -184,8 +244,11 @@
 			draw();
 		}
 
-		heatmapType.addEventListener("change", () => { setMapCopy(); draw(); });
+		heatmapType.addEventListener("change", () => { roiInfo.classList.add("hidden"); setMapCopy(); draw(); });
 		cameraFilter.addEventListener("change", () => loadSpatialData().catch(showError));
+		canvas.addEventListener("mousemove", updateRoiInfo);
+		canvas.addEventListener("click", updateRoiInfo);
+		canvas.addEventListener("mouseleave", () => roiInfo.classList.add("hidden"));
 		window.addEventListener("resize", draw);
 		function showError() { status.textContent = "Spatial analytics could not be loaded."; }
 		setMapCopy();

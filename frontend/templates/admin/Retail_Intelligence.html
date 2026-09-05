@@ -3,479 +3,308 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Retail Intelligence</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace']
+                    },
+                    colors: {
+                        ink: '#172033',
+                        muted: '#6b7280',
+                        border: '#e7eaf0',
+                        violet: '#6657d9',
+                        retail: '#f05a3c',
+                        pine: '#16705a'
+                    },
+                    boxShadow: {
+                        soft: '0 8px 28px rgba(15, 23, 42, 0.06)',
+                        panel: '0 16px 40px rgba(15, 23, 42, 0.08)'
+                    }
+                }
+            }
+        }
+    </script>
 </head>
 
-<body class="min-h-screen bg-slate-100 text-slate-800">
+<body class="min-h-screen bg-[#f5f6fa] text-slate-800 font-sans antialiased">
+
+    <!-- =========================================================
+         PAGE WRAPPER
+    ========================================================== -->
 
     <div class="min-h-screen">
 
-        <!-- Top bar -->
-        <header class="sticky top-0 z-10 border-b border-slate-200 bg-white">
-            <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <!-- =====================================================
+             HEADER
+        ====================================================== -->
 
-                <div class="flex items-center gap-3">
-                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-lg font-semibold text-white">
-                        RI
-                    </div>
+        <header class="border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur">
+
+            <div class="mx-auto max-w-[1400px] px-5 py-6 sm:px-8">
+
+                <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+
+                    <!-- Title -->
 
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-                            Decision Dashboard
+
+                        <div class="mb-3 flex items-center gap-2">
+
+                            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-[#8a6fe8] text-[11px] font-extrabold tracking-tight text-white shadow-lg shadow-violet-200">
+                                R/
+                            </span>
+
+                            <span class="font-mono text-[10px] font-semibold tracking-[0.18em] text-slate-400 uppercase">
+                                Decision Intelligence
+                            </span>
+
+                        </div>
+
+                        <h1 class="text-3xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-4xl">
+                            Retail Intelligence
+                        </h1>
+
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                            Historical shopper behavior analysis based on attention,
+                            dwell time, revisit behavior, and observed shelf engagement.
                         </p>
 
-                        <h2 id="welcomeText" class="text-lg font-semibold text-slate-900 sm:text-xl">
-                            Retail Intelligence
-                        </h2>
                     </div>
+
+
+                    <!-- Controls -->
+
+                    <div class="flex flex-wrap items-center gap-3">
+
+                        <div class="relative">
+
+                            <label for="periodSelect"
+                                   class="sr-only">
+                                Analysis period
+                            </label>
+
+                            <select
+                                id="periodSelect"
+                                class="appearance-none rounded-lg border border-slate-200 bg-white px-4 py-2.5 pr-9 text-sm font-medium text-slate-700 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100">
+
+                                <option value="7">Last 7 Days</option>
+                                <option value="14">Last 14 Days</option>
+                                <option value="30">Last 30 Days</option>
+
+                            </select>
+
+                            <svg
+                                class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                viewBox="0 0 20 20"
+                                fill="currentColor">
+
+                                <path
+                                    fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                    clip-rule="evenodd"/>
+
+                            </svg>
+
+                        </div>
+
+                        <div class="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
+
+                            <span
+                                id="statusDot"
+                                class="h-2 w-2 rounded-full bg-emerald-500">
+                            </span>
+
+                            <span
+                                id="updatedText"
+                                class="font-mono text-[10px] font-medium tracking-wide text-slate-500">
+                                Updated —
+                            </span>
+
+                        </div>
+
+                    </div>
+
                 </div>
 
-                <div class="flex items-center gap-3">
-
-                    <span id="liveStatus"
-                          class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
-                        Loading decisions…
-                    </span>
-
-                    <a href="http://127.0.0.1:8000/admin/dashboard"
-                       class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
-                        ← Admin dashboard
-                    </a>
-
-                </div>
             </div>
+
         </header>
 
 
-        <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <!-- =====================================================
+             MAIN
+        ====================================================== -->
 
-            <p class="mb-6 max-w-3xl text-sm text-slate-500">
-                Prioritized commercial opportunities, product attractiveness, and availability risks from customer attention and product performance.
-            </p>
+        <main class="mx-auto max-w-[1400px] px-5 py-6 sm:px-8">
 
-
-            <!-- ========================================================= -->
-            <!-- BUSINESS HEALTH KPIs -->
-            <!-- ========================================================= -->
+            <!-- =================================================
+                 SECTION 01 — TRENDS
+            ================================================== -->
 
             <section class="mb-6">
 
-                <div class="mb-3">
-                    <h3 class="text-base font-semibold text-slate-900">
-                        Business Health KPIs
-                    </h3>
+                <div class="mb-4 flex items-end justify-between">
 
-                    <p class="mt-1 text-sm text-slate-500">
-                        A decision-level view of commercial performance, opportunities, and exceptions.
-                    </p>
-                </div>
+                    <div>
 
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-
-                    <!-- KPI 1 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-5">
-
-                        <p class="text-sm font-medium text-slate-500">
-                            Overall Business Health
+                        <p class="font-mono text-[10px] font-semibold tracking-[0.16em] text-violet-600">
+                            01 · TRENDS
                         </p>
 
-                        <p id="businessHealth"
-                           class="mt-2 text-3xl font-bold text-slate-900">
-                            -
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            Based on observed opportunities and risks
-                        </p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900">
+                            Shopper engagement over time
+                        </h2>
 
                     </div>
 
-
-                    <!-- KPI 2 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-5">
-
-                        <p class="text-sm font-medium text-slate-500">
-                            Sales Performance
-                        </p>
-
-                        <p id="salesPerformance"
-                           class="mt-2 text-3xl font-bold text-slate-900">
-                            -
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            Recorded demand signals across products
-                        </p>
-
-                    </div>
-
-
-                    <!-- KPI 3 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-5">
-
-                        <p class="text-sm font-medium text-slate-500">
-                            Attention-to-Sales Efficiency
-                        </p>
-
-                        <p id="attentionSalesEfficiency"
-                           class="mt-2 text-3xl font-bold text-slate-900">
-                            -
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            Demand signals per attention point
-                        </p>
-
-                    </div>
-
-
-                    <!-- KPI 4 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-5">
-
-                        <p class="text-sm font-medium text-slate-500">
-                            Opportunity Count
-                        </p>
-
-                        <p id="opportunityCount"
-                           class="mt-2 text-3xl font-bold text-slate-900">
-                            -
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            High attention with weak sales performance
-                        </p>
-
-                    </div>
-
-
-                    <!-- KPI 5 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-5">
-
-                        <p class="text-sm font-medium text-slate-500">
-                            Risk Count
-                        </p>
-
-                        <p id="riskCount"
-                           class="mt-2 text-3xl font-bold text-slate-900">
-                            -
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            Demand-linked inventory or weak-performance risks
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-
-            <!-- ========================================================= -->
-            <!-- SALES + ATTENTION CHARTS -->
-            <!-- ========================================================= -->
-
-            <section class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-
-                <!-- Sales Attention -->
-                <div class="rounded-xl border border-slate-200 bg-white p-5">
-
-                    <div class="mb-4">
-
-                        <h3 class="text-base font-semibold text-slate-900">
-                            Sales × Attention Analysis
-                        </h3>
-
-                        <p class="mt-1 text-sm text-slate-500">
-                            Recorded product demand is used as the available sales-performance signal to reveal conversion opportunities.
-                        </p>
-
-                    </div>
-
-                    <canvas id="salesAttentionChart" height="220"></canvas>
+                    <span class="hidden text-xs text-slate-400 sm:block">
+                        Historical aggregate signals
+                    </span>
 
                 </div>
 
 
-                <!-- Opportunity Risk -->
-                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
 
-                    <div class="mb-4">
+                    <!-- Attention Trend -->
 
-                        <h3 class="text-base font-semibold text-slate-900">
-                            Opportunity / Risk Matrix
-                        </h3>
+                    <article class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-soft transition-shadow duration-300 hover:shadow-panel">
 
-                        <p class="mt-1 text-sm text-slate-500">
-                            Products are classified by sales performance and customer attention.
-                        </p>
+                        <div class="mb-5 flex items-center justify-between">
 
-                    </div>
+                            <div>
 
+                                <h3 class="text-sm font-semibold text-slate-900">
+                                    Attention Trend
+                                </h3>
 
-                    <div class="mb-3 grid grid-cols-2 gap-2 text-xs">
-
-                        <span class="rounded-lg bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
-                            High sales, high attention: strong performance
-                        </span>
-
-                        <span class="rounded-lg bg-sky-50 px-3 py-2 font-medium text-sky-800">
-                            High sales, low attention: efficient / monitor
-                        </span>
-
-                        <span class="rounded-lg bg-amber-50 px-3 py-2 font-medium text-amber-800">
-                            Low sales, high attention: opportunity
-                        </span>
-
-                        <span class="rounded-lg bg-rose-50 px-3 py-2 font-medium text-rose-800">
-                            Low sales, low attention: risk
-                        </span>
-
-                    </div>
-
-                    <canvas id="opportunityMatrixChart" height="220"></canvas>
-
-                </div>
-
-            </section>
-
-
-
-            <!-- ========================================================= -->
-            <!-- NEW: PRODUCT ATTRACTIVENESS -->
-            <!-- ========================================================= -->
-
-            <section class="mb-6">
-
-                <div class="rounded-xl border border-slate-200 bg-white">
-
-                    <!-- Header -->
-                    <div class="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-
-                        <div>
-
-                            <div class="flex items-center gap-2">
-
-                                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-lg">
-                                    ⭐
-                                </div>
-
-                                <div>
-                                    <h3 class="text-base font-semibold text-slate-900">
-                                        Product Attractiveness
-                                    </h3>
-
-                                    <p class="mt-1 text-sm text-slate-500">
-                                        Products ranked by customer attention, dwell, engagement, and revisit behavior.
-                                    </p>
-                                </div>
+                                <p class="mt-1 text-xs text-slate-400">
+                                    Average observed attention score
+                                </p>
 
                             </div>
 
+                            <span
+                                id="attentionTrendChange"
+                                class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                —
+                            </span>
+
                         </div>
 
-
-                        <!-- Score explanation -->
-                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                            Attractiveness Score: <strong class="text-slate-700">0–100</strong>
+                        <div class="h-[260px]">
+                            <canvas id="attentionTrendChart"></canvas>
                         </div>
 
-                    </div>
+                    </article>
 
 
-                    <!-- Product ranking -->
-                    <div class="overflow-x-auto">
+                    <!-- Dwell Trend -->
 
-                        <table class="min-w-full">
+                    <article class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-soft transition-shadow duration-300 hover:shadow-panel">
 
-                            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                        <div class="mb-5 flex items-center justify-between">
 
-                                <tr>
+                            <div>
 
-                                    <th class="p-3 font-semibold">
-                                        Rank
-                                    </th>
+                                <h3 class="text-sm font-semibold text-slate-900">
+                                    Dwell Trend
+                                </h3>
 
-                                    <th class="p-3 font-semibold">
-                                        Product
-                                    </th>
+                                <p class="mt-1 text-xs text-slate-400">
+                                    Average shopper dwell duration
+                                </p>
 
-                                    <th class="p-3 font-semibold">
-                                        Attention
-                                    </th>
+                            </div>
 
-                                    <th class="p-3 font-semibold">
-                                        Avg Dwell
-                                    </th>
+                            <span
+                                id="dwellTrendChange"
+                                class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                —
+                            </span>
 
-                                    <th class="p-3 font-semibold">
-                                        Engagement
-                                    </th>
+                        </div>
 
-                                    <th class="p-3 font-semibold">
-                                        Revisit
-                                    </th>
+                        <div class="h-[260px]">
+                            <canvas id="dwellTrendChart"></canvas>
+                        </div>
 
-                                    <th class="p-3 font-semibold">
-                                        Attractiveness
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-
-                            <!--
-                                Retail_Intelligence.js can populate this table.
-
-                                Expected data:
-                                product
-                                attention
-                                dwell
-                                engagement
-                                revisit
-                                attractiveness_score
-                            -->
-
-                            <tbody id="productAttractivenessTable"
-                                   class="divide-y divide-slate-100 text-sm text-slate-700">
-
-                                <!-- Dynamic product rows will appear here -->
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-
-                    <!-- Bottom explanation -->
-                    <div class="border-t border-slate-100 bg-slate-50 px-5 py-3">
-
-                        <p class="text-xs leading-5 text-slate-500">
-                            The attractiveness score represents observed customer engagement with the product.
-                            It is not a prediction of sales or purchase probability.
-                        </p>
-
-                    </div>
+                    </article>
 
                 </div>
 
             </section>
 
 
+            <!-- =================================================
+                 SECTION 02 — COMPARISONS
+            ================================================== -->
 
-            <!-- ========================================================= -->
-            <!-- PRODUCT OPPORTUNITIES + INVENTORY RISKS -->
-            <!-- ========================================================= -->
+            <section class="mb-6">
 
-            <section class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <div class="mb-4">
 
-                <!-- Product Opportunities -->
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <p class="font-mono text-[10px] font-semibold tracking-[0.16em] text-violet-600">
+                        02 · COMPARISONS
+                    </p>
 
-                    <div class="p-5">
-
-                        <h3 class="text-base font-semibold text-slate-900">
-                            Product Performance Opportunities
-                        </h3>
-
-                        <p class="mt-1 text-sm text-slate-500">
-                            Only products where attention is not translating into sales performance.
-                        </p>
-
-                    </div>
-
-
-                    <div class="overflow-x-auto">
-
-                        <table class="min-w-full">
-
-                            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-
-                                <tr>
-
-                                    <th class="p-3 font-semibold">
-                                        Product
-                                    </th>
-
-                                    <th class="p-3 font-semibold">
-                                        Opportunity
-                                    </th>
-
-                                    <th class="p-3 font-semibold">
-                                        Why It Matters
-                                    </th>
-
-                                    <th class="p-3 font-semibold">
-                                        Business Direction
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-
-                            <tbody id="opportunityTable"
-                                   class="divide-y divide-slate-100 text-sm text-slate-700">
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
+                    <h2 class="mt-1 text-lg font-bold text-slate-900">
+                        Current period vs previous period
+                    </h2>
 
                 </div>
 
 
-
-                <!-- Inventory Risks -->
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
-
-                    <div class="p-5">
-
-                        <h3 class="text-base font-semibold text-slate-900">
-                            Inventory &amp; Sales Risks
-                        </h3>
-
-                        <p class="mt-1 text-sm text-slate-500">
-                            Only availability risks where recorded demand could be lost.
-                        </p>
-
-                    </div>
-
+                <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-soft">
 
                     <div class="overflow-x-auto">
 
                         <table class="min-w-full">
 
-                            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                            <thead class="border-b border-slate-100 bg-slate-50/80">
 
                                 <tr>
 
-                                    <th class="p-3 font-semibold">
-                                        Product
+                                    <th class="px-5 py-4 text-left font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        METRIC
                                     </th>
 
-                                    <th class="p-3 font-semibold">
-                                        Risk
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        PREVIOUS
                                     </th>
 
-                                    <th class="p-3 font-semibold">
-                                        Action
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        CURRENT
+                                    </th>
+
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        CHANGE
                                     </th>
 
                                 </tr>
 
                             </thead>
 
+                            <tbody id="comparisonTable"
+                                   class="divide-y divide-slate-100">
 
-                            <tbody id="riskTable"
-                                   class="divide-y divide-slate-100 text-sm text-slate-700">
+                                <!-- JavaScript populated -->
 
                             </tbody>
 
@@ -488,86 +317,237 @@
             </section>
 
 
+            <!-- =================================================
+                 SECTION 03 — RANKINGS
+            ================================================== -->
 
-            <!-- ========================================================= -->
-            <!-- KEY INSIGHTS + RECOMMENDED ACTIONS -->
-            <!-- ========================================================= -->
+            <section class="mb-6">
 
-            <section class="grid grid-cols-1 gap-6 pb-10 xl:grid-cols-2">
+                <div class="mb-4 flex items-end justify-between">
 
-                <!-- Insights -->
-                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                    <div>
 
-                    <div class="flex items-center gap-2">
+                        <p class="font-mono text-[10px] font-semibold tracking-[0.16em] text-violet-600">
+                            03 · RANKINGS
+                        </p>
 
-                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-lg">
-                            💡
-                        </div>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900">
+                            Highest-engagement shelves
+                        </h2>
+
+                    </div>
+
+                    <span class="text-xs text-slate-400">
+                        Ranked by observed engagement
+                    </span>
+
+                </div>
+
+
+                <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-soft">
+
+                    <div class="overflow-x-auto">
+
+                        <table class="min-w-full">
+
+                            <thead class="border-b border-slate-100 bg-slate-50/80">
+
+                                <tr>
+
+                                    <th class="px-5 py-4 text-left font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        #
+                                    </th>
+
+                                    <th class="px-5 py-4 text-left font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        SHELF
+                                    </th>
+
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        ATTENTION
+                                    </th>
+
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        DWELL
+                                    </th>
+
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        REVISIT
+                                    </th>
+
+                                    <th class="px-5 py-4 text-right font-mono text-[10px] font-semibold tracking-wider text-slate-400">
+                                        ENGAGEMENT
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="rankingTable"
+                                   class="divide-y divide-slate-100">
+
+                                <!-- JavaScript populated -->
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 SECTION 04 + 05
+            ================================================== -->
+
+            <section class="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+
+                <!-- =============================================
+                     SECTION 04 — ANOMALIES
+                ============================================== -->
+
+                <article class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-soft transition-shadow duration-300 hover:shadow-panel">
+
+                    <div class="flex items-start justify-between">
 
                         <div>
 
-                            <h3 class="text-base font-semibold text-slate-900">
-                                Key Retail Insights
-                            </h3>
+                            <p class="font-mono text-[10px] font-semibold tracking-[0.16em] text-violet-600">
+                                04 · ANOMALIES
+                            </p>
 
-                            <p class="mt-1 text-xs text-slate-500">
-                                Important signals derived from current retail data.
+                            <h2 class="mt-1 text-lg font-bold text-slate-900">
+                                Behavioral anomalies
+                            </h2>
+
+                            <p class="mt-1 text-xs text-slate-400">
+                                Significant deviations from historical behavior
                             </p>
 
                         </div>
 
+                        <span
+                            id="anomalyCount"
+                            class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                            0
+                        </span>
+
                     </div>
 
 
-                    <ul id="insightsList"
-                        class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                    <div id="anomalyList"
+                         class="mt-5 space-y-3">
 
-                    </ul>
+                        <!-- JavaScript populated -->
 
-                </div>
+                    </div>
+
+                </article>
 
 
+                <!-- =============================================
+                     SECTION 05 — PEAK PERIODS
+                ============================================== -->
 
-                <!-- Actions -->
-                <div class="rounded-xl border border-slate-200 bg-white p-5">
+                <article class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-soft transition-shadow duration-300 hover:shadow-panel">
 
-                    <div class="flex items-center gap-2">
-
-                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-lg">
-                            🎯
-                        </div>
+                    <div class="flex items-start justify-between">
 
                         <div>
 
-                            <h3 class="text-base font-semibold text-slate-900">
-                                Recommended Actions
-                            </h3>
+                            <p class="font-mono text-[10px] font-semibold tracking-[0.16em] text-violet-600">
+                                05 · PEAK PERIODS
+                            </p>
 
-                            <p class="mt-1 text-xs text-slate-500">
-                                Suggested actions based on detected opportunities and risks.
+                            <h2 class="mt-1 text-lg font-bold text-slate-900">
+                                Shopper activity by hour
+                            </h2>
+
+                            <p class="mt-1 text-xs text-slate-400">
+                                Historical average visitor activity
                             </p>
 
                         </div>
 
+                        <span
+                            id="peakPeriod"
+                            class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                            Peak: —
+                        </span>
+
                     </div>
 
 
-                    <ol id="actionsList"
-                        class="mt-4 space-y-3 text-sm leading-6 text-slate-700">
+                    <div class="mt-5 h-[250px]">
+                        <canvas id="peakPeriodChart"></canvas>
+                    </div>
 
-                    </ol>
+                </article>
+
+            </section>
+
+
+            <!-- =================================================
+                 EXECUTIVE INTERPRETATION
+            ================================================== -->
+
+            <section class="mb-8">
+
+                <div class="mb-4">
+
+                    <p class="font-mono text-[10px] font-semibold tracking-[0.16em] text-violet-600">
+                        06 · INTELLIGENCE
+                    </p>
+
+                    <h2 class="mt-1 text-lg font-bold text-slate-900">
+                        What changed?
+                    </h2>
+
+                </div>
+
+
+                <div id="intelligenceCards"
+                     class="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+                    <!-- JavaScript populated -->
 
                 </div>
 
             </section>
+
+
+            <!-- =================================================
+                 DATA NOTE
+            ================================================== -->
+
+            <footer class="border-t border-slate-200/80 pt-5">
+
+                <div class="flex flex-col gap-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+
+                    <p>
+                        Metrics represent observed shopper behavior from video analytics.
+                    </p>
+
+                    <p class="font-mono">
+                        No purchase or transaction data used
+                    </p>
+
+                </div>
+
+            </footer>
 
         </main>
 
     </div>
 
 
-    <!-- Existing Retail Intelligence JavaScript -->
-    <script src="/static/js/admin/Retail_Intelligence.js?v=20260823"></script>
+    <!-- =========================================================
+         JAVASCRIPT
+    ========================================================== -->
+
+    <script src="/static/js/admin/Retail_Intelligence.js"></script>
 
 </body>
 </html>

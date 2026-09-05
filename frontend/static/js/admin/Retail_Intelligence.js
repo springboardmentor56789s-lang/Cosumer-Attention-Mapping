@@ -1,514 +1,124 @@
-const token = localStorage.getItem("access_token");
+/* ================================================================
+   RETAIL INTELLIGENCE
+   Historical Shopper Behavior Dashboard
+================================================================ */
 
-if (!token) {
-    window.location.href = "/login";
+'use strict';
+
+
+/* ================================================================
+   CONFIGURATION
+================================================================ */
+
+const API_URL = '/api/production/analytics/retail-intelligence';
+
+const token = localStorage.getItem('access_token');
+
+
+/* ================================================================
+   STATE
+================================================================ */
+
+let attentionTrendChart = null;
+let dwellTrendChart = null;
+let peakPeriodChart = null;
+
+let selectedPeriod = 7;
+
+
+/* ================================================================
+   DOM HELPER
+================================================================ */
+
+const $ = (id) => document.getElementById(id);
+
+
+/* ================================================================
+   NUMBER HELPERS
+================================================================ */
+
+function number(value, fallback = 0) {
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed)
+        ? parsed
+        : fallback;
 }
 
-if (localStorage.getItem("role") !== "admin") {
-    window.location.href = "/login";
+
+function formatPercent(value) {
+
+    return `${number(value).toFixed(0)}%`;
+
 }
 
-function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-}
 
-function getCanvasContext(id) {
-    const canvas = document.getElementById(id);
+function formatSeconds(value) {
 
-    if (!canvas || typeof canvas.getContext !== "function") {
-        return null;
+    const seconds = number(value);
+
+    if (seconds < 60) {
+        return `${seconds.toFixed(0)}s`;
     }
 
-    return canvas.getContext("2d");
-}
+    const minutes = Math.floor(seconds / 60);
+    const remaining = Math.round(seconds % 60);
 
-function destroyCanvasChart(canvas, chartInstance) {
-    if (chartInstance && typeof chartInstance.destroy === "function") {
-        chartInstance.destroy();
-    }
+    return `${minutes}m ${remaining}s`;
 
-    if (
-        typeof Chart !== "undefined" &&
-        typeof Chart.getChart === "function" &&
-        canvas
-    ) {
-        const existing = Chart.getChart(canvas);
-
-        if (existing && existing !== chartInstance) {
-            existing.destroy();
-        }
-    }
 }
 
 
-// ============================================================
-// LIVE STATUS
-// ============================================================
+function formatChange(value) {
 
-function setLiveStatus(message, failed = false) {
-    const status = document.getElementById("liveStatus");
+    const change = number(value);
 
-    if (!status) return;
+    const arrow = change > 0
+        ? '↑'
+        : change < 0
+            ? '↓'
+            : '→';
 
-    status.textContent = message;
+    return `${arrow} ${Math.abs(change).toFixed(0)}%`;
 
-    status.classList.remove(
-        "border-blue-200",
-        "bg-blue-50",
-        "text-blue-700",
-        "border-red-200",
-        "bg-red-50",
-        "text-red-700"
-    );
-
-    status.classList.add(
-        failed ? "border-red-200" : "border-blue-200",
-        failed ? "bg-red-50" : "bg-blue-50",
-        failed ? "text-red-700" : "text-blue-700"
-    );
 }
 
 
-// ============================================================
-// CHART INSTANCES
-// ============================================================
+/* ================================================================
+   HTML SAFETY
+================================================================ */
 
-let salesAttentionChart;
-let opportunityMatrixChart;
+function escapeHtml(value) {
 
+    return String(value ?? '')
+        .replace(/[&<>'"]/g, character => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        })[character]);
 
-// ============================================================
-// HELPERS
-// ============================================================
-
-function median(values) {
-    const sorted = values
-        .filter(Number.isFinite)
-        .sort((left, right) => left - right);
-
-    if (!sorted.length) return 0;
-
-    const middle = Math.floor(sorted.length / 2);
-
-    return sorted.length % 2
-        ? sorted[middle]
-        : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 
-function addCell(row, value, className = "") {
-    const cell = document.createElement("td");
-
-    cell.className = `p-3 ${className}`;
-    cell.textContent = value;
-
-    row.appendChild(cell);
-}
-
-
-function renderEmptyRow(tableId, columnCount, message) {
-    const table = document.getElementById(tableId);
-
-    if (!table) return;
-
-    table.replaceChildren();
-
-    const row = document.createElement("tr");
-
-    const cell = document.createElement("td");
-
-    cell.colSpan = columnCount;
-    cell.className = "p-4 text-center text-slate-500";
-    cell.textContent = message;
-
-    row.appendChild(cell);
-    table.appendChild(row);
-}
-
-
-// ============================================================
-// GENERIC TABLE
-// ============================================================
-
-function renderRows(tableId, rows, emptyMessage) {
-    const table = document.getElementById(tableId);
-
-    if (!table) return;
-
-    table.replaceChildren();
-
-    if (!rows.length) {
-        renderEmptyRow(tableId, 3, emptyMessage);
-        return;
-    }
-
-    rows.forEach((entry) => {
-        const row = document.createElement("tr");
-
-        addCell(row, entry.name, "font-medium text-slate-900");
-        addCell(row, entry.signal);
-        addCell(row, entry.decision, "text-slate-600");
-
-        table.appendChild(row);
-    });
-}
-
-
-// ============================================================
-// OPPORTUNITIES
-// ============================================================
-
-function renderOpportunities(rows) {
-    const table = document.getElementById("opportunityTable");
-
-    if (!table) return;
-
-    table.replaceChildren();
-
-    if (!rows.length) {
-        renderEmptyRow(
-            "opportunityTable",
-            4,
-            "No attention-to-interaction opportunities need action."
-        );
-
-        return;
-    }
-
-    rows.forEach((entry) => {
-        const row = document.createElement("tr");
-
-        addCell(row, entry.name, "font-medium text-slate-900");
-        addCell(row, entry.opportunity);
-        addCell(row, entry.reason, "text-slate-600");
-        addCell(row, entry.direction, "text-slate-600");
-
-        table.appendChild(row);
-    });
-}
-
-
-// ============================================================
-// LIST RENDERING
-// ============================================================
-
-function renderList(listId, items, ordered = false) {
-    const list = document.getElementById(listId);
-
-    if (!list) return;
-
-    list.replaceChildren();
-
-    items.forEach((item, index) => {
-        const entry = document.createElement("li");
-
-        entry.className = ordered
-            ? "flex gap-3 border-b border-slate-100 pb-3 last:border-0"
-            : "border-b border-slate-100 pb-3 last:border-0";
-
-        if (ordered) {
-            const priority = document.createElement("span");
-
-            priority.className =
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700";
-
-            priority.textContent = String(index + 1);
-
-            entry.appendChild(priority);
-        }
-
-        const copy = document.createElement("span");
-
-        copy.textContent = item;
-
-        entry.appendChild(copy);
-
-        list.appendChild(entry);
-    });
-}
-
-
-// ============================================================
-// PRODUCT ATTRACTIVENESS
-// ============================================================
-
-function calculateProductAttractiveness(products) {
-
-    if (!products.length) {
-        return [];
-    }
-
-    const maxAttention = Math.max(
-        ...products.map((product) => Number(product.attention || 0)),
-        1
-    );
-    const maxDwell = Math.max(
-        ...products.map((product) => Number(product.dwell_time || 0)),
-        1
-    );
-
-    /*
-     * This score uses recorded attention, dwell, and engagement only.
-     * Sales/purchase data is not present in this application, so it is not
-     * inferred from views or included in the score.
-     */
-
-    return products.map((product) => {
-
-        const views = Number(product.views || 0);
-        const attention = Number(product.attention || 0);
-        const dwellTime = Number(product.dwell_time || 0);
-        const engagement = Number(product.engagement || 0);
-
-        // Attention normalized to 0-100
-        const attentionScore = Math.min(
-            100,
-            (attention / maxAttention) * 100
-        );
-
-        const dwellScore = Math.min(
-            100,
-            (dwellTime / maxDwell) * 100
-        );
-        const engagementScore = Math.max(0, Math.min(100, engagement));
-
-        const attractivenessScore =
-            (attentionScore * 0.40) +
-            (dwellScore * 0.30) +
-            (engagementScore * 0.30);
-
-        return {
-            ...product,
-
-            attentionScore,
-            dwellScore,
-            engagementScore,
-            dwellTime,
-
-            attractivenessScore: Math.max(
-                0,
-                Math.min(100, attractivenessScore)
-            )
-        };
-    });
-}
-
-
-// ============================================================
-// ATTRACTIVENESS LABEL
-// ============================================================
-
-function getAttractivenessLabel(score) {
-
-    if (score >= 80) {
-        return {
-            label: "Highly Attractive",
-            className: "bg-emerald-50 text-emerald-700"
-        };
-    }
-
-    if (score >= 60) {
-        return {
-            label: "Attractive",
-            className: "bg-blue-50 text-blue-700"
-        };
-    }
-
-    if (score >= 40) {
-        return {
-            label: "Moderate",
-            className: "bg-amber-50 text-amber-700"
-        };
-    }
+/* ================================================================
+   CHART DEFAULTS
+================================================================ */
+
+function chartDefaults() {
 
     return {
-        label: "Low",
-        className: "bg-rose-50 text-rose-700"
-    };
-}
-
-
-// ============================================================
-// RENDER PRODUCT ATTRACTIVENESS TABLE
-// ============================================================
-
-function renderProductAttractiveness(products) {
-
-    const table = document.getElementById(
-        "productAttractivenessTable"
-    );
-
-    if (!table) return;
-
-    table.replaceChildren();
-
-    if (!products.length) {
-
-        const row = document.createElement("tr");
-
-        const cell = document.createElement("td");
-
-        cell.colSpan = 7;
-        cell.className = "p-5 text-center text-slate-500";
-
-        cell.textContent =
-            "No product interaction data available for attractiveness scoring.";
-
-        row.appendChild(cell);
-        table.appendChild(row);
-
-        return;
-    }
-
-    const rankedProducts = [...products]
-        .sort(
-            (left, right) =>
-                right.attractivenessScore -
-                left.attractivenessScore
-        )
-        .slice(0, 10);
-
-
-    rankedProducts.forEach((product, index) => {
-
-        const row = document.createElement("tr");
-
-        row.className =
-            "transition hover:bg-slate-50";
-
-
-        // Rank
-        addCell(
-            row,
-            `#${index + 1}`,
-            "font-semibold text-slate-500"
-        );
-
-
-        // Product
-        addCell(
-            row,
-            product.name || "Unknown Product",
-            "font-medium text-slate-900"
-        );
-
-
-        // Attention
-        addCell(
-            row,
-            `${product.attentionScore.toFixed(0)}%`
-        );
-
-
-        // Dwell
-        addCell(
-            row,
-            `${product.dwellScore.toFixed(0)}`
-        );
-
-
-        // Engagement
-        addCell(
-            row,
-            `${product.engagementScore.toFixed(0)}%`
-        );
-
-
-        // Revisit
-        addCell(
-            row,
-            product.revisitScore > 0
-                ? `${product.revisitScore.toFixed(0)}%`
-                : "N/A"
-        );
-
-
-        // Score
-        const scoreCell = document.createElement("td");
-
-        scoreCell.className = "p-3";
-
-        const wrapper = document.createElement("div");
-
-        wrapper.className =
-            "flex flex-wrap items-center gap-2";
-
-
-        const score = document.createElement("span");
-
-        score.className =
-            "font-bold text-slate-900";
-
-        score.textContent =
-            `${product.attractivenessScore.toFixed(0)}/100`;
-
-
-        const label = getAttractivenessLabel(
-            product.attractivenessScore
-        );
-
-        const badge = document.createElement("span");
-
-        badge.className =
-            `rounded-full px-2 py-1 text-xs font-medium ${label.className}`;
-
-        badge.textContent = label.label;
-
-
-        wrapper.appendChild(score);
-        wrapper.appendChild(badge);
-
-        scoreCell.appendChild(wrapper);
-
-        row.appendChild(scoreCell);
-
-
-        table.appendChild(row);
-    });
-}
-
-
-// ============================================================
-// CHARTS
-// ============================================================
-
-function buildCharts(
-    products,
-    demandBaseline,
-    attentionBaseline
-) {
-
-    if (typeof Chart === "undefined") return;
-
-    const salesCanvas =
-        document.getElementById("salesAttentionChart");
-
-    const matrixCanvas =
-        document.getElementById("opportunityMatrixChart");
-
-
-    destroyCanvasChart(
-        salesCanvas,
-        salesAttentionChart
-    );
-
-    destroyCanvasChart(
-        matrixCanvas,
-        opportunityMatrixChart
-    );
-
-
-    const points = products.map((product) => ({
-        x: product.views,
-        y: product.attention,
-        label: product.name
-    }));
-
-
-    const chartOptions = {
 
         responsive: true,
+
+        maintainAspectRatio: false,
+
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        },
 
         plugins: {
 
@@ -518,12 +128,20 @@ function buildCharts(
 
             tooltip: {
 
-                callbacks: {
+                backgroundColor: '#172033',
 
-                    label: (context) =>
-                        `${context.raw.label}: ${context.raw.x} product-view signals, ${context.raw.y.toFixed(1)}% attention`
+                padding: 10,
 
-                }
+                titleFont: {
+                    size: 11,
+                    weight: '600'
+                },
+
+                bodyFont: {
+                    size: 11
+                },
+
+                displayColors: false
 
             }
 
@@ -532,23 +150,42 @@ function buildCharts(
         scales: {
 
             x: {
-                title: {
-                    display: true,
-                    text: "Recorded product-view signals"
+
+                grid: {
+                    display: false
                 },
 
-                beginAtZero: true
+                border: {
+                    display: false
+                },
+
+                ticks: {
+                    color: '#9aa1b2',
+                    font: {
+                        size: 10
+                    }
+                }
+
             },
 
             y: {
 
-                title: {
-                    display: true,
-                    text: "Customer attention score"
+                beginAtZero: true,
+
+                grid: {
+                    color: '#eef0f4'
                 },
 
-                beginAtZero: true,
-                max: 100
+                border: {
+                    display: false
+                },
+
+                ticks: {
+                    color: '#9aa1b2',
+                    font: {
+                        size: 10
+                    }
+                }
 
             }
 
@@ -556,670 +193,1222 @@ function buildCharts(
 
     };
 
-
-    // Product-view signals × Attention
-    const salesContext =
-        getCanvasContext("salesAttentionChart");
+}
 
 
-    if (salesContext) {
+/* ================================================================
+   TREND CHARTS
+================================================================ */
 
-        salesAttentionChart =
-            new Chart(salesContext, {
+function renderAttentionTrend(data) {
 
-                type: "scatter",
+    const canvas = $('attentionTrendChart');
 
-                data: {
+    if (!canvas) return;
 
-                    datasets: [{
+    if (attentionTrendChart) {
+        attentionTrendChart.destroy();
+    }
 
-                        data: points,
+    const ctx = canvas.getContext('2d');
 
-                        backgroundColor: "#2563eb",
+    attentionTrendChart = new Chart(ctx, {
 
-                        pointRadius: 6,
+        type: 'line',
 
-                        pointHoverRadius: 8
+        data: {
 
-                    }]
+            labels: data.labels,
+
+            datasets: [{
+
+                data: data.values,
+
+                tension: 0.35,
+
+                borderWidth: 2.5,
+
+                borderColor: '#6657d9',
+
+                backgroundColor: 'rgba(102, 87, 217, 0.08)',
+
+                fill: true,
+
+                pointRadius: 3,
+
+                pointHoverRadius: 5,
+
+                pointBackgroundColor: '#6657d9'
+
+            }]
+
+        },
+
+        options: {
+
+            ...chartDefaults(),
+
+            scales: {
+
+                ...chartDefaults().scales,
+
+                y: {
+
+                    ...chartDefaults().scales.y,
+
+                    min: 0,
+
+                    max: 100,
+
+                    ticks: {
+
+                        ...chartDefaults().scales.y.ticks,
+
+                        callback: value => `${value}%`
+
+                    }
+
+                }
+
+            },
+
+            plugins: {
+
+                ...chartDefaults().plugins,
+
+                tooltip: {
+
+                    ...chartDefaults().plugins.tooltip,
+
+                    callbacks: {
+
+                        label: context =>
+                            `Attention: ${number(context.raw).toFixed(1)}%`
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+
+function renderDwellTrend(data) {
+
+    const canvas = $('dwellTrendChart');
+
+    if (!canvas) return;
+
+    if (dwellTrendChart) {
+        dwellTrendChart.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    dwellTrendChart = new Chart(ctx, {
+
+        type: 'line',
+
+        data: {
+
+            labels: data.labels,
+
+            datasets: [{
+
+                data: data.values,
+
+                tension: 0.35,
+
+                borderWidth: 2.5,
+
+                borderColor: '#44ae89',
+
+                backgroundColor: 'rgba(68, 174, 137, 0.08)',
+
+                fill: true,
+
+                pointRadius: 3,
+
+                pointHoverRadius: 5,
+
+                pointBackgroundColor: '#44ae89'
+
+            }]
+
+        },
+
+        options: {
+
+            ...chartDefaults(),
+
+            plugins: {
+
+                ...chartDefaults().plugins,
+
+                tooltip: {
+
+                    ...chartDefaults().plugins.tooltip,
+
+                    callbacks: {
+
+                        label: context =>
+                            `Dwell: ${formatSeconds(context.raw)}`
+
+                    }
+
+                }
+
+            },
+
+            scales: {
+
+                ...chartDefaults().scales,
+
+                y: {
+
+                    ...chartDefaults().scales.y,
+
+                    ticks: {
+
+                        ...chartDefaults().scales.y.ticks,
+
+                        callback: value =>
+                            `${value}s`
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+
+/* ================================================================
+   COMPARISON TABLE
+================================================================ */
+
+function renderComparisons(comparisons) {
+
+    const table = $('comparisonTable');
+
+    if (!table) return;
+
+    if (!comparisons.length) {
+        table.innerHTML = '<tr><td colspan="4" class="px-5 py-8 text-center text-sm text-slate-400">No historical comparison data available.</td></tr>';
+        return;
+    }
+
+    table.innerHTML = comparisons.map(metric => {
+
+        const change = number(metric.change);
+
+        const positive = change > 0;
+        const negative = change < 0;
+
+        const colorClass =
+            positive
+                ? 'text-emerald-600 bg-emerald-50'
+                : negative
+                    ? 'text-rose-600 bg-rose-50'
+                    : 'text-slate-500 bg-slate-100';
+
+        return `
+
+            <tr class="transition hover:bg-slate-50">
+
+                <td class="px-5 py-4">
+
+                    <span class="text-sm font-semibold text-slate-800">
+                        ${escapeHtml(metric.name)}
+                    </span>
+
+                </td>
+
+                <td class="px-5 py-4 text-right text-sm text-slate-500">
+                    ${escapeHtml(metric.previous)}
+                </td>
+
+                <td class="px-5 py-4 text-right text-sm font-semibold text-slate-900">
+                    ${escapeHtml(metric.current)}
+                </td>
+
+                <td class="px-5 py-4 text-right">
+
+                    <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${colorClass}">
+                        ${formatChange(change)}
+                    </span>
+
+                </td>
+
+            </tr>
+
+        `;
+
+    }).join('');
+
+}
+
+
+/* ================================================================
+   SHELF RANKINGS
+================================================================ */
+
+function renderRankings(rows) {
+
+    const table = $('rankingTable');
+
+    if (!table) return;
+
+    if (!rows.length) {
+
+        table.innerHTML = `
+
+            <tr>
+
+                <td colspan="6"
+                    class="px-5 py-8 text-center text-sm text-slate-400">
+
+                    No historical shelf data available.
+
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+    }
+
+
+    table.innerHTML = rows.map((row, index) => {
+
+        const rank = index + 1;
+
+        let rankBadge = '';
+
+        if (rank === 1) {
+
+            rankBadge = `
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+                    1
+                </span>
+            `;
+
+        } else if (rank === 2) {
+
+            rankBadge = `
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                    2
+                </span>
+            `;
+
+        } else if (rank === 3) {
+
+            rankBadge = `
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-xs font-bold text-amber-700">
+                    3
+                </span>
+            `;
+
+        } else {
+
+            rankBadge = `
+                <span class="inline-flex h-7 w-7 items-center justify-center text-xs font-semibold text-slate-400">
+                    ${rank}
+                </span>
+            `;
+
+        }
+
+
+        const engagement = number(row.engagement);
+
+        return `
+
+            <tr class="transition hover:bg-slate-50">
+
+                <td class="px-5 py-4">
+                    ${rankBadge}
+                </td>
+
+                <td class="px-5 py-4">
+
+                    <div class="font-semibold text-slate-900">
+                        ${escapeHtml(row.shelf)}
+                    </div>
+
+                    <div class="mt-0.5 text-xs text-slate-400">
+                        ${escapeHtml(row.zone || '')}
+                    </div>
+
+                </td>
+
+                <td class="px-5 py-4 text-right">
+
+                    <span class="font-semibold text-slate-800">
+                        ${formatPercent(row.attention)}
+                    </span>
+
+                </td>
+
+                <td class="px-5 py-4 text-right text-sm text-slate-600">
+                    ${formatSeconds(row.dwell)}
+                </td>
+
+                <td class="px-5 py-4 text-right text-sm text-slate-600">
+                    ${formatPercent(row.revisit)}
+                </td>
+
+                <td class="px-5 py-4 text-right">
+
+                    <span class="font-bold ${
+                        engagement >= 70
+                            ? 'text-emerald-600'
+                            : engagement >= 40
+                                ? 'text-amber-600'
+                                : 'text-rose-600'
+                    }">
+                        ${formatPercent(engagement)}
+                    </span>
+
+                </td>
+
+            </tr>
+
+        `;
+
+    }).join('');
+
+}
+
+
+/* ================================================================
+   ANOMALIES
+================================================================ */
+
+function renderAnomalies(anomalies) {
+
+    const container = $('anomalyList');
+
+    if (!container) return;
+
+    $('anomalyCount').textContent = anomalies.length;
+
+
+    if (!anomalies.length) {
+
+        container.innerHTML = `
+
+            <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+
+                <div class="flex gap-3">
+
+                    <span class="text-lg">
+                        ✓
+                    </span>
+
+                    <div>
+
+                        <p class="text-sm font-semibold text-emerald-800">
+                            No significant anomalies
+                        </p>
+
+                        <p class="mt-1 text-xs leading-5 text-emerald-700">
+                            Current behavior remains within the historical range.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML = anomalies.map(anomaly => {
+
+        const isNegative = anomaly.type === 'negative';
+
+        const wrapper =
+            isNegative
+                ? 'border-rose-100 bg-rose-50'
+                : 'border-emerald-100 bg-emerald-50';
+
+        const titleColor =
+            isNegative
+                ? 'text-rose-800'
+                : 'text-emerald-800';
+
+        const textColor =
+            isNegative
+                ? 'text-rose-700'
+                : 'text-emerald-700';
+
+        const icon = isNegative
+            ? '⚠'
+            : '✓';
+
+        return `
+
+            <div class="rounded-lg border ${wrapper} p-4">
+
+                <div class="flex gap-3">
+
+                    <span class="text-base">
+                        ${icon}
+                    </span>
+
+                    <div class="min-w-0">
+
+                        <div class="flex flex-wrap items-center gap-2">
+
+                            <p class="text-sm font-bold ${titleColor}">
+                                ${escapeHtml(anomaly.title)}
+                            </p>
+
+                            <span class="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold ${textColor}">
+                                ${escapeHtml(anomaly.change)}
+                            </span>
+
+                        </div>
+
+                        <p class="mt-1 text-xs leading-5 ${textColor}">
+                            ${escapeHtml(anomaly.description)}
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+
+    }).join('');
+
+}
+
+
+/* ================================================================
+   PEAK PERIOD CHART
+================================================================ */
+
+function renderPeakPeriod(data) {
+
+    const canvas = $('peakPeriodChart');
+
+    if (!canvas) return;
+
+    if (peakPeriodChart) {
+        peakPeriodChart.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    peakPeriodChart = new Chart(ctx, {
+
+        type: 'bar',
+
+        data: {
+
+            labels: data.labels,
+
+            datasets: [{
+
+                data: data.values,
+
+                borderRadius: 5,
+
+                backgroundColor: '#dcd8fa',
+
+                hoverBackgroundColor: '#6657d9',
+
+                borderWidth: 0
+
+            }]
+
+        },
+
+        options: {
+
+            ...chartDefaults(),
+
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+
+            scales: {
+
+                x: {
+
+                    ...chartDefaults().scales.x,
+
+                    ticks: {
+                        ...chartDefaults().scales.x.ticks,
+                        maxRotation: 0
+                    }
 
                 },
 
-                options: chartOptions
+                y: {
 
-            });
+                    ...chartDefaults().scales.y,
+
+                    beginAtZero: true
+
+                }
+
+            },
+
+            plugins: {
+
+                ...chartDefaults().plugins,
+
+                tooltip: {
+
+                    ...chartDefaults().plugins.tooltip,
+
+                    callbacks: {
+
+                        label: context =>
+                            `${number(context.raw).toFixed(0)} avg visitors`
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+
+    $('peakPeriod').textContent = data.peak ? `Peak: ${data.peak}` : 'Peak: —';
+
+}
+
+
+/* ================================================================
+   INTELLIGENCE CARDS
+================================================================ */
+
+function renderIntelligenceCards(cards) {
+
+    const container = $('intelligenceCards');
+
+    if (!container) return;
+
+
+    if (!cards.length) {
+        container.innerHTML = '<article class="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-400">No historical intelligence is available for the selected period.</article>';
+        return;
+    }
+
+    container.innerHTML = cards.map(card => {
+
+        const type = card.type || 'neutral';
+
+        const styles = {
+
+            positive: {
+                wrapper: 'border-emerald-100 bg-emerald-50/60',
+                icon: 'bg-emerald-100 text-emerald-700',
+                title: 'text-emerald-900'
+            },
+
+            warning: {
+                wrapper: 'border-amber-100 bg-amber-50/60',
+                icon: 'bg-amber-100 text-amber-700',
+                title: 'text-amber-900'
+            },
+
+            neutral: {
+                wrapper: 'border-slate-200 bg-white',
+                icon: 'bg-violet-100 text-violet-700',
+                title: 'text-slate-900'
+            }
+
+        };
+
+        const style = styles[type] || styles.neutral;
+
+
+        return `
+
+            <article class="rounded-xl border ${style.wrapper} p-5">
+
+                <div class="flex items-start gap-3">
+
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${style.icon}">
+                        ${escapeHtml(card.icon || '•')}
+                    </span>
+
+                    <div>
+
+                        <h3 class="text-sm font-bold ${style.title}">
+                            ${escapeHtml(card.title)}
+                        </h3>
+
+                        <p class="mt-2 text-xs leading-5 text-slate-600">
+                            ${escapeHtml(card.description)}
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </article>
+
+        `;
+
+    }).join('');
+
+}
+
+
+/* ================================================================
+   BUILD INTELLIGENCE FROM DATA
+================================================================ */
+
+function buildIntelligence(data) {
+
+    const cards = [];
+
+    const attentionChange =
+        number(data.comparison?.[0]?.change);
+
+    const dwellChange =
+        number(data.comparison?.[1]?.change);
+
+    const topShelf =
+        data.rankings?.[0];
+
+    const peak =
+        data.peak_period?.peak;
+
+
+    if (attentionChange > 0) {
+
+        cards.push({
+
+            type: 'positive',
+
+            icon: '↑',
+
+            title: 'Attention is increasing',
+
+            description:
+                `Average observed attention increased ${Math.abs(attentionChange).toFixed(0)}% compared with the previous period.`
+
+        });
+
+    } else if (attentionChange < 0) {
+
+        cards.push({
+
+            type: 'warning',
+
+            icon: '↓',
+
+            title: 'Attention is declining',
+
+            description:
+                `Average observed attention decreased ${Math.abs(attentionChange).toFixed(0)}% compared with the previous period.`
+
+        });
+
+    } else {
+
+        cards.push({
+
+            type: 'neutral',
+
+            icon: '→',
+
+            title: 'Attention is stable',
+
+            description:
+                'Average observed attention remained broadly consistent with the previous period.'
+
+        });
 
     }
 
 
-    // Opportunity / Risk Matrix
-    const matrixContext =
-        getCanvasContext("opportunityMatrixChart");
+    if (topShelf) {
+
+        cards.push({
+
+            type: 'positive',
+
+            icon: '★',
+
+            title: `${topShelf.shelf} is the engagement leader`,
+
+            description:
+                `${topShelf.shelf} recorded ${formatPercent(topShelf.attention)} attention and ${formatSeconds(topShelf.dwell)} average dwell during the selected period.`
+
+        });
+
+    }
 
 
-    if (matrixContext) {
+    if (peak) {
 
-        opportunityMatrixChart =
-            new Chart(matrixContext, {
+        cards.push({
 
-                type: "scatter",
+            type: 'neutral',
 
-                data: {
+            icon: '◷',
 
-                    datasets: [{
+            title: `Peak activity: ${peak}`,
 
-                        data: points.map((point) => ({
+            description:
+                'This period shows the highest historical shopper activity concentration during the selected analysis window.'
 
-                            ...point,
+        });
 
-                            backgroundColor:
-                                point.x >= demandBaseline &&
-                                point.y >= attentionBaseline
+    }
 
-                                    ? "#16a34a"
 
-                                    : point.x >= demandBaseline
+    return cards.slice(0, 3);
 
-                                        ? "#0284c7"
+}
 
-                                        : point.y >= attentionBaseline
 
-                                            ? "#f59e0b"
+/* ================================================================
+   UPDATE TREND BADGES
+================================================================ */
 
-                                            : "#dc2626"
+function updateTrendBadges(data) {
 
-                        })),
+    const attentionChange =
+        number(data.comparison?.[0]?.change);
 
-                        backgroundColor:
-                            (context) =>
-                                context.raw.backgroundColor,
+    const dwellChange =
+        number(data.comparison?.[1]?.change);
 
-                        pointRadius: 6,
 
-                        pointHoverRadius: 8
+    const attentionBadge = $('attentionTrendChange');
 
-                    }]
+    const dwellBadge = $('dwellTrendChange');
 
-                },
 
-                options: chartOptions
+    if (attentionBadge) {
 
-            });
+        attentionBadge.textContent =
+            formatChange(attentionChange);
+
+        attentionBadge.className =
+            `rounded-full px-2.5 py-1 text-xs font-semibold ${
+                attentionChange >= 0
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-rose-50 text-rose-700'
+            }`;
+
+    }
+
+
+    if (dwellBadge) {
+
+        dwellBadge.textContent =
+            formatChange(dwellChange);
+
+        dwellBadge.className =
+            `rounded-full px-2.5 py-1 text-xs font-semibold ${
+                dwellChange >= 0
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-rose-50 text-rose-700'
+            }`;
 
     }
 
 }
 
 
-// ============================================================
-// MAIN DASHBOARD
-// ============================================================
+/* ================================================================
+   DEMO / FALLBACK DATA
+================================================================ */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    async () => {
+function generateDemoData(days = 7) {
 
-        const fullName =
-            localStorage.getItem("full_name") ||
-            "Administrator";
+    const labels = [];
+
+    const attention = [];
+
+    const dwell = [];
 
 
-        if (fullName) {
+    const now = new Date();
 
-            const firstName =
-                fullName.split(" ")[0];
 
-            const welcome =
-                document.getElementById("welcomeText");
+    for (let i = days - 1; i >= 0; i--) {
 
-            if (welcome) {
-                welcome.textContent =
-                    `Welcome, ${firstName}`;
+        const date = new Date(now);
+
+        date.setDate(now.getDate() - i);
+
+        labels.push(
+            date.toLocaleDateString(
+                undefined,
+                {
+                    weekday: 'short'
+                }
+            )
+        );
+
+
+        attention.push(
+            Math.round(
+                62 +
+                Math.sin(i * 0.8) * 5 +
+                (days - i) * 0.7
+            )
+        );
+
+
+        dwell.push(
+            Math.round(
+                18 +
+                Math.sin(i * 0.7) * 3 +
+                (days - i) * 0.8
+            )
+        );
+
+    }
+
+
+    return {
+
+        period: days,
+
+        trend: {
+
+            attention: {
+                labels,
+                values: attention
+            },
+
+            dwell: {
+                labels,
+                values: dwell
             }
+
+        },
+
+
+        comparison: [
+
+            {
+                name: 'Attention',
+                previous: '62%',
+                current: '71%',
+                change: 9
+            },
+
+            {
+                name: 'Dwell',
+                previous: '19s',
+                current: '24s',
+                change: 26
+            },
+
+            {
+                name: 'Revisit',
+                previous: '11%',
+                current: '16%',
+                change: 5
+            }
+
+        ],
+
+
+        rankings: [
+
+            {
+                shelf: 'A02',
+                zone: 'Zone A',
+                attention: 84,
+                dwell: 31,
+                revisit: 22,
+                engagement: 91
+            },
+
+            {
+                shelf: 'A03',
+                zone: 'Zone A',
+                attention: 76,
+                dwell: 27,
+                revisit: 18,
+                engagement: 82
+            },
+
+            {
+                shelf: 'A01',
+                zone: 'Zone A',
+                attention: 61,
+                dwell: 19,
+                revisit: 11,
+                engagement: 65
+            },
+
+            {
+                shelf: 'A04',
+                zone: 'Zone A',
+                attention: 42,
+                dwell: 12,
+                revisit: 6,
+                engagement: 39
+            }
+
+        ],
+
+
+        anomalies: [
+
+            {
+                type: 'negative',
+                title: 'A03 dwell increased',
+                change: '+68%',
+                description:
+                    'Average dwell at A03 is significantly above its historical baseline.'
+            },
+
+            {
+                type: 'negative',
+                title: 'A04 attention decreased',
+                change: '-29%',
+                description:
+                    'Observed attention at A04 is below its historical baseline.'
+            }
+
+        ],
+
+
+        peak_period: {
+
+            labels: [
+                '10 AM',
+                '11 AM',
+                '12 PM',
+                '1 PM',
+                '2 PM',
+                '3 PM',
+                '4 PM',
+                '5 PM',
+                '6 PM',
+                '7 PM',
+                '8 PM'
+            ],
+
+            values: [
+                21,
+                27,
+                34,
+                39,
+                46,
+                52,
+                61,
+                73,
+                81,
+                69,
+                48
+            ],
+
+            peak: '18:00–19:00'
 
         }
 
+    };
 
-        try {
+}
 
-            setLiveStatus(
-                "Building retail decisions…"
-            );
 
+/* ================================================================
+   API LOADER
+================================================================ */
 
-            const headers = {
-                Authorization: `Bearer ${token}`
-            };
+async function loadHistoricalData() {
+    const response = await fetch(`${API_URL}?days=${encodeURIComponent(selectedPeriod)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || 'Unable to load historical retail intelligence');
+    }
+    return response.json();
 
+}
 
-            const [
-                dashboardResponse,
-                productsResponse
-            ] = await Promise.all([
 
-                fetch(
-                    "/api/dashboard/live",
-                    { headers }
-                ),
+/* ================================================================
+   RENDER EVERYTHING
+================================================================ */
 
-                fetch(
-                    "/api/products?page_size=100",
-                    { headers }
-                )
+async function loadDashboard() {
 
-            ]);
+    try {
 
+        setStatus('Loading historical intelligence...', false);
 
-            if (
-                !dashboardResponse.ok ||
-                !productsResponse.ok
-            ) {
 
-                throw new Error(
-                    "Unable to load retail intelligence"
-                );
+        const data = await loadHistoricalData();
 
-            }
 
-
-            const dashboard =
-                await dashboardResponse.json();
-
-            const catalog =
-                await productsResponse.json();
-
-
-            // ====================================================
-            // PRODUCT PERFORMANCE
-            // ====================================================
-
-            const performance =
-                Array.isArray(
-                    dashboard.series?.product_performance
-                )
-                    ? dashboard.series.product_performance
-                    : [];
-
-
-            const productByName =
-                new Map(
-
-                    performance.map((item) => [
-
-                        item.name,
-
-                        {
-                            views: Number(
-                                item.views || 0
-                            ),
-
-                            attention: Number(
-                                item.attention || 0
-                            ),
-
-                            dwell_time: Number(item.dwell_time || 0),
-
-                            engagement: Number(item.engagement || 0)
-                        }
-
-                    ])
-
-                );
-
-
-            const products =
-                (
-                    Array.isArray(catalog.items)
-                        ? catalog.items
-                        : []
-                ).map((item) => ({
-
-                    ...item,
-
-                    ...(productByName.get(item.name) || {
-
-                        views: 0,
-
-                        attention: 0,
-
-                        dwell_time: 0,
-
-                        engagement: 0
-
-                    })
-
-                }));
-
-
-            const observed =
-                products.filter(
-                    (product) =>
-                        product.views > 0
-                );
-
-
-            // ====================================================
-            // BASELINES
-            // ====================================================
-
-            const demandBaseline =
-                median(
-                    observed.map(
-                        (product) =>
-                            product.views
-                    )
-                );
-
-
-            const attentionBaseline =
-                median(
-                    observed.map(
-                        (product) =>
-                            product.attention
-                    )
-                );
-
-
-            // ====================================================
-            // RISKS + OPPORTUNITIES
-            // ====================================================
-
-            const stockRisks =
-                observed.filter(
-                    (product) =>
-                        Number(
-                            product.stock_quantity || 0
-                        ) <= 10
-                );
-
-
-            const opportunities =
-                observed.filter(
-                    (product) =>
-
-                        product.views <
-                            demandBaseline &&
-
-                        product.attention >=
-                            attentionBaseline
-                );
-
-
-            const weakPerformers =
-                observed.filter(
-                    (product) =>
-
-                        product.views <
-                            demandBaseline &&
-
-                        product.attention <
-                            attentionBaseline
-                );
-
-
-            // ====================================================
-            // BUSINESS CALCULATIONS
-            // ====================================================
-
-            const demandAtRisk =
-                stockRisks.reduce(
-                    (sum, product) =>
-                        sum +
-                        product.views,
-                    0
-                );
-
-
-            const totalDemand =
-                observed.reduce(
-                    (sum, product) =>
-                        sum +
-                        product.views,
-                    0
-                );
-
-
-            const totalAttention =
-                observed.reduce(
-                    (sum, product) =>
-                        sum +
-                        product.attention,
-                    0
-                );
-
-
-            const riskCount =
-                stockRisks.length +
-                weakPerformers.length;
-
-
-            const healthScore =
-                Math.max(
-
-                    0,
-
-                    Math.round(
-
-                        100 -
-
-                        (
-                            (
-                                opportunities.length +
-                                riskCount
-                            ) /
-                            Math.max(
-                                observed.length,
-                                1
-                            )
-                        ) *
-
-                        100
-
-                    )
-
-                );
-
-
-            const efficiency =
-                totalAttention
-                    ? totalDemand /
-                      totalAttention
-                    : 0;
-
-
-            // ====================================================
-            // UPDATE KPIs
-            // ====================================================
-
-            setText(
-                "businessHealth",
-                `${healthScore}%`
-            );
-
-
-            setText(
-                "salesPerformance",
-                totalDemand.toLocaleString()
-            );
-
-
-            setText(
-                "attentionSalesEfficiency",
-                `${efficiency.toFixed(1)}x`
-            );
-
-
-            setText(
-                "opportunityCount",
-                opportunities.length.toLocaleString()
-            );
-
-
-            setText(
-                "riskCount",
-                riskCount.toLocaleString()
-            );
-
-
-            // ====================================================
-            // BUILD EXISTING CHARTS
-            // ====================================================
-
-            buildCharts(
-                observed,
-                demandBaseline,
-                attentionBaseline
-            );
-
-
-            // ====================================================
-            // PRODUCT ATTRACTIVENESS
-            // ====================================================
-
-            const attractivenessProducts =
-                calculateProductAttractiveness(
-                    observed
-                );
-
-
-            renderProductAttractiveness(
-                attractivenessProducts
-            );
-
-
-            // ====================================================
-            // OPPORTUNITIES
-            // ====================================================
-
-            renderOpportunities(
-
-                opportunities
-
-                    .map((product) => ({
-
-                        name:
-                            product.name,
-
-                        opportunity:
-                            "High attention with limited observed interaction",
-
-                        reason:
-                            `${product.attention.toFixed(1)}% attention with ${product.views} recorded product-view signals.`,
-
-                        direction:
-                            "Review placement, shelf communication, and product visibility."
-
-                    }))
-
-                    .slice(0, 5)
-
-            );
-
-
-            // ====================================================
-            // INVENTORY RISKS
-            // ====================================================
-
-            const risks =
-
-                stockRisks
-
-                    .sort(
-                        (left, right) =>
-                            right.views -
-                            left.views
-                    )
-
-                    .map((product) => ({
-
-                        name:
-                            product.name,
-
-                        signal:
-
-                            product.stock_quantity === 0
-
-                                ? `${product.views} recorded views · out of stock`
-
-                                : `${product.views} recorded views · ${product.stock_quantity} units left`,
-
-                        decision:
-
-                            product.stock_quantity === 0
-
-                                ? "Replenish or suppress promotion"
-
-                                : "Review replenishment timing"
-
-                    }))
-
-                    .slice(0, 5);
-
-
-            renderRows(
-
-                "riskTable",
-
-                risks,
-
-                "No product-view-linked inventory risks detected."
-
-            );
-
-
-            // ====================================================
-            // INSIGHTS
-            // ====================================================
-
-            const topAttractiveProduct =
-                attractivenessProducts.length
-                    ? [...attractivenessProducts]
-                        .sort(
-                            (a, b) =>
-                                b.attractivenessScore -
-                                a.attractivenessScore
-                        )[0]
-                    : null;
-
-
-            const insightItems = [
-
-                `${opportunities.length} products attract above-baseline attention but have limited recorded product-view signals.`,
-
-                `${stockRisks.length} inventory positions could interrupt recorded product interest across ${demandAtRisk} product-view signals.`,
-
-                `${weakPerformers.length} products have weak recorded attention and product interaction, which may warrant a visibility review.`
-
-            ];
-
-
-            if (topAttractiveProduct) {
-
-                insightItems.unshift(
-
-                    `${topAttractiveProduct.name} currently has the highest observed product attractiveness score at ${topAttractiveProduct.attractivenessScore.toFixed(0)}/100.`
-
-                );
-
-            }
-
-
-            renderList(
-                "insightsList",
-                insightItems
-            );
-
-
-            // ====================================================
-            // RECOMMENDED ACTIONS
-            // ====================================================
-
-            const actions = [];
-
-
-            if (stockRisks.length) {
-
-                actions.push(
-
-                    `High priority: replenish or pause promotion for ${stockRisks[0].name}, where availability conflicts with recorded product interest.`
-
-                );
-
-            }
-
-
-            if (opportunities.length) {
-
-                actions.push(
-
-                    `High priority: review ${opportunities[0].name} placement and shelf communication because attention is not accompanied by many recorded product-view signals.`
-
-                );
-
-            }
-
-
-            if (topAttractiveProduct) {
-
-                actions.push(
-
-                    `Monitor ${topAttractiveProduct.name} as the current highest-attractiveness product (${topAttractiveProduct.attractivenessScore.toFixed(0)}/100) and maintain its effective placement.`
-
-                );
-
-            }
-
-
-            if (weakPerformers.length) {
-
-                actions.push(
-
-                    "Medium priority: investigate low-attention, low-interaction products for a visibility or assortment review."
-
-                );
-
-            }
-
-
-            if (!actions.length) {
-
-                actions.push(
-
-                    "Monitor for more recorded product interactions before changing assortment or merchandising decisions."
-
-                );
-
-            }
-
-
-            renderList(
-                "actionsList",
-                actions,
-                true
-            );
-
-
-            // ====================================================
-            // FINAL STATUS
-            // ====================================================
-
-            setLiveStatus(
-                `Decision view updated ${new Date().toLocaleTimeString()}`
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-
-            setLiveStatus(
-                "Retail intelligence is unavailable. Please sign in again.",
-                true
-            );
-
-
-            renderEmptyRow(
-                "opportunityTable",
-                4,
-                "Unable to load decision signals."
-            );
-
-
-            renderEmptyRow(
-                "riskTable",
-                3,
-                "Unable to load decision signals."
-            );
-
-
-            renderEmptyRow(
-                "productAttractivenessTable",
-                7,
-                "Unable to load product attractiveness data."
-            );
-
+        if (!data) {
+            throw new Error('No historical intelligence data returned');
         }
+
+        console.info('Retail Intelligence historical response:', data);
+
+
+        /* Trends */
+
+        renderAttentionTrend(
+            data.trend.attention
+        );
+
+        renderDwellTrend(
+            data.trend.dwell
+        );
+
+
+        /* Comparison */
+
+        renderComparisons(data.has_data ? (data.comparison || []) : []);
+
+
+        /* Rankings */
+
+        renderRankings(data.rankings || []);
+
+
+        /* Anomalies */
+
+        renderAnomalies(
+            data.anomalies || []
+        );
+
+
+        /* Peak periods */
+
+        renderPeakPeriod(
+            data.peak_period || {
+                labels: [],
+                values: []
+            }
+        );
+
+
+        /* Trend badges */
+
+        updateTrendBadges(data);
+
+
+        /* Intelligence */
+
+        renderIntelligenceCards(data.has_data ? buildIntelligence(data) : []);
+
+
+        /* Updated time */
+
+        const now =
+            new Date().toLocaleTimeString(
+                undefined,
+                {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }
+            );
+
+
+        $('updatedText').textContent =
+            `Updated ${now}`;
+
+
+        setStatus(data.has_data ? 'Historical analytics ready' : 'No historical analytics for the selected period', false);
+
+
+    } catch (error) {
+
+        console.error(
+            'Retail Intelligence error:',
+            error
+        );
+
+
+        setStatus(
+            'Historical analytics unavailable',
+            true
+        );
+
+    }
+
+}
+
+
+/* ================================================================
+   STATUS
+================================================================ */
+
+function setStatus(message, error = false) {
+
+    const dot = $('statusDot');
+    const text = $('updatedText');
+
+    if (dot) {
+
+        dot.className =
+            `h-2 w-2 rounded-full ${
+                error
+                    ? 'bg-rose-500'
+                    : 'bg-emerald-500'
+            }`;
+
+    }
+
+    if (text) {
+        text.textContent = message;
+    }
+
+}
+
+
+/* ================================================================
+   PERIOD CHANGE
+================================================================ */
+
+$('periodSelect')?.addEventListener(
+    'change',
+    async event => {
+
+        selectedPeriod =
+            Number(event.target.value) || 7;
+
+        await loadDashboard();
 
     }
 );
+
+
+/* ================================================================
+   INITIAL LOAD
+================================================================ */
+
+loadDashboard();

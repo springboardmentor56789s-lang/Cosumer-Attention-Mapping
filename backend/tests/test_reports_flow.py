@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from app import model
 from app.auth import get_password_hash
 from app.main import app
-from app.services.report_data_services import (
+from app.services.dynamic_report_data import (
     generate_consumer_attention_report,
     generate_product_engagement_report,
     generate_shelf_performance_report,
@@ -94,9 +94,47 @@ def test_dynamic_consumer_attention_report_has_only_requested_fields():
     payload = get_dynamic_report_data(db, "consumer_attention", store.id)
 
     assert list(payload["rows"][0]) == [
-        "customer_id", "shelf", "product_viewed", "dwell_time", "attention_score",
+        "track_customer_id", "average_attention_score", "total_dwell_time", "shelves_visited", "behaviour",
     ]
-    assert payload["rows"][0]["product_viewed"] == "SKU-001"
+    assert payload["rows"][0]["track_customer_id"] == 101
+    assert payload["rows"][0]["average_attention_score"] == 72.4
+
+
+def test_customer_attention_report_aggregates_each_track_once():
+    db, store = _build_store_session()
+    db.add_all(
+        [
+            model.Analytics(
+                customer_id=customer_id,
+                store_id=store.id,
+                camera_id=1,
+                dwell_time=2.0,
+                attention_score=float(customer_id),
+            )
+            for customer_id in range(1, 15)
+        ]
+        + [
+            model.Analytics(
+                customer_id=1,
+                store_id=store.id,
+                camera_id=1,
+                shelf_id=1,
+                dwell_time=4.0,
+                attention_score=80.0,
+                looking_at_product=True,
+            )
+        ]
+    )
+    db.commit()
+
+    rows = generate_consumer_attention_report(db, store.id)["rows"]
+    first_customer = next(row for row in rows if row["track_customer_id"] == 1)
+
+    assert len(rows) == 15
+    assert len({row["track_customer_id"] for row in rows}) == 15
+    assert first_customer["total_dwell_time"] == 6.0
+    assert first_customer["average_attention_score"] == 40.5
+    assert first_customer["shelves_visited"] == "1"
 
 
 def test_entity_level_reports_cover_every_customer_shelf_and_product():
@@ -159,19 +197,19 @@ def test_entity_level_reports_cover_every_customer_shelf_and_product():
     shelf_rows = generate_shelf_performance_report(db, store.id)["rows"]
     product_rows = generate_product_engagement_report(db, store.id)["rows"]
 
-    customer_ids = {row["customer_id"] for row in customer_rows}
+    customer_ids = {row["track_customer_id"] for row in customer_rows}
     assert customer_ids == {101, 202}
-    assert any(row["customer_id"] == 101 and row["dwell_time"] >= 7 for row in customer_rows)
+    assert any(row["track_customer_id"] == 101 and row["total_dwell_time"] >= 15.5 for row in customer_rows)
 
     shelf_ids = {row["shelf_id"] for row in shelf_rows}
     assert shelf_ids == {1, 2}
-    assert any(row["shelf_id"] == 1 and row["visits"] >= 1 for row in shelf_rows)
-    assert any(row["shelf_id"] == 2 and row["visits"] >= 1 for row in shelf_rows)
+    assert any(row["shelf_id"] == 1 and row["customers"] >= 1 for row in shelf_rows)
+    assert any(row["shelf_id"] == 2 and row["customers"] >= 1 for row in shelf_rows)
 
-    product_skus = {row["product_sku_name"] for row in product_rows}
-    assert product_skus == {"SKU-001", "SKU-002"}
-    assert any(row["product_sku_name"] == "SKU-001" and row["interaction_time"] >= 1 for row in product_rows)
-    assert any(row["product_sku_name"] == "SKU-002" and row["interaction_time"] >= 1 for row in product_rows)
+    product_names = {row["product_name"] for row in product_rows}
+    assert product_names == {"Coca Cola", "Pepsi"}
+    assert any(row["product_name"] == "Coca Cola" and row["customers_engaged"] >= 1 for row in product_rows)
+    assert any(row["product_name"] == "Pepsi" and row["customers_engaged"] >= 1 for row in product_rows)
 
 
 def test_dynamic_reports_and_bearer_exports_work_without_report_rows():
@@ -262,7 +300,7 @@ def test_dynamic_reports_and_bearer_exports_work_without_report_rows():
         headers = {"Authorization": f"Bearer {token}"}
 
         assert db.query(model.Report).count() == 0
-        for report_type in ["consumer_attention", "product_engagement", "shelf_performance", "conversion", "marketing_effectiveness"]:
+        for report_type in ["consumer_attention", "product_engagement", "shelf_performance"]:
             detail_response = client.get(
                 f"/api/production/reports/detail/{report_type}?store_id={store.id}",
                 headers=headers,

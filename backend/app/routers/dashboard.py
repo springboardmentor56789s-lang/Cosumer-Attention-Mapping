@@ -62,6 +62,25 @@ def get_users(db: Session = Depends(get_db), admin_user: model.User = Depends(re
     ]
 
 
+@router.get("/admin-overview")
+def get_admin_overview(db: Session = Depends(get_db), admin_user: model.User = Depends(require_admin)):
+    users = db.query(model.User).all()
+    stores = db.query(model.Store).all()
+    cameras = db.query(model.Camera).all()
+    shelves = db.query(model.Shelf).all()
+    products = db.query(model.Product).all()
+
+    return {
+        "kpis": {
+            "total_users": len(users),
+            "total_stores": len(stores),
+            "total_cameras": len(cameras),
+            "total_shelves": len(shelves),
+            "total_products": len(products),
+        },
+    }
+
+
 @router.get("/store/overview", response_model=schema.StoreManagerOverview)
 def get_store_manager_overview(
     db: Session = Depends(get_db),

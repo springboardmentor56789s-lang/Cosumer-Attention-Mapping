@@ -16,6 +16,7 @@ from app.services.auto_layout_service import AutoLayoutService
 from app.services.video_preprocessing_service import FFmpegUnavailableError, VideoPreprocessingError, VideoPreprocessingService
 from app.services.video_pipeline_service import VideoPipelineService
 from app.services.yolo_service import YOLOService
+from app.services.report_generation_services import create_reports_for_video
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 logger = logging.getLogger(__name__)
@@ -306,6 +307,17 @@ async def analyze_uploaded_video(
         annotated_video_url,
     )
     heatmap_url = _to_upload_url(result.get("heatmap_image_path"))
+    reports = create_reports_for_video(
+        db,
+        store_id=store_id,
+        user_id=current_user.id,
+        video_path=str(processed_path),
+        video_id=str(saved_path),
+        camera_id=runtime_camera.id,
+        analytics_ids=[row.id for row in run_rows],
+        customer_track_ids=[row.id for row in run_tracks],
+        detection_ids=[row.id for row in run_detections],
+    )
 
     metrics = {
         "records": records,
@@ -328,13 +340,11 @@ async def analyze_uploaded_video(
 
     trajectory_url = f"/api/blueprint/videos/trajectory?video_id={str(saved_path)}"
     return {
-        "reports": [],
+        "reports": [{"id": report.id, "report_type": report.report_type} for report in reports],
         "dynamic_report_types": [
             "consumer_attention",
             "product_engagement",
             "shelf_performance",
-            "conversion",
-            "marketing_effectiveness",
         ],
         "camera_id": runtime_camera.id,
         "video_id": str(saved_path),

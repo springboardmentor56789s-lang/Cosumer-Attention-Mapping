@@ -112,15 +112,6 @@
             <article class="card"><p>AVG DWELL TIME</p><h2 id="avgDwell">—</h2><small>Minutes</small></article>
         </section>
 
-        <section class="card recommendation-card" aria-labelledby="recommendationTitle">
-            <div class="recommendation-copy"><span class="recommendation-icon" aria-hidden="true">⭐</span><div><h2 id="recommendationTitle">Optimization Recommendations</h2><p id="recommendationSummary">Recommendations will appear after live metrics load.</p></div></div>
-            <button id="recommendationToggle" class="recommendation-button" type="button" aria-expanded="false" aria-controls="recommendationsPanel">View Recommendations</button>
-        </section>
-        <section id="recommendationsPanel" class="panel recommendations-panel" hidden>
-            <div class="panel-head"><div><p class="eyebrow">AGGREGATED SIGNALS</p><h3>Recommended next checks</h3></div><span class="hint">Based on recorded traffic, dwell, attention, engagement, and paths.</span></div>
-            <div id="recommendationsList" class="recommendation-list"><span class="hint">Loading recommendations...</span></div>
-        </section>
-
         <section class="panel" style="margin-top:15px;" hidden>
             <div class="panel-head"><div><p class="eyebrow">SHOPPER BEHAVIOR</p><h3>How customers engage with the store</h3></div></div>
             <div class="chart-wrap"><canvas id="behaviorChart"></canvas></div>
@@ -130,6 +121,20 @@
         <section class="panel" style="margin-top:15px;">
             <div class="panel-head"><div><p class="eyebrow">TOP ENGAGED SHELVES</p><h3>Where attention is strongest</h3></div></div>
             <div class="table-wrap"><table><thead><tr><th>SHELF</th><th>ZONE</th><th>VISITORS</th><th>AVG DWELL</th><th>ATTENTION</th><th>ENGAGEMENT</th><th>QUICK PASS</th><th>REVISIT</th></tr></thead><tbody id="shelfEngagementTable"><tr><td colspan="8">No shelf engagement yet.</td></tr></tbody></table></div>
+        </section>
+
+        <section class="panel" style="margin-top:15px;">
+            <div class="panel-head"><div><p class="eyebrow">PRODUCT ATTRACTIVENESS</p><h3>Observed product engagement</h3></div><span class="hint">Calculated from attention, dwell, engagement, and revisit signals.</span></div>
+            <div class="table-wrap"><table><thead><tr><th>PRODUCT ID</th><th>PRODUCT NAME</th><th>SHELF ID</th><th>AVG ATTENTION</th><th>AVG DWELL TIME</th><th>ATTRACTIVENESS SCORE</th></tr></thead><tbody id="productAttractivenessTable"><tr><td colspan="6">No product analytics yet.</td></tr></tbody></table></div>
+        </section>
+
+        <section class="card recommendation-card" aria-labelledby="recommendationTitle">
+            <div class="recommendation-copy"><span class="recommendation-icon" aria-hidden="true">⭐</span><div><h2 id="recommendationTitle">Optimization Recommendations</h2><p id="recommendationSummary">Recommendations will appear after live metrics load.</p></div></div>
+            <button id="recommendationToggle" class="recommendation-button" type="button" aria-expanded="false" aria-controls="recommendationsPanel">View Recommendations</button>
+        </section>
+        <section id="recommendationsPanel" class="panel recommendations-panel" hidden>
+            <div class="panel-head"><div><p class="eyebrow">AGGREGATED SIGNALS</p><h3>Recommended next checks</h3></div><span class="hint">Based on recorded traffic, dwell, attention, engagement, and paths.</span></div>
+            <div id="recommendationsList" class="recommendation-list"><span class="hint">Loading recommendations...</span></div>
         </section>
 
         <section class="panel" style="margin-top:15px;"><div class="panel-head"><div><p class="eyebrow">ZONE INTELLIGENCE</p><h3>Aggregate engagement by zone</h3></div></div><div class="table-wrap"><table><thead><tr><th>ZONE</th><th>VISITORS</th><th>AVG DWELL</th><th>ATTENTION</th><th>ENGAGEMENT</th></tr></thead><tbody id="zoneIntelligenceTable"><tr><td colspan="5">No zone intelligence yet.</td></tr></tbody></table></div></section>
@@ -173,6 +178,13 @@
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+        }
+
+        // Display-only cleanup: strip a leading "Auto " label from
+        // shelf/zone names (e.g. "Auto Zone 1" -> "Zone 1") without
+        // touching the underlying data used elsewhere.
+        function stripAutoLabel(value) {
+            return String(value ?? '').replace(/^Auto\s+/i, '');
         }
 
         function buildRecommendations(zoneRows, shelfRows, behavior, pathRows) {
@@ -251,6 +263,11 @@
             const shelves = payload.shelf_intelligence || intelligence.shelf_zone_engagement || [];
             const zones = payload.zone_intelligence || [];
             const paths = payload.common_paths || intelligence.common_paths || [];
+            const products = Array.isArray(payload.product_attractiveness) ? payload.product_attractiveness : [];
+            const topProducts = products
+                .filter((row) => row.attractiveness_score !== null && row.attractiveness_score !== undefined && Number.isFinite(Number(row.attractiveness_score)))
+                .sort((left, right) => Number(right.attractiveness_score) - Number(left.attractiveness_score))
+                .slice(0, 3);
             renderRecommendations(buildRecommendations(zones, shelves, behavior, paths));
             const shelvesByZone = shelves.reduce((groups, shelf) => {
                 const zone = shelf.zone || 'Unassigned Zone';
@@ -262,13 +279,17 @@
                 const tiles = zoneShelves.map((row) => {
                     const attention = Math.max(0, Math.min(100, Number(row.attention || 0)));
                     const level = attention >= 70 ? { label: 'High', color: '#d55d65', background: '#fff0f1', text: '#a63e47' } : attention >= 40 ? { label: 'Medium', color: '#e6a23c', background: '#fff8e9', text: '#9a6816' } : { label: 'Low', color: '#6ebf90', background: '#edf9f1', text: '#397e69' };
-                    return `<article class="shelf-tile" style="--attention:${level.color};--attention-bg:${level.background};--attention-text:${level.text}"><strong>${row.name}</strong><span class="attention-value">${attention.toFixed(1)}%</span><span class="attention-label">${level.label} attention</span></article>`;
+                    return `<article class="shelf-tile" style="--attention:${level.color};--attention-bg:${level.background};--attention-text:${level.text}"><strong>${stripAutoLabel(row.name)}</strong><span class="attention-value">${attention.toFixed(1)}%</span><span class="attention-label">${level.label} attention</span></article>`;
                 }).join('');
-                return `<section class="zone-layout"><p class="zone-label">${zone}</p><div class="layout-map">${tiles}</div></section>`;
+                return `<section class="zone-layout"><p class="zone-label">${stripAutoLabel(zone)}</p><div class="layout-map">${tiles}</div></section>`;
             }).join('') || '<span class="hint">No aggregate shelf attention yet.</span>';
             $('commonPathsTable').innerHTML = paths.map((row) => `<tr><td>${row.path}</td><td>${row.customer_count}</td><td>${row.percentage}%</td><td>${Number(row.average_journey_duration || 0).toFixed(1)} s</td></tr>`).join('') || '<tr><td colspan="4">No aggregate paths yet.</td></tr>';
-            $('shelfEngagementTable').innerHTML = shelves.map((row) => `<tr><td>${row.name}</td><td>${row.zone}</td><td>${row.visitors}</td><td>${Number(row.average_dwell || 0).toFixed(1)} s</td><td>${row.attention}%</td><td>${row.engagement}%</td><td>${row.quick_pass_rate || 0}%</td><td>${row.revisit_rate || 0}%</td></tr>`).join('') || '<tr><td colspan="8">No shelf engagement yet.</td></tr>';
-            $('zoneIntelligenceTable').innerHTML = zones.map((row) => `<tr><td>${row.name}</td><td>${row.visitors}</td><td>${Number(row.average_dwell || 0).toFixed(1)} s</td><td>${row.attention}%</td><td>${row.engagement}%</td></tr>`).join('') || '<tr><td colspan="5">No zone intelligence yet.</td></tr>';
+            $('shelfEngagementTable').innerHTML = shelves.map((row) => `<tr><td>${stripAutoLabel(row.name)}</td><td>${stripAutoLabel(row.zone)}</td><td>${row.visitors}</td><td>${Number(row.average_dwell || 0).toFixed(1)} s</td><td>${row.attention}%</td><td>${row.engagement}%</td><td>${row.quick_pass_rate || 0}%</td><td>${row.revisit_rate || 0}%</td></tr>`).join('') || '<tr><td colspan="8">No shelf engagement yet.</td></tr>';
+            $('productAttractivenessTable').innerHTML = topProducts.map((row) => {
+                const value = (metric, suffix = '') => row[metric] === null || row[metric] === undefined ? 'No data' : `${numeric(row[metric]).toFixed(1)}${suffix}`;
+                return `<tr><td>${escapeHtml(row.product_id ?? 'No data')}</td><td>${escapeHtml(row.product_name ?? 'No data')}</td><td>${escapeHtml(row.shelf_id ?? 'No data')}</td><td>${value('average_attention', '%')}</td><td>${value('average_dwell_time', ' s')}</td><td>${value('attractiveness_score')}</td></tr>`;
+            }).join('') || '<tr><td colspan="6">No product analytics yet.</td></tr>';
+            $('zoneIntelligenceTable').innerHTML = zones.map((row) => `<tr><td>${stripAutoLabel(row.name)}</td><td>${row.visitors}</td><td>${Number(row.average_dwell || 0).toFixed(1)} s</td><td>${row.attention}%</td><td>${row.engagement}%</td></tr>`).join('') || '<tr><td colspan="5">No zone intelligence yet.</td></tr>';
             $('customerFlowTable').innerHTML = (payload.customer_flow || []).map((row) => `<tr><td>${row.from}</td><td>${row.to}</td><td>${row.count}</td><td>${row.percentage}%</td></tr>`).join('') || '<tr><td colspan="4">No aggregate flow yet.</td></tr>';
             const keyInsights = $('keyInsights');
             if (keyInsights) keyInsights.innerHTML = (payload.key_insights || []).map((text) => `<li>${text}</li>`).join('') || '<li class="hint">No data yet.</li>';

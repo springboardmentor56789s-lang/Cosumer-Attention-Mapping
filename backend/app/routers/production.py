@@ -1,7 +1,7 @@
 import csv
 import io
 from collections import Counter, defaultdict
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import model
-from app.dependencies import require_admin
+from app.dependencies import require_admin, require_analytics_reader, require_heatmap_reader, require_report_reader
 from app.auth import decode_access_token
 from app.repositories.production_repository import ProductionRepository
 from app.schemas.production import (
@@ -46,7 +46,7 @@ from app.schemas.production import (
 from app.services.production_service import ProductionAnalyticsService
 from app.services.video_pipeline_service import VideoPipelineService
 from database.database import get_db
-from app.services.report_data_services import SUPPORTED_REPORT_TYPES, get_dynamic_report_data
+from app.services.dynamic_report_data import SUPPORTED_REPORT_TYPES, get_dynamic_report_data
 
 router = APIRouter(prefix="/api/production", tags=["Production Operations"])
 service = ProductionAnalyticsService()
@@ -64,62 +64,342 @@ def get_dashboard_series(db: Session = Depends(get_db)):
 
 
 @router.get("/analytics/live")
-def get_live_analytics(db: Session = Depends(get_db)):
-    summary = service.get_dashboard_summary(db)
-    series = service.get_dashboard_series(db)
-    tracks = db.query(model.CustomerTrack).order_by(model.CustomerTrack.created_at.desc()).limit(1000).all()
+def get_live_analytics(
+    db: Session = Depends(get_db),
+    analytics_reader: model.User = Depends(require_analytics_reader),
+):
+    """Return the live shopper-behavior dashboard using current persisted analytics."""
+    try:
+        summary = service.get_dashboard_summary(db) or {}
+        series = service.get_dashboard_series(db) or {}
+
+        tracks = (
+            db.query(model.CustomerTrack)
+            .order_by(model.CustomerTrack.created_at.desc())
+            .limit(1000)
+            .all()
+        )
+        shelves = {shelf.id: shelf for shelf in db.query(model.Shelf).all()}
+        zones = {zone.id: zone for zone in db.query(model.CameraZone).all()}
+        track_count = len(tracks)
+
+        engaged = [
+            track for track in tracks
+            if track.looking_at_shelf or track.looking_at_product
+        ]
+        quick_pass = [
+            track for track in tracks
+            if float(track.dwell_time or 0) < 3
+        ]
+        high_interest = [
+            track for track in tracks
+            if float(track.attention_score or 0) >= 70
+        ]
+
+        latest_run = (
+            db.query(model.Heatmap)
+            .filter(model.Heatmap.heatmap_type == "movement")
+            .order_by(model.Heatmap.created_at.desc())
+            .first()
+        )
+        run_artifact = (latest_run.coordinates or {}).get("intelligence", {}) if latest_run else {}
+        common_paths = run_artifact.get("common_paths", []) or []
+        common_paths = common_paths[:10]
+        flow = run_artifact.get("customer_flow", []) or []
+        event_counts = run_artifact.get("event_counts", {}) or {}
+
+        shelf_engagement: dict[int, list[model.CustomerTrack]] = defaultdict(list)
+        for track in tracks:
+            if track.shelf_id is not None:
+                shelf_engagement[int(track.shelf_id)].append(track)
+
+        shelf_metrics = []
+        for shelf_id, values in shelf_engagement.items():
+            shelf = shelves.get(shelf_id)
+            if shelf is None:
+                continue
+            zone = zones.get(shelf.zone_id)
+            shelf_metrics.append({
+                "name": shelf.shelf_name,
+                "zone": zone.zone_name if zone else "Unassigned",
+                "visitors": len({(track.camera_id, track.customer_id) for track in values}),
+                "average_dwell": round(
+                    sum(float(track.dwell_time or 0) for track in values) / max(1, len(values)), 2
+                ),
+                "engagement": round(
+                    sum(
+                        1 for track in values
+                        if track.looking_at_shelf or track.looking_at_product
+                    ) * 100 / max(1, len(values)),
+                    1,
+                ),
+                "attention": round(
+                    sum(float(track.attention_score or 0) for track in values) / max(1, len(values)), 1
+                ),
+                "quick_pass_rate": round(
+                    sum(1 for track in values if float(track.dwell_time or 0) < 3)
+                    * 100 / max(1, len(values)),
+                    1,
+                ),
+                "revisit_rate": round(
+                    float(event_counts.get("SHELF_REVISIT", 0)) * 100 / max(1, len(values)), 1
+                ),
+            })
+
+        zone_metrics = []
+        for zone_id, zone in zones.items():
+            values = [
+                track for track in tracks
+                if track.shelf_id in shelves
+                and shelves[track.shelf_id].zone_id == zone_id
+            ]
+            zone_metrics.append({
+                "name": zone.zone_name,
+                "visitors": len({(track.camera_id, track.customer_id) for track in values}),
+                "average_dwell": round(
+                    sum(float(track.dwell_time or 0) for track in values) / max(1, len(values)), 2
+                ),
+                "attention": round(
+                    sum(float(track.attention_score or 0) for track in values) / max(1, len(values)), 1
+                ),
+                "engagement": round(
+                    sum(
+                        1 for track in values
+                        if track.looking_at_shelf or track.looking_at_product
+                    ) * 100 / max(1, len(values)),
+                    1,
+                ),
+            })
+
+        zone_metrics.sort(key=lambda row: row["engagement"], reverse=True)
+        shelf_metrics.sort(key=lambda row: row["engagement"], reverse=True)
+
+        products = db.query(model.Product).order_by(model.Product.id).all()
+        product_events: dict[str, list[model.Analytics]] = defaultdict(list)
+        for event in db.query(model.Analytics).filter(model.Analytics.viewed_product.isnot(None)).all():
+            product_events[str(event.viewed_product).lower()].append(event)
+
+        product_metrics = []
+        for product in products:
+            events_by_id = {
+                event.id: event
+                for key in {product.sku.lower(), product.name.lower()}
+                for event in product_events.get(key, [])
+            }
+            values = list(events_by_id.values())
+            engaged = [event for event in values if event.looking_at_shelf or event.looking_at_product]
+            attention_values = [float(event.attention_score) for event in engaged if event.attention_score is not None]
+            dwell_values = [float(event.dwell_time) for event in values if event.dwell_time is not None]
+            customer_visits = Counter((event.camera_id, event.customer_id) for event in values)
+            customer_count = len(customer_visits)
+            product_metrics.append({
+                "product_id": product.id,
+                "product_name": product.name,
+                "shelf_id": product.shelf_id,
+                "customers_engaged": len({(event.camera_id, event.customer_id) for event in engaged}),
+                "average_attention": round(sum(attention_values) / len(attention_values), 1) if attention_values else None,
+                "average_dwell_time": round(sum(dwell_values) / len(dwell_values), 2) if dwell_values else None,
+                "engagement": round(len(engaged) * 100 / len(values), 1) if values else None,
+                "revisit": round(sum(1 for count in customer_visits.values() if count > 1) * 100 / customer_count, 1) if customer_count else None,
+            })
+
+        observed_dwell = [metric["average_dwell_time"] for metric in product_metrics if metric["average_dwell_time"] is not None]
+        maximum_dwell = max(observed_dwell) if observed_dwell else None
+        for metric in product_metrics:
+            signals = [metric["average_attention"], metric["engagement"], metric["revisit"]]
+            if maximum_dwell and metric["average_dwell_time"] is not None:
+                signals.append(metric["average_dwell_time"] * 100 / maximum_dwell)
+            metric["attractiveness_score"] = round(sum(signals) / len(signals), 1) if all(value is not None for value in signals) else None
+
+        top_shelf = shelf_metrics[0]["name"] if shelf_metrics else None
+        top_zone = zone_metrics[0]["name"] if zone_metrics else None
+        denominator = max(1, track_count)
+        browsing = max(
+            0.0,
+            100.0 - (len(quick_pass) + len(high_interest)) * 100 / denominator,
+        )
+
+        heatmap_url = None
+        if latest_run:
+            image_path = ((latest_run.coordinates or {}).get("artifacts", {}) or {}).get("heatmap_image_path")
+            if image_path:
+                heatmap_url = f"/uploads/{Path(image_path).name}"
+
+        consumer_intelligence = {
+            "customer_count": len({(track.camera_id, track.customer_id) for track in tracks}),
+            "average_dwell": round(
+                sum(float(track.dwell_time or 0) for track in tracks) / denominator, 2
+            ),
+            "average_attention": round(
+                sum(float(track.attention_score or 0) for track in tracks) / denominator, 1
+            ),
+            "engagement_rate": round(len(engaged) * 100 / denominator, 1),
+            "quick_pass_rate": round(len(quick_pass) * 100 / denominator, 1),
+            "high_interest_rate": round(len(high_interest) * 100 / denominator, 1),
+            "revisit_rate": round(
+                float(event_counts.get("SHELF_REVISIT", 0)) * 100 / denominator, 1
+            ),
+            "common_paths": common_paths,
+            "shelf_zone_engagement": shelf_metrics,
+        }
+
+        summary["consumer_intelligence"] = consumer_intelligence
+        summary["avg_attention_score"] = consumer_intelligence["average_attention"]
+
+        key_insights = [
+            f"{top_shelf} is the most engaged shelf." if top_shelf else None,
+            f"{top_zone} has the highest engagement." if top_zone else None,
+        ]
+        if common_paths:
+            first_path = common_paths[0]
+            percentage = first_path.get("percentage") if isinstance(first_path, dict) else None
+            if percentage is not None:
+                key_insights.append(f"{percentage}% of customers follow the most common path.")
+
+        return {
+            "summary": summary,
+            "series": series,
+            "consumer_intelligence": consumer_intelligence,
+            "zone_intelligence": zone_metrics,
+            "shelf_intelligence": shelf_metrics,
+            "product_attractiveness": product_metrics,
+            "behavior_distribution": {
+                "quick_pass": consumer_intelligence["quick_pass_rate"],
+                "browsing": round(browsing, 1),
+                "high_interest": consumer_intelligence["high_interest_rate"],
+                "revisit": consumer_intelligence["revisit_rate"],
+            },
+            "common_paths": common_paths,
+            "attention_heatmap": {"image_url": heatmap_url},
+            "customer_flow": flow,
+            "key_insights": [text for text in key_insights if text],
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Keep the real backend failure visible to the client instead of
+        # misleading the UI with an authentication message.
+        raise HTTPException(
+            status_code=500,
+            detail=f"Live analytics failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
+
+@router.get("/analytics/retail-intelligence")
+def get_retail_intelligence_history(
+    days: int = Query(default=7, ge=7, le=30),
+    db: Session = Depends(get_db),
+    analytics_reader: model.User = Depends(require_analytics_reader),
+):
+    """Historical read model for Retail Intelligence, built from saved pipeline aggregates."""
+    if days not in {7, 14, 30}:
+        raise HTTPException(status_code=422, detail="days must be 7, 14, or 30")
+
+    now = datetime.now(timezone.utc)
+    current_start = now - timedelta(days=days)
+    previous_start = current_start - timedelta(days=days)
+    rows = db.query(model.Analytics).filter(model.Analytics.visit_time >= previous_start).all()
     shelves = {shelf.id: shelf for shelf in db.query(model.Shelf).all()}
     zones = {zone.id: zone for zone in db.query(model.CameraZone).all()}
-    track_count = max(1, len(tracks))
-    engaged = [track for track in tracks if track.looking_at_shelf or track.looking_at_product]
-    quick_pass = [track for track in tracks if float(track.dwell_time or 0) < 3]
-    high_interest = [track for track in tracks if float(track.attention_score or 0) >= 70]
-    latest_run = db.query(model.Heatmap).filter(model.Heatmap.heatmap_type == "movement").order_by(model.Heatmap.created_at.desc()).first()
-    run_artifact = (latest_run.coordinates or {}).get("intelligence", {}) if latest_run else {}
-    common_paths = run_artifact.get("common_paths", [])[:10]
-    flow = run_artifact.get("customer_flow", [])
-    event_counts = run_artifact.get("event_counts", {})
-    shelf_engagement: dict[int, list[model.CustomerTrack]] = defaultdict(list)
-    for track in tracks:
-        if track.shelf_id:
-            shelf_engagement[track.shelf_id].append(track)
-    shelf_metrics = [
-        {
-            "name": shelves[shelf_id].shelf_name,
-            "zone": zones.get(shelves[shelf_id].zone_id).zone_name if zones.get(shelves[shelf_id].zone_id) else "Unassigned",
-            "visitors": len({(track.camera_id, track.customer_id) for track in values}),
-            "average_dwell": round(sum(float(track.dwell_time or 0) for track in values) / max(1, len(values)), 2),
-            "engagement": round(sum(1 for track in values if track.looking_at_shelf or track.looking_at_product) * 100 / max(1, len(values)), 1),
-            "attention": round(sum(float(track.attention_score or 0) for track in values) / max(1, len(values)), 1),
-            "quick_pass_rate": round(sum(1 for track in values if float(track.dwell_time or 0) < 3) * 100 / max(1, len(values)), 1),
-            "revisit_rate": round(float(event_counts.get("SHELF_REVISIT", 0)) * 100 / max(1, len(values)), 1),
+
+    def timestamp(row: model.Analytics) -> datetime:
+        value = row.visit_time or now
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+    current_rows = [row for row in rows if timestamp(row) >= current_start]
+    previous_rows = [row for row in rows if previous_start <= timestamp(row) < current_start]
+
+    def summarize(values: list[model.Analytics]) -> dict[str, float]:
+        count = len(values)
+        if not count:
+            return {"attention": 0.0, "dwell": 0.0, "engagement": 0.0, "visitors": 0.0}
+        return {
+            "attention": round(sum(float(row.attention_score or 0) for row in values) / count, 2),
+            "dwell": round(sum(float(row.dwell_time or 0) for row in values) / count, 2),
+            "engagement": round(sum(1 for row in values if row.looking_at_shelf or row.looking_at_product) * 100 / count, 2),
+            "visitors": float(len({(row.camera_id, row.customer_id) for row in values})),
         }
-        for shelf_id, values in shelf_engagement.items() if shelf_id in shelves
+
+    def revisit_rate(values: list[model.Analytics]) -> float:
+        visits: Counter[tuple[int, int, int]] = Counter(
+            (int(row.camera_id), int(row.customer_id), int(row.shelf_id))
+            for row in values if row.shelf_id is not None
+        )
+        return round(sum(1 for count in visits.values() if count > 1) * 100 / max(1, len(visits)), 2)
+
+    current_summary, previous_summary = summarize(current_rows), summarize(previous_rows)
+    current_summary["revisit"] = revisit_rate(current_rows)
+    previous_summary["revisit"] = revisit_rate(previous_rows)
+
+    labels, attention_values, dwell_values = [], [], []
+    for offset in range(days - 1, -1, -1):
+        day = (now - timedelta(days=offset)).date()
+        daily = [row for row in current_rows if timestamp(row).date() == day]
+        daily_summary = summarize(daily)
+        labels.append(day.isoformat())
+        attention_values.append(daily_summary["attention"] if daily else None)
+        dwell_values.append(daily_summary["dwell"] if daily else None)
+
+    def change(current: float, previous: float) -> float:
+        if previous == 0:
+            return 0.0 if current == 0 else 100.0
+        return round((current - previous) * 100 / abs(previous), 2)
+
+    comparison_specs = [("Attention", "attention", "%"), ("Dwell", "dwell", "s"), ("Revisit", "revisit", "%"), ("Engagement", "engagement", "%")]
+    comparison = [
+        {
+            "name": name,
+            "previous": f"{previous_summary[key]:.1f}{suffix}",
+            "current": f"{current_summary[key]:.1f}{suffix}",
+            "change": change(current_summary[key], previous_summary[key]),
+        }
+        for name, key, suffix in comparison_specs
     ]
-    zone_metrics = []
-    for zone_id, zone in zones.items():
-        values = [track for track in tracks if track.shelf_id in shelves and shelves[track.shelf_id].zone_id == zone_id]
-        zone_metrics.append({"name": zone.zone_name, "visitors": len({(track.camera_id, track.customer_id) for track in values}), "average_dwell": round(sum(float(track.dwell_time or 0) for track in values) / max(1, len(values)), 2), "attention": round(sum(float(track.attention_score or 0) for track in values) / max(1, len(values)), 1), "engagement": round(sum(1 for track in values if track.looking_at_shelf or track.looking_at_product) * 100 / max(1, len(values)), 1)})
-    zone_metrics.sort(key=lambda row: row["engagement"], reverse=True)
-    shelf_metrics.sort(key=lambda row: row["engagement"], reverse=True)
-    top_shelf = shelf_metrics[0]["name"] if shelf_metrics else None
-    top_zone = zone_metrics[0]["name"] if zone_metrics else None
-    browsing = max(0.0, 100.0 - (len(quick_pass) + len(high_interest)) * 100 / track_count)
-    heatmap_url = None
-    if latest_run:
-        image_path = ((latest_run.coordinates or {}).get("artifacts", {}) or {}).get("heatmap_image_path")
-        if image_path:
-            heatmap_url = f"/uploads/{Path(image_path).name}"
-    summary["consumer_intelligence"] = {
-        "customer_count": len({(track.camera_id, track.customer_id) for track in tracks}),
-        "average_dwell": round(sum(float(track.dwell_time or 0) for track in tracks) / track_count, 2),
-        "average_attention": round(sum(float(track.attention_score or 0) for track in tracks) / track_count, 1),
-        "engagement_rate": round(len(engaged) * 100 / track_count, 1),
-        "quick_pass_rate": round(len(quick_pass) * 100 / track_count, 1),
-        "high_interest_rate": round(len(high_interest) * 100 / track_count, 1),
-        "revisit_rate": round(float(event_counts.get("SHELF_REVISIT", 0)) * 100 / track_count, 1),
-        "common_paths": common_paths,
-        "shelf_zone_engagement": shelf_metrics,
+
+    by_shelf: dict[int, list[model.Analytics]] = defaultdict(list)
+    for row in current_rows:
+        if row.shelf_id in shelves:
+            by_shelf[int(row.shelf_id)].append(row)
+    rankings = []
+    for shelf_id, shelf_rows in by_shelf.items():
+        shelf = shelves[shelf_id]
+        summary = summarize(shelf_rows)
+        rankings.append({
+            "shelf": shelf.shelf_name,
+            "zone": zones.get(shelf.zone_id).zone_name if zones.get(shelf.zone_id) else "Unassigned",
+            "attention": summary["attention"], "dwell": summary["dwell"],
+            "revisit": revisit_rate(shelf_rows), "engagement": summary["engagement"],
+        })
+    rankings.sort(key=lambda item: (item["engagement"], item["attention"], item["dwell"]), reverse=True)
+
+    anomalies = []
+    for name, key, suffix in comparison_specs:
+        delta = change(current_summary[key], previous_summary[key])
+        if previous_summary[key] > 0 and abs(delta) >= 25:
+            direction = "increased" if delta > 0 else "decreased"
+            anomalies.append({
+                "type": "negative" if key in {"attention", "engagement"} and delta < 0 else "positive",
+                "title": f"{name} {direction}", "change": f"{delta:+.0f}%",
+                "description": f"{name} changed from {previous_summary[key]:.1f}{suffix} to {current_summary[key]:.1f}{suffix} versus the previous {days}-day period.",
+            })
+
+    activity_by_hour: Counter[int] = Counter()
+    seen_activity: set[tuple[str, int, int, int]] = set()
+    for row in current_rows:
+        observed = timestamp(row)
+        identity = (observed.date().isoformat(), observed.hour, int(row.camera_id), int(row.customer_id))
+        if identity not in seen_activity:
+            seen_activity.add(identity)
+            activity_by_hour[observed.hour] += 1
+    hour_labels = [f"{hour:02d}:00" for hour in range(24)]
+    hour_values = [activity_by_hour[hour] for hour in range(24)]
+    peak_hour = max(activity_by_hour, key=activity_by_hour.get) if activity_by_hour else None
+
+    return {
+        "period": days, "has_data": bool(current_rows),
+        "trend": {"attention": {"labels": labels, "values": attention_values}, "dwell": {"labels": labels, "values": dwell_values}},
+        "comparison": comparison, "rankings": rankings[:25], "anomalies": anomalies,
+        "peak_period": {"labels": hour_labels, "values": hour_values, "peak": f"{peak_hour:02d}:00–{(peak_hour + 1) % 24:02d}:00" if peak_hour is not None else None},
     }
     return {
         "summary": summary,
@@ -772,13 +1052,16 @@ def get_spatial_heatmaps(
     store_id: Optional[int] = Query(default=None),
     camera_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
-    admin_user: model.User = Depends(require_admin),
+    current_user: model.User = Depends(require_heatmap_reader),
 ):
     return _spatial_heatmap_payload(db, store_id=store_id, camera_id=camera_id)
 
 
 @router.get("/heatmaps", response_model=list[HeatmapResponse])
-def list_heatmaps(db: Session = Depends(get_db), admin_user: model.User = Depends(require_admin)):
+def list_heatmaps(
+    db: Session = Depends(get_db),
+    current_user: model.User = Depends(require_heatmap_reader),
+):
     return service.get_heatmap_payload(db)
 
 
@@ -792,12 +1075,10 @@ REPORT_CATALOG = (
     ("consumer_attention", "Consumer Attention Report"),
     ("product_engagement", "Product Engagement Report"),
     ("shelf_performance", "Shelf Performance Report"),
-    ("conversion", "Conversion Report"),
-    ("marketing_effectiveness", "Marketing Effectiveness Report"),
 )
 
 
-def _report_payload(report: model.Report) -> dict[str, Any]:
+def _stored_report_payload(report: model.Report) -> dict[str, Any]:
     """Keep the established fields and expose the dashboard's field aliases."""
     filters = _report_filters(report)
     store_name = report.store.store_name if report.store else None
@@ -884,9 +1165,15 @@ def _dynamic_report_data(db: Session, report_type: str, store_id: Optional[int])
 @router.get("/reports")
 def list_reports(
     db: Session = Depends(get_db),
-    admin_user: model.User = Depends(require_admin),
+    report_reader: model.User = Depends(require_report_reader),
 ):
-    return [_report_payload(report_type, report_name) for report_type, report_name in REPORT_CATALOG]
+    return [
+        _stored_report_payload(report)
+        for report in db.query(model.Report)
+        .filter(model.Report.report_type.in_(SUPPORTED_REPORT_TYPES))
+        .order_by(model.Report.created_at.desc())
+        .all()
+    ]
 
 
 # ============================================================
@@ -898,11 +1185,22 @@ def create_report(
     db: Session = Depends(get_db),
     admin_user: model.User = Depends(require_admin),
 ):
-    if payload.report_type.strip().lower() not in SUPPORTED_REPORT_TYPES:
-        raise HTTPException(status_code=422, detail="report_type must be one of the five supported report types")
-    _resolve_report_store_id(db, payload.store_id)
-    report_name = dict(REPORT_CATALOG).get(payload.report_type.strip().lower(), payload.report_name)
-    return _report_payload(payload.report_type.strip().lower(), report_name, payload.store_id)
+    report_type = payload.report_type.strip().lower()
+    if report_type not in SUPPORTED_REPORT_TYPES:
+        raise HTTPException(status_code=422, detail="report_type must be a supported report type")
+    store_id = _resolve_report_store_id(db, payload.store_id)
+    report = model.Report(
+        report_id=str(uuid4()),
+        store_id=store_id,
+        report_name=dict(REPORT_CATALOG)[report_type],
+        report_type=report_type,
+        filters={},
+        created_by=admin_user.id,
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+    return _stored_report_payload(report)
 
 
 # ============================================================
@@ -948,7 +1246,18 @@ def delete_report(
     db: Session = Depends(get_db),
     admin_user: model.User = Depends(require_admin),
 ):
-    raise HTTPException(status_code=405, detail="Dynamic reports are not stored and cannot be deleted")
+    try:
+        database_id = int(report_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Report definition not found") from exc
+    report = db.query(model.Report).filter(
+        model.Report.id == database_id,
+        model.Report.report_type.in_(SUPPORTED_REPORT_TYPES),
+    ).first()
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report definition not found")
+    db.delete(report)
+    db.commit()
 
 
 @router.get("/reports/export")

@@ -153,12 +153,19 @@ function renderShelves() {
 async function loadShelves() {
     try {
         const response = await fetch("/api/shelves/", { headers: getHeaders() });
+        
         if (!response.ok) {
-            throw new Error(await response.text());
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        // Keep rows stable after add/edit/delete so users do not see random position jumps.
-        allShelves = (await response.json()).sort((a, b) => {
+        const data = await response.json();
+        
+        // Handle both direct arrays [...] AND wrapped objects like { data: [...] } or { shelves: [...] }
+        const shelvesArray = Array.isArray(data) ? data : (data.shelves || data.data || []);
+
+        // Sort rows stably
+        allShelves = shelvesArray.sort((a, b) => {
             const idA = Number.parseInt(a.id, 10);
             const idB = Number.parseInt(b.id, 10);
             if (Number.isInteger(idA) && Number.isInteger(idB)) {
@@ -169,14 +176,21 @@ async function loadShelves() {
 
         renderShelves();
     } catch (error) {
-        console.error(error);
+        console.error("Failed to load shelves:", error);
         tableBody.innerHTML = `
             <tr>
-                <td colspan="10" class="px-4 py-8 text-center text-red-600">Unable to load shelves.</td>
+                <td colspan="10" class="px-4 py-8 text-center text-red-600">
+                    Unable to load shelves. (${escapeHtml(error.message)})
+                </td>
             </tr>
         `;
     }
 }
+
+// Ensure DOM is fully loaded before executing API calls
+document.addEventListener("DOMContentLoaded", () => {
+    loadShelves();
+});
 
 function getFormPayload() {
     return {

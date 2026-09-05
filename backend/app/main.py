@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -12,6 +12,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from database.database import Base, SessionLocal, engine, ensure_schema_compatibility
 from app.routers import analytics, blueprint, camera, dashboard, google_auth, login, production, register, store, consumer_analysis, shelves, product
+from app import model
+from app.dependencies import require_role
 from app.middleware.request_logging import RequestLoggingMiddleware
 from app.services.production_service import ProductionAnalyticsService
 
@@ -133,7 +135,10 @@ async def user_register_page(request: Request):
 
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
+async def admin_dashboard(
+    request: Request,
+    current_user: model.User = Depends(require_role(model.UserRole.ADMIN)),
+):
     db = SessionLocal()
     try:
         dashboard_summary = dashboard_service.get_dashboard_summary(db)
@@ -152,15 +157,21 @@ async def admin_dashboard(request: Request):
 
 
 @app.get("/store/dashboard", response_class=HTMLResponse)
-async def store_dashboard(request: Request):
+async def store_dashboard(
+    request: Request,
+    current_user: model.User = Depends(require_role(model.UserRole.STORE_MANAGER)),
+):
     return templates.TemplateResponse(
-        "store_manager/store_dashboard.html",
+        "store_manager/executive_dashboard.html",
         {"request": request}
     )
 
 
 @app.get("/retail/dashboard", response_class=HTMLResponse)
-async def retail_dashboard(request: Request):
+async def retail_dashboard(
+    request: Request,
+    current_user: model.User = Depends(require_role(model.UserRole.RETAIL_ANALYST)),
+):
     return templates.TemplateResponse(
         "retail_analysts/retail_analysts_dashboard.html",
         {"request": request}
@@ -174,7 +185,10 @@ async def retail_intelligence(request: Request):
     )
 
 @app.get("/marketing/dashboard", response_class=HTMLResponse)
-async def marketing_dashboard(request: Request):
+async def marketing_dashboard(
+    request: Request,
+    current_user: model.User = Depends(require_role(model.UserRole.MARKETING_ANALYST)),
+):
     return templates.TemplateResponse(
         "marketing_analysts/marketing_dashboard.html",
         {"request": request}
@@ -196,6 +210,15 @@ async def store_management_page(request: Request):
     return templates.TemplateResponse(
         "admin/store_management.html",
         {"request": request}
+    )
+
+
+@app.get("/user_management.html", response_class=HTMLResponse)
+async def user_management_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/user_management.html",
+        context={},
     )
 
 

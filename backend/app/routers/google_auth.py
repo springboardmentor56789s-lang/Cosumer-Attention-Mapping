@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth import create_access_token, get_password_hash
+from app.auth import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_password_hash
 from app.model import User, UserRole
 from database.database import get_db
 
@@ -159,4 +159,13 @@ async def google_auth_success(request: Request):
 </script>
 </body>
 </html>"""
-    return HTMLResponse(page)
+    response = HTMLResponse(page)
+    if token:
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            path="/",
+            samesite="lax",
+        )
+    return response
