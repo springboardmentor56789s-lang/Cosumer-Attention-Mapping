@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# Uploaded and processed videos
+backend/uploads/
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Environment/secrets
+.env
+
+# Python generated files
+*.log
