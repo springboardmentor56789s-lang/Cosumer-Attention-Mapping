@@ -18,3 +18,5 @@ backend/uploads/
 
 # Python generated files
 *.log
+# Dataset
+backend/datasets/
