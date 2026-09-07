@@ -1,0 +1,20 @@
+# ── Python bytecode ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+
+# ── Model weights (downloadable / regenerable) ──────────────
+*.pt
+*.onnx
+*.engine
+*.torchscript
+
+# ── Training & evaluation outputs ────────────────────────────
+outputs/
+coco/outputs/
+sku110k/outputs/
+
+# ── Sample / test media ─────────────────────────────────────
+*.mp4
+*.avi
+*.mov
+*.mkv
