@@ -1,5 +1,9 @@
 from jose import jwt
 
+import uuid
+import threading
+
+from fastapi import BackgroundTasks
 from fastapi.responses import FileResponse
 
 import reports_engine
@@ -12,7 +16,6 @@ import behavior_analysis
 from fastapi import UploadFile, File
 import shutil
 import os
-
 import detection
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -20,7 +23,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from database import engine, Base, SessionLocal
-
 import models
 import schemas
 import auth
@@ -47,13 +49,27 @@ app.add_middleware(
 
 
 # ============================================================
+# VIDEO ANALYSIS JOB STORAGE
+# ============================================================
+
+# Stores the status/result of currently running video jobs.
+# This avoids making the browser wait for the complete
+# YOLO + tracking + reporting process.
+VIDEO_JOBS = {}
+
+VIDEO_JOBS_LOCK = threading.Lock()
+
+
+# ============================================================
 # DATABASE
 # ============================================================
 
 def get_db():
     db = SessionLocal()
+
     try:
         yield db
+
     finally:
         db.close()
 
@@ -77,12 +93,33 @@ def detect_generic_product_regions(image_path):
     if img is None:
         return [], None
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
+    gray = cv2.cvtColor(
+        img,
+        cv2.COLOR_BGR2GRAY
+    )
 
-    kernel = np.ones((5, 5), np.uint8)
-    dilated = cv2.dilate(edges, kernel, iterations=2)
+    blurred = cv2.GaussianBlur(
+        gray,
+        (5, 5),
+        0
+    )
+
+    edges = cv2.Canny(
+        blurred,
+        50,
+        150
+    )
+
+    kernel = np.ones(
+        (5, 5),
+        np.uint8
+    )
+
+    dilated = cv2.dilate(
+        edges,
+        kernel,
+        iterations=2
+    )
 
     contours, _ = cv2.findContours(
         dilated,
@@ -95,14 +132,25 @@ def detect_generic_product_regions(image_path):
     regions = []
 
     for cnt in contours:
+
         area = cv2.contourArea(cnt)
 
-        if img_area * 0.001 < area < img_area * 0.05:
+        if (
+            img_area * 0.001
+            < area
+            < img_area * 0.05
+        ):
+
             x, y, w, h = cv2.boundingRect(cnt)
 
-            aspect_ratio = w / h if h > 0 else 0
+            aspect_ratio = (
+                w / h
+                if h > 0
+                else 0
+            )
 
             if 0.2 < aspect_ratio < 5:
+
                 regions.append({
                     "x": x,
                     "y": y,
@@ -119,8 +167,10 @@ def detect_generic_product_regions(image_path):
 
 @app.get("/")
 def read_root():
+
     return {
-        "message": "Consumer Attention Mapping System - Backend is running!"
+        "message":
+            "Consumer Attention Mapping System - Backend is running!"
     }
 
 
@@ -130,14 +180,18 @@ def read_root():
 
 from fastapi.security import OAuth2PasswordBearer
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="login"
+)
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+
     try:
+
         payload = jwt.decode(
             token,
             auth.SECRET_KEY,
@@ -147,22 +201,27 @@ def get_current_user(
         email: str = payload.get("sub")
 
         if email is None:
+
             raise HTTPException(
                 status_code=401,
                 detail="Invalid token"
             )
 
     except Exception:
+
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired token"
         )
 
-    user = db.query(models.User).filter(
+    user = db.query(
+        models.User
+    ).filter(
         models.User.email == email
     ).first()
 
     if user is None:
+
         raise HTTPException(
             status_code=401,
             detail="User not found"
@@ -171,22 +230,31 @@ def get_current_user(
     return user
 
 
-@app.post("/register", response_model=schemas.UserResponse)
+@app.post(
+    "/register",
+    response_model=schemas.UserResponse
+)
 def register_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_db)
 ):
-    existing_user = db.query(models.User).filter(
+
+    existing_user = db.query(
+        models.User
+    ).filter(
         models.User.email == user.email
     ).first()
 
     if existing_user:
+
         raise HTTPException(
             status_code=400,
             detail="Email already registered"
         )
 
-    hashed_pw = auth.hash_password(user.password)
+    hashed_pw = auth.hash_password(
+        user.password
+    )
 
     new_user = models.User(
         name=user.name,
@@ -202,19 +270,29 @@ def register_user(
     return new_user
 
 
-@app.post("/login", response_model=schemas.Token)
+@app.post(
+    "/login",
+    response_model=schemas.Token
+)
 def login_user(
     user: schemas.UserLogin,
     db: Session = Depends(get_db)
 ):
-    db_user = db.query(models.User).filter(
+
+    db_user = db.query(
+        models.User
+    ).filter(
         models.User.email == user.email
     ).first()
 
-    if not db_user or not auth.verify_password(
-        user.password,
-        db_user.password
+    if (
+        not db_user
+        or not auth.verify_password(
+            user.password,
+            db_user.password
+        )
     ):
+
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
@@ -237,11 +315,15 @@ def login_user(
 # STORES
 # ============================================================
 
-@app.post("/stores", response_model=schemas.StoreResponse)
+@app.post(
+    "/stores",
+    response_model=schemas.StoreResponse
+)
 def create_store(
     store: schemas.StoreCreate,
     db: Session = Depends(get_db)
 ):
+
     new_store = models.Store(
         name=store.name,
         location=store.location
@@ -254,9 +336,18 @@ def create_store(
     return new_store
 
 
-@app.get("/stores", response_model=list[schemas.StoreResponse])
-def get_stores(db: Session = Depends(get_db)):
-    stores = db.query(models.Store).all()
+@app.get(
+    "/stores",
+    response_model=list[schemas.StoreResponse]
+)
+def get_stores(
+    db: Session = Depends(get_db)
+):
+
+    stores = db.query(
+        models.Store
+    ).all()
+
     return stores
 
 
@@ -264,16 +355,23 @@ def get_stores(db: Session = Depends(get_db)):
 # SHELVES
 # ============================================================
 
-@app.post("/shelves", response_model=schemas.ShelfResponse)
+@app.post(
+    "/shelves",
+    response_model=schemas.ShelfResponse
+)
 def create_shelf(
     shelf: schemas.ShelfCreate,
     db: Session = Depends(get_db)
 ):
-    store = db.query(models.Store).filter(
+
+    store = db.query(
+        models.Store
+    ).filter(
         models.Store.id == shelf.store_id
     ).first()
 
     if not store:
+
         raise HTTPException(
             status_code=404,
             detail="Store not found"
@@ -292,9 +390,18 @@ def create_shelf(
     return new_shelf
 
 
-@app.get("/shelves", response_model=list[schemas.ShelfResponse])
-def get_shelves(db: Session = Depends(get_db)):
-    shelves = db.query(models.Shelf).all()
+@app.get(
+    "/shelves",
+    response_model=list[schemas.ShelfResponse]
+)
+def get_shelves(
+    db: Session = Depends(get_db)
+):
+
+    shelves = db.query(
+        models.Shelf
+    ).all()
+
     return shelves
 
 
@@ -302,16 +409,23 @@ def get_shelves(db: Session = Depends(get_db)):
 # CAMERAS
 # ============================================================
 
-@app.post("/cameras", response_model=schemas.CameraResponse)
+@app.post(
+    "/cameras",
+    response_model=schemas.CameraResponse
+)
 def create_camera(
     camera: schemas.CameraCreate,
     db: Session = Depends(get_db)
 ):
-    store = db.query(models.Store).filter(
+
+    store = db.query(
+        models.Store
+    ).filter(
         models.Store.id == camera.store_id
     ).first()
 
     if not store:
+
         raise HTTPException(
             status_code=404,
             detail="Store not found"
@@ -330,9 +444,18 @@ def create_camera(
     return new_camera
 
 
-@app.get("/cameras", response_model=list[schemas.CameraResponse])
-def get_cameras(db: Session = Depends(get_db)):
-    cameras = db.query(models.Camera).all()
+@app.get(
+    "/cameras",
+    response_model=list[schemas.CameraResponse]
+)
+def get_cameras(
+    db: Session = Depends(get_db)
+):
+
+    cameras = db.query(
+        models.Camera
+    ).all()
+
     return cameras
 
 
@@ -344,6 +467,7 @@ def get_cameras(db: Session = Depends(get_db)):
 def detect_people_endpoint(
     file: UploadFile = File(...)
 ):
+
     upload_folder = "uploaded_images"
 
     os.makedirs(
@@ -356,13 +480,19 @@ def detect_people_endpoint(
         file.filename
     )
 
-    with open(file_path, "wb") as buffer:
+    with open(
+        file_path,
+        "wb"
+    ) as buffer:
+
         shutil.copyfileobj(
             file.file,
             buffer
         )
 
-    result = detection.detect_people(file_path)
+    result = detection.detect_people(
+        file_path
+    )
 
     return result
 
@@ -376,6 +506,7 @@ def get_behavior_analysis(
     track_id: int,
     db: Session = Depends(get_db)
 ):
+
     result = behavior_analysis.classify_shopper(
         track_id,
         db
@@ -388,6 +519,7 @@ def get_behavior_analysis(
 def get_all_behavior_analysis(
     db: Session = Depends(get_db)
 ):
+
     all_ids = db.query(
         models.AttentionRecord.person_track_id
     ).distinct().all()
@@ -400,12 +532,14 @@ def get_all_behavior_analysis(
     results = []
 
     for pid in person_ids:
+
         result = behavior_analysis.classify_shopper(
             pid,
             db
         )
 
         if isinstance(result, dict):
+
             results.append(result)
 
     return results
@@ -417,7 +551,11 @@ def get_all_behavior_analysis(
 
 @app.get("/shelf-scores")
 def get_shelf_scores():
-    scores = scoring_engine.calculate_shelf_scores()
+
+    scores = (
+        scoring_engine.calculate_shelf_scores()
+    )
+
     return scores
 
 
@@ -427,7 +565,11 @@ def get_shelf_scores():
 
 @app.get("/recommendations")
 def get_recommendations():
-    return recommendation_engine.generate_recommendations()
+
+    return (
+        recommendation_engine
+        .generate_recommendations()
+    )
 
 
 # ============================================================
@@ -436,7 +578,11 @@ def get_recommendations():
 
 @app.post("/alerts/run-check")
 def run_alert_check():
-    alerts = alert_engine.run_all_checks_and_save()
+
+    alerts = (
+        alert_engine
+        .run_all_checks_and_save()
+    )
 
     return {
         "alerts_generated": len(alerts),
@@ -448,6 +594,7 @@ def run_alert_check():
 def get_all_alerts(
     db: Session = Depends(get_db)
 ):
+
     alerts = db.query(
         models.Alert
     ).order_by(
@@ -463,7 +610,11 @@ def get_all_alerts(
 
 @app.get("/reports/pdf")
 def download_pdf_report():
-    filepath = reports_engine.generate_pdf_report()
+
+    filepath = (
+        reports_engine
+        .generate_pdf_report()
+    )
 
     return FileResponse(
         filepath,
@@ -474,7 +625,11 @@ def download_pdf_report():
 
 @app.get("/reports/excel")
 def download_excel_report():
-    filepath = reports_engine.generate_excel_report()
+
+    filepath = (
+        reports_engine
+        .generate_excel_report()
+    )
 
     return FileResponse(
         filepath,
@@ -496,6 +651,7 @@ def get_heatmap(filename: str):
     filepath = filename
 
     if not os.path.exists(filepath):
+
         raise HTTPException(
             status_code=404,
             detail="Heatmap not found"
@@ -511,16 +667,19 @@ def get_heatmap(filename: str):
 def generate_heatmaps():
 
     generate_heatmap.generate_store_heatmap()
+
     generate_heatmap.generate_traffic_heatmap()
 
     zone_durations = (
-        generate_heatmap.generate_shelf_heatmaps()
+        generate_heatmap
+        .generate_shelf_heatmaps()
     )
 
     generate_heatmap.generate_product_attention_heatmap()
 
     return {
-        "status": "Heatmaps generated successfully"
+        "status":
+            "Heatmaps generated successfully"
     }
 
 
@@ -530,8 +689,11 @@ def generate_heatmaps():
 
 @app.get("/me")
 def read_current_user(
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(
+        get_current_user
+    )
 ):
+
     return {
         "id": current_user.id,
         "name": current_user.name,
@@ -548,6 +710,7 @@ def read_current_user(
 def detect_shelf_products(
     file: UploadFile = File(...)
 ):
+
     upload_folder = "uploaded_images"
 
     os.makedirs(
@@ -560,7 +723,11 @@ def detect_shelf_products(
         file.filename
     )
 
-    with open(file_path, "wb") as buffer:
+    with open(
+        file_path,
+        "wb"
+    ) as buffer:
+
         shutil.copyfileobj(
             file.file,
             buffer
@@ -578,6 +745,7 @@ def detect_shelf_products(
     )
 
     detections = []
+
     annotated_frame = None
 
     for r in results:
@@ -597,7 +765,9 @@ def detect_shelf_products(
         annotated_frame = r.plot()
 
     generic_regions, original_img = (
-        detect_generic_product_regions(file_path)
+        detect_generic_product_regions(
+            file_path
+        )
     )
 
     if annotated_frame is not None:
@@ -628,23 +798,32 @@ def detect_shelf_products(
     )
 
     if annotated_frame is not None:
+
         cv2.imwrite(
             annotated_path,
             annotated_frame
         )
 
     return {
-        "filename": file.filename,
+        "filename":
+            file.filename,
+
         "annotated_image_url":
             f"/uploaded-image/{annotated_filename}",
+
         "named_detections_count":
             len(detections),
+
         "detections":
             detections,
+
         "generic_regions_count":
             len(generic_regions),
+
         "estimated_total_products":
-            len(detections) + len(generic_regions),
+            len(detections)
+            + len(generic_regions),
+
         "note":
             "Blue boxes = named YOLO detections "
             "(COCO's 80 categories only). Yellow boxes = "
@@ -670,6 +849,7 @@ def get_uploaded_image(filename: str):
     )
 
     if not os.path.exists(filepath):
+
         raise HTTPException(
             status_code=404,
             detail="Image not found"
@@ -705,7 +885,11 @@ def detect_video_traffic(
         file.filename
     )
 
-    with open(file_path, "wb") as buffer:
+    with open(
+        file_path,
+        "wb"
+    ) as buffer:
+
         shutil.copyfileobj(
             file.file,
             buffer
@@ -713,16 +897,21 @@ def detect_video_traffic(
 
     model = YOLO("yolov8n.pt")
 
-    cap = cv2.VideoCapture(file_path)
+    cap = cv2.VideoCapture(
+        file_path
+    )
 
     if not cap.isOpened():
+
         raise HTTPException(
             status_code=400,
             detail="Could not process video file"
         )
 
     frame_count = 0
+
     unique_ids = set()
+
     max_simultaneous = 0
 
     while True:
@@ -764,10 +953,18 @@ def detect_video_traffic(
     cap.release()
 
     return {
-        "filename": file.filename,
-        "frames_processed": frame_count,
-        "total_unique_people": len(unique_ids),
-        "max_simultaneous_people": max_simultaneous,
+        "filename":
+            file.filename,
+
+        "frames_processed":
+            frame_count,
+
+        "total_unique_people":
+            len(unique_ids),
+
+        "max_simultaneous_people":
+            max_simultaneous,
+
         "note":
             "Validated multi-person tracking on uploaded "
             "video footage, confirming the system works on "
@@ -785,7 +982,10 @@ def get_shelf_detail(
     db: Session = Depends(get_db)
 ):
 
-    all_scores = scoring_engine.calculate_shelf_scores()
+    all_scores = (
+        scoring_engine
+        .calculate_shelf_scores()
+    )
 
     shelf_score = all_scores.get(
         shelf_name,
@@ -799,7 +999,8 @@ def get_shelf_detail(
 
     shelf_recs = next(
         (
-            r for r in all_recs
+            r
+            for r in all_recs
             if r["shelf"] == shelf_name
         ),
         None
@@ -825,6 +1026,7 @@ def get_shelf_detail(
 
     # Find which shoppers visited THIS shelf
     # and their behavior segments
+
     visitor_ids = (
         set(
             i.person_track_id
@@ -841,9 +1043,12 @@ def get_shelf_detail(
 
     for pid in visitor_ids:
 
-        result = behavior_analysis.classify_shopper(
-            pid,
-            db
+        result = (
+            behavior_analysis
+            .classify_shopper(
+                pid,
+                db
+            )
         )
 
         if isinstance(result, dict):
@@ -851,15 +1056,20 @@ def get_shelf_detail(
             visitor_segments.append({
                 "person_track_id":
                     pid,
+
                 "segment":
                     result["segment"],
+
                 "total_time_seconds":
                     result["total_time_seconds"]
             })
 
     return {
-        "shelf_name": shelf_name,
-        "score": shelf_score,
+        "shelf_name":
+            shelf_name,
+
+        "score":
+            shelf_score,
 
         "recommendations":
             shelf_recs["recommendations"]
@@ -870,30 +1080,40 @@ def get_shelf_detail(
             visitor_segments,
 
         "recent_interactions": [
+
             {
                 "person_track_id":
                     i.person_track_id,
+
                 "interaction_type":
                     i.interaction_type,
+
                 "duration_seconds":
                     i.duration_seconds,
+
                 "created_at":
                     i.created_at
             }
+
             for i in interactions
         ],
 
         "recent_attention": [
+
             {
                 "person_track_id":
                     a.person_track_id,
+
                 "attention_status":
                     a.attention_status,
+
                 "duration_seconds":
                     a.duration_seconds,
+
                 "created_at":
                     a.created_at
             }
+
             for a in attention_history
         ]
     }
@@ -916,6 +1136,7 @@ def delete_store(
     ).first()
 
     if not store:
+
         raise HTTPException(
             status_code=404,
             detail="Store not found"
@@ -947,6 +1168,7 @@ def delete_shelf(
     ).first()
 
     if not shelf:
+
         raise HTTPException(
             status_code=404,
             detail="Shelf not found"
@@ -978,6 +1200,7 @@ def delete_camera(
     ).first()
 
     if not camera:
+
         raise HTTPException(
             status_code=404,
             detail="Camera not found"
@@ -994,22 +1217,1301 @@ def delete_camera(
 
 # ============================================================
 # ============================================================
-# FULL VIDEO ANALYSIS - OPTIMIZED FOR RENDER
+# FULL VIDEO ANALYSIS - BACKGROUND JOB
 # ============================================================
 # ============================================================
 
-@app.post("/analyze-video-full")
-def analyze_video_full(
-    file: UploadFile = File(...),
-    clear_previous_data: bool = True
+
+def process_video_job(
+    job_id,
+    file_path,
+    original_filename,
+    clear_previous_data=True
 ):
 
     import cv2
     from ultralytics import YOLO
 
-    # --------------------------------------------------------
-    # 1. SAVE UPLOADED VIDEO
-    # --------------------------------------------------------
+    cap = None
+
+    try:
+
+        print(
+            f"[VIDEO JOB {job_id}] Starting processing...",
+            flush=True
+        )
+
+        # ====================================================
+        # 1. CLEAR PREVIOUS ANALYSIS DATA
+        # ====================================================
+
+        db = SessionLocal()
+
+        try:
+
+            if clear_previous_data:
+
+                print(
+                    f"[VIDEO JOB {job_id}] "
+                    f"Clearing previous analysis data...",
+                    flush=True
+                )
+
+                db.query(
+                    models.PositionPoint
+                ).delete()
+
+                db.query(
+                    models.AttentionRecord
+                ).delete()
+
+                db.query(
+                    models.ProductInteraction
+                ).delete()
+
+                db.commit()
+
+            # =================================================
+            # 2. GET SHELVES
+            # =================================================
+
+            shelves_in_db = db.query(
+                models.Shelf
+            ).all()
+
+        finally:
+
+            db.close()
+
+        NUM_ZONES = (
+            min(
+                len(shelves_in_db),
+                5
+            )
+            if len(shelves_in_db) > 0
+            else 3
+        )
+
+        zone_to_shelf = {}
+
+        if (
+            NUM_ZONES > 0
+            and len(shelves_in_db) > 0
+        ):
+
+            for i in range(NUM_ZONES):
+
+                zone_to_shelf[
+                    f"Zone {i}"
+                ] = shelves_in_db[i].shelf_name
+
+        else:
+
+            NUM_ZONES = 3
+
+            zone_to_shelf = {
+                "Zone 0": "Zone A",
+                "Zone 1": "Zone B",
+                "Zone 2": "Zone C"
+            }
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Zones configured: {NUM_ZONES}",
+            flush=True
+        )
+
+        # ====================================================
+        # 3. LOAD MODELS
+        # ====================================================
+
+        print(
+            f"[VIDEO JOB {job_id}] Loading YOLO model...",
+            flush=True
+        )
+
+        # Nano model keeps CPU and memory usage lower.
+        yolo_model = YOLO(
+            "yolov8n.pt"
+        )
+
+        face_cascade = cv2.CascadeClassifier(
+            "haarcascade_frontalface_default.xml"
+        )
+
+        eye_cascade = cv2.CascadeClassifier(
+            "haarcascade_eye.xml"
+        )
+
+        # ====================================================
+        # 4. OPEN VIDEO
+        # ====================================================
+
+        print(
+            f"[VIDEO JOB {job_id}] Opening video...",
+            flush=True
+        )
+
+        cap = cv2.VideoCapture(
+            file_path
+        )
+
+        if not cap.isOpened():
+
+            raise RuntimeError(
+                "Could not open video file"
+            )
+
+        frame_width = int(
+            cap.get(
+                cv2.CAP_PROP_FRAME_WIDTH
+            )
+        )
+
+        fps = (
+            cap.get(
+                cv2.CAP_PROP_FPS
+            )
+            or 30
+        )
+
+        if fps <= 0:
+            fps = 30
+
+        # ====================================================
+        # 5. ZONE CALCULATION
+        # ====================================================
+
+        def get_zone(center_x):
+
+            zone_index = min(
+                int(
+                    center_x
+                    / (
+                        frame_width
+                        / NUM_ZONES
+                    )
+                ),
+                NUM_ZONES - 1
+            )
+
+            return zone_to_shelf.get(
+                f"Zone {zone_index}",
+                f"Zone {zone_index}"
+            )
+
+        # ====================================================
+        # 6. TRACKING STATE
+        # ====================================================
+
+        person_state = {}
+
+        repeat_visits = {}
+
+        frame_num = 0
+
+        all_positions = []
+
+        POSITION_BATCH_SIZE = 1000
+
+        pending_attention_records = []
+
+        pending_interactions = []
+
+        DB_BATCH_SIZE = 50
+
+        # ====================================================
+        # 7. PROCESS VIDEO
+        # ====================================================
+
+        while True:
+
+            ret, frame = cap.read()
+
+            if not ret:
+                break
+
+            frame_num += 1
+
+            # ------------------------------------------------
+            # RENDER OPTIMIZATION
+            # ------------------------------------------------
+            # Process every 4th frame.
+            # ------------------------------------------------
+
+            if frame_num % 4 != 0:
+                continue
+
+            # ------------------------------------------------
+            # RESIZE VIDEO
+            # ------------------------------------------------
+
+            target_width = 640
+
+            target_height = int(
+                target_width
+                * frame.shape[0]
+                / frame.shape[1]
+            )
+
+            frame_small = cv2.resize(
+                frame,
+                (
+                    target_width,
+                    target_height
+                )
+            )
+
+            scale_x = (
+                frame.shape[1]
+                / frame_small.shape[1]
+            )
+
+            scale_y = (
+                frame.shape[0]
+                / frame_small.shape[0]
+            )
+
+            # ------------------------------------------------
+            # YOLO + BYTE TRACK
+            # ------------------------------------------------
+
+            results = yolo_model.track(
+                frame_small,
+                persist=True,
+                verbose=False,
+                classes=[0],
+                tracker="bytetrack.yaml"
+            )
+
+            # ------------------------------------------------
+            # ATTENTION DETECTION
+            # ------------------------------------------------
+
+            run_attention_check = (
+                (frame_num // 4) % 20 == 0
+            )
+
+            gray_full = (
+
+                cv2.cvtColor(
+                    frame,
+                    cv2.COLOR_BGR2GRAY
+                )
+
+                if run_attention_check
+
+                else None
+            )
+
+            # ------------------------------------------------
+            # PERSON TRACKS
+            # ------------------------------------------------
+
+            if results[0].boxes.id is not None:
+
+                for box, track_id in zip(
+                    results[0].boxes.xyxy,
+                    results[0].boxes.id
+                ):
+
+                    x1s, y1s, x2s, y2s = [
+                        int(v)
+                        for v in box.tolist()
+                    ]
+
+                    x1 = int(
+                        x1s * scale_x
+                    )
+
+                    y1 = int(
+                        y1s * scale_y
+                    )
+
+                    x2 = int(
+                        x2s * scale_x
+                    )
+
+                    y2 = int(
+                        y2s * scale_y
+                    )
+
+                    center_x = (
+                        x1 + x2
+                    ) / 2
+
+                    center_y = (
+                        y1 + y2
+                    ) / 2
+
+                    track_id = int(
+                        track_id
+                    )
+
+                    zone = get_zone(
+                        center_x
+                    )
+
+                    # Default attention state
+                    attention_status = (
+                        "Attentive"
+                    )
+
+                    # ------------------------------------------------
+                    # FACE + EYE DETECTION
+                    # ------------------------------------------------
+
+                    if (
+                        run_attention_check
+                        and gray_full is not None
+                    ):
+
+                        person_region = (
+                            gray_full[
+                                max(0, y1):y2,
+                                max(0, x1):x2
+                            ]
+                        )
+
+                        if person_region.size > 0:
+
+                            attention_status = (
+                                "Looking Away"
+                            )
+
+                            faces = (
+                                face_cascade
+                                .detectMultiScale(
+                                    person_region,
+                                    scaleFactor=1.1,
+                                    minNeighbors=4,
+                                    minSize=(20, 20)
+                                )
+                            )
+
+                            for (
+                                fx,
+                                fy,
+                                fw,
+                                fh
+                            ) in faces:
+
+                                face_gray = (
+                                    person_region[
+                                        fy:fy + fh,
+                                        fx:fx + fw
+                                    ]
+                                )
+
+                                eyes = (
+                                    eye_cascade
+                                    .detectMultiScale(
+                                        face_gray,
+                                        scaleFactor=1.1,
+                                        minNeighbors=3
+                                    )
+                                )
+
+                                if len(eyes) >= 1:
+
+                                    attention_status = (
+                                        "Attentive"
+                                    )
+
+                                break
+
+                    # ------------------------------------------------
+                    # STORE POSITION POINT
+                    # ------------------------------------------------
+
+                    all_positions.append(
+                        models.PositionPoint(
+                            person_track_id=track_id,
+                            x=int(center_x),
+                            y=int(center_y)
+                        )
+                    )
+
+                    # ------------------------------------------------
+                    # BATCH POSITION DATABASE INSERTS
+                    # ------------------------------------------------
+
+                    if (
+                        len(all_positions)
+                        >= POSITION_BATCH_SIZE
+                    ):
+
+                        db_batch = SessionLocal()
+
+                        try:
+
+                            db_batch.bulk_save_objects(
+                                all_positions
+                            )
+
+                            db_batch.commit()
+
+                        finally:
+
+                            db_batch.close()
+
+                        all_positions.clear()
+
+                    # ------------------------------------------------
+                    # FIRST OBSERVATION OF PERSON
+                    # ------------------------------------------------
+
+                    if track_id not in person_state:
+
+                        person_state[
+                            track_id
+                        ] = {
+
+                            "zone": zone,
+
+                            "attention":
+                                attention_status,
+
+                            "frame_start":
+                                frame_num
+                        }
+
+                        continue
+
+                    # ------------------------------------------------
+                    # EXISTING PERSON
+                    # ------------------------------------------------
+
+                    prev = person_state[
+                        track_id
+                    ]
+
+                    if (
+                        prev["zone"] != zone
+                        or
+                        prev["attention"]
+                        != attention_status
+                    ):
+
+                        duration = (
+                            frame_num
+                            - prev["frame_start"]
+                        ) / fps
+
+                        # ------------------------------------------------
+                        # REMOVE VERY SHORT TRACKING NOISE
+                        # ------------------------------------------------
+
+                        if duration < 0.2:
+
+                            person_state[
+                                track_id
+                            ] = {
+
+                                "zone":
+                                    zone,
+
+                                "attention":
+                                    attention_status,
+
+                                "frame_start":
+                                    frame_num
+                            }
+
+                            continue
+
+                        # ------------------------------------------------
+                        # ATTENTION RECORD
+                        # ------------------------------------------------
+
+                        record = (
+                            models.AttentionRecord(
+                                person_track_id=track_id,
+
+                                zone=prev["zone"],
+
+                                attention_status=
+                                    prev["attention"],
+
+                                duration_seconds=
+                                    int(duration)
+                            )
+                        )
+
+                        pending_attention_records.append(
+                            record
+                        )
+
+                        # ------------------------------------------------
+                        # REPEAT VISITS
+                        # ------------------------------------------------
+
+                        key = (
+                            track_id,
+                            prev["zone"]
+                        )
+
+                        repeat_visits[key] = (
+                            repeat_visits.get(
+                                key,
+                                0
+                            ) + 1
+                        )
+
+                        prior_visits = (
+                            repeat_visits[key]
+                        )
+
+                        zones_visited = set(
+                            z
+                            for (
+                                pid,
+                                z
+                            ) in repeat_visits.keys()
+                            if pid == track_id
+                        )
+
+                        # ------------------------------------------------
+                        # INTERACTION CLASSIFICATION
+                        # ------------------------------------------------
+
+                        interaction_type = None
+
+                        if (
+                            prev["attention"]
+                            == "Attentive"
+                        ):
+
+                            if duration >= 1.5:
+
+                                interaction_type = (
+                                    "Product Purchased "
+                                    "(simulated - very long engagement)"
+                                )
+
+                            elif duration >= 0.7:
+
+                                interaction_type = (
+                                    "Product Picked Up "
+                                    "(simulated)"
+                                )
+
+                            elif duration >= 0.2:
+
+                                interaction_type = (
+                                    "Product Viewed"
+                                )
+
+                            # Multiple shelf revisits
+                            if (
+                                len(zones_visited) >= 2
+                                and prior_visits >= 2
+                            ):
+
+                                interaction_type = (
+                                    "Product Compared "
+                                    "(simulated - multiple shelf revisits)"
+                                )
+
+                        elif (
+                            prev["attention"]
+                            == "Looking Away"
+                            and prior_visits >= 2
+                            and duration < 1
+                        ):
+
+                            interaction_type = (
+                                "Product Returned "
+                                "(simulated - quick disengagement)"
+                            )
+
+                        # ------------------------------------------------
+                        # STORE INTERACTION
+                        # ------------------------------------------------
+
+                        if interaction_type:
+
+                            interaction = (
+                                models.ProductInteraction(
+
+                                    person_track_id=
+                                        track_id,
+
+                                    shelf_zone=
+                                        prev["zone"],
+
+                                    interaction_type=
+                                        interaction_type,
+
+                                    duration_seconds=
+                                        int(duration)
+                                )
+                            )
+
+                            pending_interactions.append(
+                                interaction
+                            )
+
+                        # ------------------------------------------------
+                        # BATCH ATTENTION INSERTS
+                        # ------------------------------------------------
+
+                        if (
+                            len(
+                                pending_attention_records
+                            )
+                            >= DB_BATCH_SIZE
+                        ):
+
+                            db_batch = SessionLocal()
+
+                            try:
+
+                                db_batch.bulk_save_objects(
+                                    pending_attention_records
+                                )
+
+                                db_batch.commit()
+
+                            finally:
+
+                                db_batch.close()
+
+                            pending_attention_records.clear()
+
+                        # ------------------------------------------------
+                        # BATCH INTERACTION INSERTS
+                        # ------------------------------------------------
+
+                        if (
+                            len(
+                                pending_interactions
+                            )
+                            >= DB_BATCH_SIZE
+                        ):
+
+                            db_batch = SessionLocal()
+
+                            try:
+
+                                db_batch.bulk_save_objects(
+                                    pending_interactions
+                                )
+
+                                db_batch.commit()
+
+                            finally:
+
+                                db_batch.close()
+
+                            pending_interactions.clear()
+
+                        # ------------------------------------------------
+                        # UPDATE PERSON STATE
+                        # ------------------------------------------------
+
+                        person_state[
+                            track_id
+                        ] = {
+
+                            "zone":
+                                zone,
+
+                            "attention":
+                                attention_status,
+
+                            "frame_start":
+                                frame_num
+                        }
+
+            # ------------------------------------------------
+            # PROGRESS LOG
+            # ------------------------------------------------
+
+            if frame_num % 200 == 0:
+
+                print(
+                    f"[VIDEO JOB {job_id}] "
+                    f"Processed frame {frame_num}...",
+                    flush=True
+                )
+
+        # ====================================================
+        # 8. CLOSE VIDEO
+        # ====================================================
+
+        if cap is not None:
+
+            cap.release()
+
+            cap = None
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Video processing finished. "
+            f"Total frames: {frame_num}",
+            flush=True
+        )
+
+        # ====================================================
+        # 9. SAVE REMAINING POSITION POINTS
+        # ====================================================
+
+        if all_positions:
+
+            db_batch = SessionLocal()
+
+            try:
+
+                db_batch.bulk_save_objects(
+                    all_positions
+                )
+
+                db_batch.commit()
+
+            finally:
+
+                db_batch.close()
+
+            all_positions.clear()
+
+        # ====================================================
+        # 10. SAVE REMAINING ATTENTION RECORDS
+        # ====================================================
+
+        if pending_attention_records:
+
+            db_batch = SessionLocal()
+
+            try:
+
+                db_batch.bulk_save_objects(
+                    pending_attention_records
+                )
+
+                db_batch.commit()
+
+            finally:
+
+                db_batch.close()
+
+            pending_attention_records.clear()
+
+        # ====================================================
+        # 11. SAVE REMAINING INTERACTIONS
+        # ====================================================
+
+        if pending_interactions:
+
+            db_batch = SessionLocal()
+
+            try:
+
+                db_batch.bulk_save_objects(
+                    pending_interactions
+                )
+
+                db_batch.commit()
+
+            finally:
+
+                db_batch.close()
+
+            pending_interactions.clear()
+
+        # ====================================================
+        # 12. CALCULATE SHELF SCORES
+        # ====================================================
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Calculating shelf scores...",
+            flush=True
+        )
+
+        scores = (
+            scoring_engine
+            .calculate_shelf_scores()
+        )
+
+        # ====================================================
+        # 13. GENERATE RECOMMENDATIONS
+        # ====================================================
+
+        recs = (
+            recommendation_engine
+            .generate_recommendations()
+        )
+
+        # ====================================================
+        # 14. LOAD ANALYSIS RECORDS
+        # ====================================================
+
+        db4 = SessionLocal()
+
+        try:
+
+            attention_records = (
+                db4.query(
+                    models.AttentionRecord
+                ).all()
+            )
+
+            interactions = (
+                db4.query(
+                    models.ProductInteraction
+                ).all()
+            )
+
+        finally:
+
+            db4.close()
+
+        # ====================================================
+        # 15. INTERACTION SUMMARY
+        # ====================================================
+
+        interaction_counts = {}
+
+        for i in interactions:
+
+            interaction_counts[
+                i.interaction_type
+            ] = (
+                interaction_counts.get(
+                    i.interaction_type,
+                    0
+                ) + 1
+            )
+
+        # ====================================================
+        # 16. ATTENTION SUMMARY
+        # ====================================================
+
+        total_attention_time = sum(
+            r.duration_seconds
+            for r in attention_records
+        )
+
+        attentive_count = sum(
+            1
+            for r in attention_records
+            if r.attention_status
+            == "Attentive"
+        )
+
+        # ====================================================
+        # 17. GENERATE HEATMAPS
+        # ====================================================
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Generating heatmaps...",
+            flush=True
+        )
+
+        generate_heatmap.generate_store_heatmap()
+
+        generate_heatmap.generate_traffic_heatmap()
+
+        generate_heatmap.generate_shelf_heatmaps()
+
+        generate_heatmap.generate_product_attention_heatmap()
+
+        # ====================================================
+        # 18. GENERATE REPORTS
+        # ====================================================
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Generating reports...",
+            flush=True
+        )
+
+        pdf_path = (
+            reports_engine
+            .generate_pdf_report()
+        )
+
+        excel_path = (
+            reports_engine
+            .generate_excel_report()
+        )
+
+        # ====================================================
+        # 19. CONSUMER BEHAVIOR INTELLIGENCE
+        # ====================================================
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Running behavior analysis...",
+            flush=True
+        )
+
+        db5 = SessionLocal()
+
+        try:
+
+            all_ids = db5.query(
+                models.AttentionRecord.person_track_id
+            ).distinct().all()
+
+            person_ids = [
+                row[0]
+                for row in all_ids
+            ]
+
+            shopper_details = []
+
+            for pid in person_ids:
+
+                result = (
+                    behavior_analysis
+                    .classify_shopper(
+                        pid,
+                        db5
+                    )
+                )
+
+                if isinstance(result, dict):
+
+                    journey = (
+                        db5.query(
+                            models.JourneyLog
+                        )
+                        .filter(
+                            models.JourneyLog.person_track_id
+                            == pid
+                        )
+                        .order_by(
+                            models.JourneyLog.sequence_number
+                        )
+                        .all()
+                    )
+
+                    result["journey_path"] = [
+                        j.zone
+                        for j in journey
+                    ]
+
+                    shopper_details.append(
+                        result
+                    )
+
+        finally:
+
+            db5.close()
+
+        # ====================================================
+        # 20. MOVEMENT BEHAVIOR
+        # ====================================================
+
+        movement_by_segment = {}
+
+        for s in shopper_details:
+
+            seg = s["segment"]
+
+            movement_by_segment.setdefault(
+                seg,
+                []
+            ).append(
+                len(
+                    s["zones_visited"]
+                )
+            )
+
+        movement_analysis = {
+
+            seg:
+                round(
+                    sum(vals)
+                    / len(vals)
+                )
+
+            for seg, vals
+            in movement_by_segment.items()
+
+            if vals
+        }
+
+        # ====================================================
+        # 21. PRODUCT PREFERENCE
+        # ====================================================
+
+        preference_by_segment = {}
+
+        for s in shopper_details:
+
+            seg = s["segment"]
+
+            for zone in s["zones_visited"]:
+
+                preference_by_segment.setdefault(
+                    seg,
+                    {}
+                )
+
+                preference_by_segment[
+                    seg
+                ][zone] = (
+
+                    preference_by_segment[
+                        seg
+                    ].get(
+                        zone,
+                        0
+                    ) + 1
+                )
+
+        top_preference_by_segment = {
+
+            seg:
+                max(
+                    shelves,
+                    key=shelves.get
+                )
+
+            for seg, shelves
+            in preference_by_segment.items()
+
+            if shelves
+        }
+
+        # ====================================================
+        # 22. COMMON TRANSITIONS
+        # ====================================================
+
+        transition_counts = {}
+
+        for s in shopper_details:
+
+            path = s["journey_path"]
+
+            for i in range(
+                len(path) - 1
+            ):
+
+                # Skip self loops
+                if (
+                    path[i]
+                    == path[i + 1]
+                ):
+                    continue
+
+                transition = (
+                    path[i],
+                    path[i + 1]
+                )
+
+                transition_counts[
+                    transition
+                ] = (
+                    transition_counts.get(
+                        transition,
+                        0
+                    ) + 1
+                )
+
+        sorted_transitions = sorted(
+            transition_counts.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        most_frequent_routes = [
+
+            {
+                "from":
+                    t[0][0],
+
+                "to":
+                    t[0][1],
+
+                "count":
+                    t[1]
+            }
+
+            for t
+            in sorted_transitions[:3]
+        ]
+
+        least_frequent_routes = (
+
+            [
+
+                {
+                    "from":
+                        t[0][0],
+
+                    "to":
+                        t[0][1],
+
+                    "count":
+                        t[1]
+                }
+
+                for t
+                in sorted_transitions[-3:]
+            ]
+
+            if len(
+                sorted_transitions
+            ) > 6
+
+            else []
+        )
+
+        # ====================================================
+        # 23. SHOPPING PATTERN
+        # ====================================================
+
+        pattern_by_segment = {}
+
+        for s in shopper_details:
+
+            seg = s["segment"]
+
+            pattern_by_segment.setdefault(
+                seg,
+                []
+            ).append(
+                s["total_time_seconds"]
+            )
+
+        shopping_pattern = {
+
+            seg:
+                round(
+                    sum(vals)
+                    / len(vals),
+                    1
+                )
+
+            for seg, vals
+            in pattern_by_segment.items()
+
+            if vals
+        }
+
+        # ====================================================
+        # 24. FINAL RESULT
+        # ====================================================
+
+        result = {
+
+            "filename":
+                original_filename,
+
+            "frames_processed":
+                frame_num,
+
+            "unique_people_tracked":
+                len(person_state),
+
+            "shelf_scores":
+                scores,
+
+            "recommendations":
+                recs,
+
+            "interaction_summary":
+                interaction_counts,
+
+            "total_attention_time_seconds":
+                total_attention_time,
+
+            "total_attentive_events":
+                attentive_count,
+
+            "movement_analysis":
+                movement_analysis,
+
+            "top_preference_by_segment":
+                top_preference_by_segment,
+
+            "most_frequent_routes":
+                most_frequent_routes,
+
+            "least_frequent_routes":
+                least_frequent_routes,
+
+            "total_unique_routes":
+                len(transition_counts),
+
+            "shopping_pattern":
+                shopping_pattern,
+
+            "pdf_report_url":
+                "/reports/pdf",
+
+            "excel_report_url":
+                "/reports/excel"
+        }
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"ANALYSIS COMPLETED SUCCESSFULLY.",
+            flush=True
+        )
+
+        return result
+
+    except Exception as e:
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"FAILED: {str(e)}",
+            flush=True
+        )
+
+        raise
+
+    finally:
+
+        # Always release OpenCV video resource
+        if cap is not None:
+
+            try:
+                cap.release()
+            except Exception:
+                pass
+
+        # Always remove uploaded video after processing
+        try:
+
+            if os.path.exists(file_path):
+
+                os.remove(
+                    file_path
+                )
+
+                print(
+                    f"[VIDEO JOB {job_id}] "
+                    f"Temporary video removed.",
+                    flush=True
+                )
+
+        except Exception as cleanup_error:
+
+            print(
+                f"[VIDEO JOB {job_id}] "
+                f"Could not remove temporary video: "
+                f"{cleanup_error}",
+                flush=True
+            )
+
+
+# ============================================================
+# START FULL VIDEO ANALYSIS JOB
+# ============================================================
+
+@app.post("/analyze-video-full")
+def analyze_video_full(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    clear_previous_data: bool = True
+):
 
     upload_folder = "uploaded_videos"
 
@@ -1018,1026 +2520,242 @@ def analyze_video_full(
         exist_ok=True
     )
 
-    file_path = os.path.join(
-        upload_folder,
+    # ========================================================
+    # CREATE UNIQUE JOB ID
+    # ========================================================
+
+    job_id = str(
+        uuid.uuid4()
+    )
+
+    # Prevent unsafe filenames
+    safe_filename = os.path.basename(
         file.filename
     )
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(
-            file.file,
-            buffer
-        )
-
-    # --------------------------------------------------------
-    # 2. CLEAR PREVIOUS ANALYSIS DATA
-    # --------------------------------------------------------
-
-    db = SessionLocal()
-
-    if clear_previous_data:
-
-        db.query(
-            models.PositionPoint
-        ).delete()
-
-        db.query(
-            models.AttentionRecord
-        ).delete()
-
-        db.query(
-            models.ProductInteraction
-        ).delete()
-
-        db.commit()
-
-    # --------------------------------------------------------
-    # 3. GET SHELVES
-    # --------------------------------------------------------
-
-    shelves_in_db = db.query(
-        models.Shelf
-    ).all()
-
-    db.close()
-
-    NUM_ZONES = (
-        min(len(shelves_in_db), 5)
-        if len(shelves_in_db) > 0
-        else 3
+    # Store video using job ID so two uploads don't collide.
+    file_path = os.path.join(
+        upload_folder,
+        f"{job_id}_{safe_filename}"
     )
 
-    zone_to_shelf = {}
+    # ========================================================
+    # SAVE VIDEO
+    # ========================================================
 
-    if NUM_ZONES > 0 and len(shelves_in_db) > 0:
+    try:
 
-        for i in range(NUM_ZONES):
+        with open(
+            file_path,
+            "wb"
+        ) as buffer:
 
-            zone_to_shelf[
-                f"Zone {i}"
-            ] = shelves_in_db[i].shelf_name
+            shutil.copyfileobj(
+                file.file,
+                buffer
+            )
 
-    else:
-
-        NUM_ZONES = 3
-
-        zone_to_shelf = {
-            "Zone 0": "Zone A",
-            "Zone 1": "Zone B",
-            "Zone 2": "Zone C"
-        }
-
-    # --------------------------------------------------------
-    # 4. LOAD MODELS
-    # --------------------------------------------------------
-
-    # Nano model keeps CPU and memory usage lower on Render.
-    yolo_model = YOLO("yolov8n.pt")
-
-    face_cascade = cv2.CascadeClassifier(
-        "haarcascade_frontalface_default.xml"
-    )
-
-    eye_cascade = cv2.CascadeClassifier(
-        "haarcascade_eye.xml"
-    )
-
-    # --------------------------------------------------------
-    # 5. OPEN VIDEO
-    # --------------------------------------------------------
-
-    cap = cv2.VideoCapture(file_path)
-
-    if not cap.isOpened():
+    except Exception as e:
 
         raise HTTPException(
-            status_code=400,
-            detail="Could not open video file"
-        )
-
-    frame_width = int(
-        cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    )
-
-    fps = (
-        cap.get(cv2.CAP_PROP_FPS)
-        or 30
-    )
-
-    # Prevent invalid FPS values.
-    if fps <= 0:
-        fps = 30
-
-    # --------------------------------------------------------
-    # 6. ZONE CALCULATION
-    # --------------------------------------------------------
-
-    def get_zone(center_x):
-
-        zone_index = min(
-            int(
-                center_x
-                / (frame_width / NUM_ZONES)
-            ),
-            NUM_ZONES - 1
-        )
-
-        return zone_to_shelf.get(
-            f"Zone {zone_index}",
-            f"Zone {zone_index}"
-        )
-
-    # --------------------------------------------------------
-    # 7. TRACKING STATE
-    # --------------------------------------------------------
-
-    person_state = {}
-    repeat_visits = {}
-
-    frame_num = 0
-
-    # Position points are stored in smaller batches
-    # instead of keeping the complete video in RAM.
-    all_positions = []
-
-    POSITION_BATCH_SIZE = 1000
-
-    # Attention and interaction records are also batched.
-    pending_attention_records = []
-    pending_interactions = []
-
-    DB_BATCH_SIZE = 50
-
-    # --------------------------------------------------------
-    # 8. PROCESS VIDEO
-    # --------------------------------------------------------
-
-    while True:
-
-        ret, frame = cap.read()
-
-        if not ret:
-            break
-
-        frame_num += 1
-
-        # ----------------------------------------------------
-        # IMPORTANT RENDER OPTIMIZATION
-        # ----------------------------------------------------
-        # Original:
-        # Every 2nd frame
-        #
-        # New:
-        # Every 4th frame
-        #
-        # This reduces YOLO workload significantly while
-        # preserving representative tracking information.
-        # ----------------------------------------------------
-
-        if frame_num % 4 != 0:
-            continue
-
-        # ----------------------------------------------------
-        # RESIZE VIDEO
-        # ----------------------------------------------------
-        # Original width: 960
-        # New width: 640
-        #
-        # This is a major CPU/memory reduction on Render.
-        # ----------------------------------------------------
-
-        target_width = 640
-
-        target_height = int(
-            target_width
-            * frame.shape[0]
-            / frame.shape[1]
-        )
-
-        frame_small = cv2.resize(
-            frame,
-            (
-                target_width,
-                target_height
+            status_code=500,
+            detail=(
+                f"Video upload failed: {str(e)}"
             )
         )
 
-        scale_x = (
-            frame.shape[1]
-            / frame_small.shape[1]
-        )
+    # ========================================================
+    # CREATE JOB ENTRY
+    # ========================================================
 
-        scale_y = (
-            frame.shape[0]
-            / frame_small.shape[0]
-        )
+    with VIDEO_JOBS_LOCK:
 
-        # ----------------------------------------------------
-        # YOLO + BYTE TRACK
-        # ----------------------------------------------------
+        VIDEO_JOBS[job_id] = {
 
-        results = yolo_model.track(
-            frame_small,
-            persist=True,
-            verbose=False,
-            classes=[0],
-            tracker="bytetrack.yaml"
-        )
+            "status":
+                "queued",
 
-        # ----------------------------------------------------
-        # ATTENTION DETECTION
-        # ----------------------------------------------------
-        # Face/eye detection is expensive.
-        # Run it only occasionally.
-        # ----------------------------------------------------
+            "result":
+                None,
 
-        run_attention_check = (
-            (frame_num // 4) % 20 == 0
-        )
+            "error":
+                None,
 
-        gray_full = (
-            cv2.cvtColor(
-                frame,
-                cv2.COLOR_BGR2GRAY
-            )
-            if run_attention_check
-            else None
-        )
-
-        # ----------------------------------------------------
-        # PERSON TRACKS
-        # ----------------------------------------------------
-
-        if results[0].boxes.id is not None:
-
-            for box, track_id in zip(
-                results[0].boxes.xyxy,
-                results[0].boxes.id
-            ):
-
-                x1s, y1s, x2s, y2s = [
-                    int(v)
-                    for v in box.tolist()
-                ]
-
-                x1 = int(
-                    x1s * scale_x
-                )
-
-                y1 = int(
-                    y1s * scale_y
-                )
-
-                x2 = int(
-                    x2s * scale_x
-                )
-
-                y2 = int(
-                    y2s * scale_y
-                )
-
-                center_x = (
-                    x1 + x2
-                ) / 2
-
-                center_y = (
-                    y1 + y2
-                ) / 2
-
-                track_id = int(track_id)
-
-                zone = get_zone(center_x)
-
-                # Default attention state
-                attention_status = "Attentive"
-
-                # ------------------------------------------------
-                # FACE + EYE DETECTION
-                # ------------------------------------------------
-
-                if (
-                    run_attention_check
-                    and gray_full is not None
-                ):
-
-                    person_region = gray_full[
-                        max(0, y1):y2,
-                        max(0, x1):x2
-                    ]
-
-                    if person_region.size > 0:
-
-                        attention_status = (
-                            "Looking Away"
-                        )
-
-                        faces = (
-                            face_cascade.detectMultiScale(
-                                person_region,
-                                scaleFactor=1.1,
-                                minNeighbors=4,
-                                minSize=(20, 20)
-                            )
-                        )
-
-                        for (
-                            fx,
-                            fy,
-                            fw,
-                            fh
-                        ) in faces:
-
-                            face_gray = (
-                                person_region[
-                                    fy:fy + fh,
-                                    fx:fx + fw
-                                ]
-                            )
-
-                            eyes = (
-                                eye_cascade.detectMultiScale(
-                                    face_gray,
-                                    scaleFactor=1.1,
-                                    minNeighbors=3
-                                )
-                            )
-
-                            if len(eyes) >= 1:
-                                attention_status = (
-                                    "Attentive"
-                                )
-
-                            break
-
-                # ------------------------------------------------
-                # STORE POSITION POINT
-                # ------------------------------------------------
-
-                all_positions.append(
-                    models.PositionPoint(
-                        person_track_id=track_id,
-                        x=int(center_x),
-                        y=int(center_y)
-                    )
-                )
-
-                # ------------------------------------------------
-                # BATCH POSITION DATABASE INSERTS
-                # ------------------------------------------------
-
-                if (
-                    len(all_positions)
-                    >= POSITION_BATCH_SIZE
-                ):
-
-                    db_batch = SessionLocal()
-
-                    db_batch.bulk_save_objects(
-                        all_positions
-                    )
-
-                    db_batch.commit()
-                    db_batch.close()
-
-                    all_positions.clear()
-
-                # ------------------------------------------------
-                # FIRST OBSERVATION OF PERSON
-                # ------------------------------------------------
-
-                if track_id not in person_state:
-
-                    person_state[track_id] = {
-                        "zone": zone,
-                        "attention": attention_status,
-                        "frame_start": frame_num
-                    }
-
-                    continue
-
-                # ------------------------------------------------
-                # EXISTING PERSON
-                # ------------------------------------------------
-
-                prev = person_state[track_id]
-
-                if (
-                    prev["zone"] != zone
-                    or
-                    prev["attention"]
-                    != attention_status
-                ):
-
-                    duration = (
-                        frame_num
-                        - prev["frame_start"]
-                    ) / fps
-
-                    # ------------------------------------------------
-                    # REMOVE VERY SHORT TRACKING NOISE
-                    # ------------------------------------------------
-
-                    if duration < 0.2:
-
-                        person_state[track_id] = {
-                            "zone": zone,
-                            "attention":
-                                attention_status,
-                            "frame_start":
-                                frame_num
-                        }
-
-                        continue
-
-                    # ------------------------------------------------
-                    # ATTENTION RECORD
-                    # ------------------------------------------------
-
-                    record = models.AttentionRecord(
-                        person_track_id=track_id,
-                        zone=prev["zone"],
-                        attention_status=
-                            prev["attention"],
-                        duration_seconds=
-                            int(duration)
-                    )
-
-                    pending_attention_records.append(
-                        record
-                    )
-
-                    # ------------------------------------------------
-                    # REPEAT VISITS
-                    # ------------------------------------------------
-
-                    key = (
-                        track_id,
-                        prev["zone"]
-                    )
-
-                    repeat_visits[key] = (
-                        repeat_visits.get(
-                            key,
-                            0
-                        ) + 1
-                    )
-
-                    prior_visits = (
-                        repeat_visits[key]
-                    )
-
-                    zones_visited = set(
-                        z
-                        for (
-                            pid,
-                            z
-                        ) in repeat_visits.keys()
-                        if pid == track_id
-                    )
-
-                    # ------------------------------------------------
-                    # INTERACTION CLASSIFICATION
-                    # ------------------------------------------------
-
-                    interaction_type = None
-
-                    if (
-                        prev["attention"]
-                        == "Attentive"
-                    ):
-
-                        if duration >= 1.5:
-
-                            interaction_type = (
-                                "Product Purchased "
-                                "(simulated - very long engagement)"
-                            )
-
-                        elif duration >= 0.7:
-
-                            interaction_type = (
-                                "Product Picked Up "
-                                "(simulated)"
-                            )
-
-                        elif duration >= 0.2:
-
-                            interaction_type = (
-                                "Product Viewed"
-                            )
-
-                        # Multiple shelf revisits
-                        if (
-                            len(zones_visited) >= 2
-                            and prior_visits >= 2
-                        ):
-
-                            interaction_type = (
-                                "Product Compared "
-                                "(simulated - multiple shelf revisits)"
-                            )
-
-                    elif (
-                        prev["attention"]
-                        == "Looking Away"
-                        and prior_visits >= 2
-                        and duration < 1
-                    ):
-
-                        interaction_type = (
-                            "Product Returned "
-                            "(simulated - quick disengagement)"
-                        )
-
-                    # ------------------------------------------------
-                    # STORE INTERACTION
-                    # ------------------------------------------------
-
-                    if interaction_type:
-
-                        interaction = (
-                            models.ProductInteraction(
-                                person_track_id=
-                                    track_id,
-                                shelf_zone=
-                                    prev["zone"],
-                                interaction_type=
-                                    interaction_type,
-                                duration_seconds=
-                                    int(duration)
-                            )
-                        )
-
-                        pending_interactions.append(
-                            interaction
-                        )
-
-                    # ------------------------------------------------
-                    # BATCH ATTENTION + INTERACTION INSERTS
-                    # ------------------------------------------------
-
-                    if (
-                        len(pending_attention_records)
-                        >= DB_BATCH_SIZE
-                    ):
-
-                        db_batch = SessionLocal()
-
-                        db_batch.bulk_save_objects(
-                            pending_attention_records
-                        )
-
-                        db_batch.commit()
-                        db_batch.close()
-
-                        pending_attention_records.clear()
-
-                    if (
-                        len(pending_interactions)
-                        >= DB_BATCH_SIZE
-                    ):
-
-                        db_batch = SessionLocal()
-
-                        db_batch.bulk_save_objects(
-                            pending_interactions
-                        )
-
-                        db_batch.commit()
-                        db_batch.close()
-
-                        pending_interactions.clear()
-
-                    # ------------------------------------------------
-                    # UPDATE PERSON STATE
-                    # ------------------------------------------------
-
-                    person_state[track_id] = {
-                        "zone": zone,
-                        "attention":
-                            attention_status,
-                        "frame_start":
-                            frame_num
-                    }
-
-    # ============================================================
-    # 9. CLOSE VIDEO
-    # ============================================================
-
-    cap.release()
-
-    # ============================================================
-    # 10. SAVE REMAINING POSITION POINTS
-    # ============================================================
-
-    if all_positions:
-
-        db_batch = SessionLocal()
-
-        db_batch.bulk_save_objects(
-            all_positions
-        )
-
-        db_batch.commit()
-        db_batch.close()
-
-        all_positions.clear()
-
-    # ============================================================
-    # 11. SAVE REMAINING ATTENTION RECORDS
-    # ============================================================
-
-    if pending_attention_records:
-
-        db_batch = SessionLocal()
-
-        db_batch.bulk_save_objects(
-            pending_attention_records
-        )
-
-        db_batch.commit()
-        db_batch.close()
-
-        pending_attention_records.clear()
-
-    # ============================================================
-    # 12. SAVE REMAINING INTERACTIONS
-    # ============================================================
-
-    if pending_interactions:
-
-        db_batch = SessionLocal()
-
-        db_batch.bulk_save_objects(
-            pending_interactions
-        )
-
-        db_batch.commit()
-        db_batch.close()
-
-        pending_interactions.clear()
-
-    # ============================================================
-    # 13. CALCULATE SHELF SCORES
-    # ============================================================
-
-    scores = (
-        scoring_engine.calculate_shelf_scores()
-    )
-
-    # ============================================================
-    # 14. GENERATE RECOMMENDATIONS
-    # ============================================================
-
-    recs = (
-        recommendation_engine
-        .generate_recommendations()
-    )
-
-    # ============================================================
-    # 15. LOAD ANALYSIS RECORDS
-    # ============================================================
-
-    db4 = SessionLocal()
-
-    attention_records = (
-        db4.query(
-            models.AttentionRecord
-        ).all()
-    )
-
-    interactions = (
-        db4.query(
-            models.ProductInteraction
-        ).all()
-    )
-
-    db4.close()
-
-    # ============================================================
-    # 16. INTERACTION SUMMARY
-    # ============================================================
-
-    interaction_counts = {}
-
-    for i in interactions:
-
-        interaction_counts[
-            i.interaction_type
-        ] = (
-            interaction_counts.get(
-                i.interaction_type,
-                0
-            ) + 1
-        )
-
-    # ============================================================
-    # 17. ATTENTION SUMMARY
-    # ============================================================
-
-    total_attention_time = sum(
-        r.duration_seconds
-        for r in attention_records
-    )
-
-    attentive_count = sum(
-        1
-        for r in attention_records
-        if r.attention_status
-        == "Attentive"
-    )
-
-    # ============================================================
-    # 18. GENERATE HEATMAPS FIRST
-    # ============================================================
-    # Heatmaps are generated BEFORE reports so the report
-    # generation can use the latest analysis data.
-    # ============================================================
-
-    generate_heatmap.generate_store_heatmap()
-
-    generate_heatmap.generate_traffic_heatmap()
-
-    generate_heatmap.generate_shelf_heatmaps()
-
-    generate_heatmap.generate_product_attention_heatmap()
-
-    # ============================================================
-    # 19. GENERATE REPORTS
-    # ============================================================
-
-    pdf_path = (
-        reports_engine.generate_pdf_report()
-    )
-
-    excel_path = (
-        reports_engine.generate_excel_report()
-    )
-
-    # ============================================================
-    # 20. CONSUMER BEHAVIOR INTELLIGENCE
-    # ============================================================
-
-    db5 = SessionLocal()
-
-    all_ids = db5.query(
-        models.AttentionRecord.person_track_id
-    ).distinct().all()
-
-    person_ids = [
-        row[0]
-        for row in all_ids
-    ]
-
-    shopper_details = []
-
-    for pid in person_ids:
-
-        result = (
-            behavior_analysis.classify_shopper(
-                pid,
-                db5
-            )
-        )
-
-        if isinstance(result, dict):
-
-            journey = (
-                db5.query(
-                    models.JourneyLog
-                )
-                .filter(
-                    models.JourneyLog.person_track_id
-                    == pid
-                )
-                .order_by(
-                    models.JourneyLog.sequence_number
-                )
-                .all()
-            )
-
-            result["journey_path"] = [
-                j.zone
-                for j in journey
-            ]
-
-            shopper_details.append(
-                result
-            )
-
-    db5.close()
-
-    # ============================================================
-    # 21. MOVEMENT BEHAVIOR
-    # ============================================================
-
-    movement_by_segment = {}
-
-    for s in shopper_details:
-
-        seg = s["segment"]
-
-        movement_by_segment.setdefault(
-            seg,
-            []
-        ).append(
-            len(s["zones_visited"])
-        )
-
-    movement_analysis = {
-        seg:
-            round(
-                sum(vals) / len(vals)
-            )
-        for seg, vals
-        in movement_by_segment.items()
-        if vals
-    }
-
-    # ============================================================
-    # 22. PRODUCT PREFERENCE
-    # ============================================================
-
-    preference_by_segment = {}
-
-    for s in shopper_details:
-
-        seg = s["segment"]
-
-        for zone in s["zones_visited"]:
-
-            preference_by_segment.setdefault(
-                seg,
-                {}
-            )
-
-            preference_by_segment[
-                seg
-            ][zone] = (
-                preference_by_segment[
-                    seg
-                ].get(
-                    zone,
-                    0
-                ) + 1
-            )
-
-    top_preference_by_segment = {
-        seg:
-            max(
-                shelves,
-                key=shelves.get
-            )
-        for seg, shelves
-        in preference_by_segment.items()
-        if shelves
-    }
-
-    # ============================================================
-    # 23. COMMON TRANSITIONS
-    # ============================================================
-
-    transition_counts = {}
-
-    for s in shopper_details:
-
-        path = s["journey_path"]
-
-        for i in range(
-            len(path) - 1
-        ):
-
-            # Skip self loops
-            if (
-                path[i]
-                == path[i + 1]
-            ):
-                continue
-
-            transition = (
-                path[i],
-                path[i + 1]
-            )
-
-            transition_counts[
-                transition
-            ] = (
-                transition_counts.get(
-                    transition,
-                    0
-                ) + 1
-            )
-
-    sorted_transitions = sorted(
-        transition_counts.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
-
-    most_frequent_routes = [
-        {
-            "from": t[0][0],
-            "to": t[0][1],
-            "count": t[1]
+            "filename":
+                safe_filename
         }
-        for t in sorted_transitions[:3]
-    ]
 
-    least_frequent_routes = (
-        [
-            {
-                "from": t[0][0],
-                "to": t[0][1],
-                "count": t[1]
-            }
-            for t in sorted_transitions[-3:]
-        ]
-        if len(sorted_transitions) > 6
-        else []
+    # ========================================================
+    # BACKGROUND WRAPPER
+    # ========================================================
+
+    def run_job():
+
+        try:
+
+            # Mark job as processing
+            with VIDEO_JOBS_LOCK:
+
+                VIDEO_JOBS[
+                    job_id
+                ]["status"] = "processing"
+
+            print(
+                f"[VIDEO JOB {job_id}] "
+                f"Background processing started.",
+                flush=True
+            )
+
+            # Run complete existing analysis pipeline
+            result = process_video_job(
+                job_id=job_id,
+                file_path=file_path,
+                original_filename=safe_filename,
+                clear_previous_data=clear_previous_data
+            )
+
+            # Store successful result
+            with VIDEO_JOBS_LOCK:
+
+                VIDEO_JOBS[
+                    job_id
+                ]["status"] = "completed"
+
+                VIDEO_JOBS[
+                    job_id
+                ]["result"] = result
+
+            print(
+                f"[VIDEO JOB {job_id}] "
+                f"Job marked completed.",
+                flush=True
+            )
+
+        except Exception as e:
+
+            # Store error
+            with VIDEO_JOBS_LOCK:
+
+                VIDEO_JOBS[
+                    job_id
+                ]["status"] = "failed"
+
+                VIDEO_JOBS[
+                    job_id
+                ]["error"] = str(e)
+
+            print(
+                f"[VIDEO JOB {job_id}] "
+                f"Job marked failed: {str(e)}",
+                flush=True
+            )
+
+    # ========================================================
+    # ADD TO FASTAPI BACKGROUND TASKS
+    # ========================================================
+
+    background_tasks.add_task(
+        run_job
     )
 
-    # ============================================================
-    # 24. SHOPPING PATTERN
-    # ============================================================
+    # ========================================================
+    # RETURN IMMEDIATELY
+    # ========================================================
 
-    pattern_by_segment = {}
-
-    for s in shopper_details:
-
-        seg = s["segment"]
-
-        pattern_by_segment.setdefault(
-            seg,
-            []
-        ).append(
-            s["total_time_seconds"]
-        )
-
-    shopping_pattern = {
-        seg:
-            round(
-                sum(vals) / len(vals),
-                1
-            )
-        for seg, vals
-        in pattern_by_segment.items()
-        if vals
-    }
-
-    # ============================================================
-    # 25. FINAL RESPONSE
-    # ============================================================
+    print(
+        f"[VIDEO JOB {job_id}] "
+        f"Upload received. Job queued.",
+        flush=True
+    )
 
     return {
 
+        "job_id":
+            job_id,
+
+        "status":
+            "queued",
+
         "filename":
-            file.filename,
+            safe_filename,
 
-        "frames_processed":
-            frame_num,
-
-        "unique_people_tracked":
-            len(person_state),
-
-        "shelf_scores":
-            scores,
-
-        "recommendations":
-            recs,
-
-        "interaction_summary":
-            interaction_counts,
-
-        "total_attention_time_seconds":
-            total_attention_time,
-
-        "total_attentive_events":
-            attentive_count,
-
-        "movement_analysis":
-            movement_analysis,
-
-        "top_preference_by_segment":
-            top_preference_by_segment,
-
-        "most_frequent_routes":
-            most_frequent_routes,
-
-        "least_frequent_routes":
-            least_frequent_routes,
-
-        "total_unique_routes":
-            len(transition_counts),
-
-        "shopping_pattern":
-            shopping_pattern,
-
-        "pdf_report_url":
-            "/reports/pdf",
-
-        "excel_report_url":
-            "/reports/excel"
+        "message":
+            "Video uploaded successfully. "
+            "Analysis is running in the background."
     }
+
+
+# ============================================================
+# VIDEO ANALYSIS STATUS
+# ============================================================
+
+@app.get(
+    "/analyze-video-full/status/{job_id}"
+)
+def video_analysis_status(
+    job_id: str
+):
+
+    # ========================================================
+    # FIND JOB
+    # ========================================================
+
+    with VIDEO_JOBS_LOCK:
+
+        job = VIDEO_JOBS.get(
+            job_id
+        )
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Video analysis job not found"
+        )
+
+    # ========================================================
+    # BASIC RESPONSE
+    # ========================================================
+
+    response = {
+
+        "job_id":
+            job_id,
+
+        "status":
+            job["status"],
+
+        "filename":
+            job.get("filename")
+    }
+
+    # ========================================================
+    # COMPLETED
+    # ========================================================
+
+    if (
+        job["status"]
+        == "completed"
+    ):
+
+        response["result"] = (
+            job["result"]
+        )
+
+    # ========================================================
+    # FAILED
+    # ========================================================
+
+    if (
+        job["status"]
+        == "failed"
+    ):
+
+        response["error"] = (
+            job["error"]
+        )
+
+    return response
 
 
 # ============================================================
@@ -2081,6 +2799,7 @@ def get_store_traffic_summary(
     )
 
     attentive_rate = (
+
         round(
             (
                 attentive
@@ -2089,7 +2808,9 @@ def get_store_traffic_summary(
             ),
             1
         )
+
         if total_attention_records > 0
+
         else 0
     )
 
@@ -2123,12 +2844,21 @@ def get_all_users(
     ).all()
 
     return [
+
         {
-            "id": u.id,
-            "name": u.name,
-            "email": u.email,
-            "role": u.role
+            "id":
+                u.id,
+
+            "name":
+                u.name,
+
+            "email":
+                u.email,
+
+            "role":
+                u.role
         }
+
         for u in users
     ]
 
@@ -2146,6 +2876,7 @@ def delete_user(
     ).first()
 
     if not user:
+
         raise HTTPException(
             status_code=404,
             detail="User not found"
@@ -2170,36 +2901,48 @@ def get_executive_summary(
 ):
 
     total_stores = (
-        db.query(models.Store).count()
+        db.query(
+            models.Store
+        ).count()
     )
 
     total_shelves = (
-        db.query(models.Shelf).count()
+        db.query(
+            models.Shelf
+        ).count()
     )
 
     total_cameras = (
-        db.query(models.Camera).count()
+        db.query(
+            models.Camera
+        ).count()
     )
 
     scores = (
-        scoring_engine.calculate_shelf_scores()
+        scoring_engine
+        .calculate_shelf_scores()
     )
 
     if scores:
 
         avg_score = round(
+
             sum(
                 d["attractiveness_score"]
                 for d in scores.values()
             )
             / len(scores),
+
             1
         )
 
         sorted_shelves = sorted(
+
             scores.items(),
+
             key=lambda x:
                 x[1]["attractiveness_score"],
+
             reverse=True
         )
 
@@ -2218,26 +2961,45 @@ def get_executive_summary(
         )
 
         top_shelves = [
+
             {
-                "shelf": s[0],
+                "shelf":
+                    s[0],
+
                 "score":
-                    s[1]["attractiveness_score"]
+                    s[1][
+                        "attractiveness_score"
+                    ]
             }
+
             for s
-            in sorted_shelves[:top_count]
+            in sorted_shelves[
+                :top_count
+            ]
         ]
 
         bottom_shelves = (
+
             [
+
                 {
-                    "shelf": s[0],
+                    "shelf":
+                        s[0],
+
                     "score":
-                        s[1]["attractiveness_score"]
+                        s[1][
+                            "attractiveness_score"
+                        ]
                 }
+
                 for s
-                in sorted_shelves[-bottom_count:]
+                in sorted_shelves[
+                    -bottom_count:
+                ]
             ]
+
             if bottom_count > 0
+
             else []
         )
 
@@ -2262,18 +3024,27 @@ def get_executive_summary(
     ).all()
 
     critical_alerts = sum(
+
         1
+
         for a in alerts
+
         if a.severity
-        in ["High", "Critical"]
+        in [
+            "High",
+            "Critical"
+        ]
     )
 
     total_purchases = sum(
+
         1
+
         for i
         in db.query(
             models.ProductInteraction
         ).all()
+
         if "Purchased"
         in i.interaction_type
     )
