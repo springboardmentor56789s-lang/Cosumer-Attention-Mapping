@@ -25,10 +25,11 @@ function VideoAnalysis() {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
-        try {
+    try {
       const response = await api.post('/analyze-video-full?clear_previous_data=true', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       let behaviorData = [];
       try {
         const behaviorRes = await api.get('/behavior-analysis-all');
@@ -36,6 +37,7 @@ function VideoAnalysis() {
       } catch (bErr) {
         console.error('Behavior analysis fetch failed:', bErr);
       }
+
       setResults({ ...response.data, shoppers: behaviorData });
     } catch (err) {
       console.error(err);
@@ -100,6 +102,7 @@ function VideoAnalysis() {
                 <span className="overview-label">Attentive Events</span>
               </div>
             </div>
+
             <div className="download-row">
               <button onClick={() => downloadFile(results.pdf_report_url, 'video_analysis_report.pdf')}>
                 Download PDF Report
@@ -145,7 +148,7 @@ function VideoAnalysis() {
               </ResponsiveContainer>
             </div>
 
-           <h3>2. Product Engagement Summary</h3>
+            <h3>2. Product Engagement Summary</h3>
             <div className="engagement-pie-card">
               <ResponsiveContainer width="100%" height={380}>
                 <PieChart>
@@ -170,14 +173,17 @@ function VideoAnalysis() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-                        <h3>3. Consumer Attention Summary</h3>
+
+            <h3>3. Consumer Attention Summary</h3>
             <div className="summary-box">
               <p>Total recorded attention time: <strong>{results.total_attention_time_seconds} seconds</strong></p>
               <p>Total attentive events: <strong>{results.total_attentive_events}</strong></p>
             </div>
 
             <h3>Shopper Segment Breakdown</h3>
-            <p className="data-source-note">📊 Based on {results.shoppers ? results.shoppers.length : 0} shoppers tracked from this video.</p>
+            <p className="data-source-note">
+              📊 Based on {results.shoppers ? results.shoppers.length : 0} shoppers tracked from this video.
+            </p>
             <div className="segment-summary-row">
               {['Explorer', 'Quick Buyer', 'Comparison Shopper', 'Impulse Buyer', 'Brand Loyal Customer'].map((seg) => {
                 const count = results.shoppers ? results.shoppers.filter(s => s.segment === seg).length : 0;
@@ -192,6 +198,7 @@ function VideoAnalysis() {
 
             <h3>Consumer Behavior Intelligence</h3>
             <div className="behavior-intel-grid">
+
               <div className="intel-card">
                 <span className="intel-icon">🚶</span>
                 <h4>Movement Behavior</h4>
@@ -217,10 +224,14 @@ function VideoAnalysis() {
               <div className="intel-card">
                 <span className="intel-icon">🗺️</span>
                 <h4>Store Route Patterns</h4>
-                <p className="intel-subtitle">{results.total_unique_routes || 0} unique shelf-to-shelf routes observed</p>
+                <p className="intel-subtitle">
+                  {results.total_unique_routes || 0} unique shelf-to-shelf routes observed
+                </p>
 
                 {(!results.most_frequent_routes || results.most_frequent_routes.length === 0) ? (
-                  <p className="intel-empty">Not enough shelf-to-shelf movement yet — try a longer video with more zone changes.</p>
+                  <p className="intel-empty">
+                    Not enough shelf-to-shelf movement yet — try a longer video with more zone changes.
+                  </p>
                 ) : (
                   <>
                     <span className="route-section-label">Most Frequent</span>
@@ -228,9 +239,13 @@ function VideoAnalysis() {
                       <div key={`most-${i}`} className="route-row">
                         <span className="route-rank">#{i + 1}</span>
                         <div className="route-path">
-                          <span className="journey-chip">{r.from.length > 14 ? r.from.substring(0, 14) + '…' : r.from}</span>
+                          <span className="journey-chip">
+                            {r.from.length > 14 ? r.from.substring(0, 14) + '…' : r.from}
+                          </span>
                           <span className="journey-arrow-mini">→</span>
-                          <span className="journey-chip">{r.to.length > 14 ? r.to.substring(0, 14) + '…' : r.to}</span>
+                          <span className="journey-chip">
+                            {r.to.length > 14 ? r.to.substring(0, 14) + '…' : r.to}
+                          </span>
                         </div>
                         <span className="route-count">{r.count}×</span>
                       </div>
@@ -242,9 +257,13 @@ function VideoAnalysis() {
                         {results.least_frequent_routes.map((r, i) => (
                           <div key={`least-${i}`} className="route-row">
                             <div className="route-path">
-                              <span className="journey-chip chip-faded">{r.from.length > 14 ? r.from.substring(0, 14) + '…' : r.from}</span>
+                              <span className="journey-chip chip-faded">
+                                {r.from.length > 14 ? r.from.substring(0, 14) + '…' : r.from}
+                              </span>
                               <span className="journey-arrow-mini">→</span>
-                              <span className="journey-chip chip-faded">{r.to.length > 14 ? r.to.substring(0, 14) + '…' : r.to}</span>
+                              <span className="journey-chip chip-faded">
+                                {r.to.length > 14 ? r.to.substring(0, 14) + '…' : r.to}
+                              </span>
                             </div>
                             <span className="route-count route-count-low">{r.count}×</span>
                           </div>
@@ -265,7 +284,9 @@ function VideoAnalysis() {
                   </div>
                 ))}
               </div>
+
             </div>
+
             <h3>4. Conversion Report</h3>
             <div className="conversion-chart-card">
               <ResponsiveContainer width="100%" height={Object.keys(results.shelf_scores).length * 70}>
@@ -294,6 +315,7 @@ function VideoAnalysis() {
                   <Bar dataKey="Purchased" fill="#1f9d55" radius={[0, 4, 4, 0]} barSize={16} />
                 </BarChart>
               </ResponsiveContainer>
+
               <p className="conversion-insight">
                 💡 The gap between the two bars shows how many interactions did <strong>not</strong> convert to a purchase — a large gap signals a conversion opportunity.
               </p>
@@ -301,11 +323,21 @@ function VideoAnalysis() {
 
             <h3>5. Marketing Effectiveness Report</h3>
             <table className="report-table-full">
-              <thead><tr><th>Shelf</th><th>Compared</th><th>Purchased</th><th>Marketing Effectiveness</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Shelf</th>
+                  <th>Compared</th>
+                  <th>Purchased</th>
+                  <th>Marketing Effectiveness</th>
+                </tr>
+              </thead>
               <tbody>
                 {Object.entries(results.shelf_scores).map(([shelf, d]) => (
                   <tr key={shelf}>
-                    <td>{shelf}</td><td>{d.compared_count}</td><td>{d.purchased_count}</td><td>{d.marketing_effectiveness_score}%</td>
+                    <td>{shelf}</td>
+                    <td>{d.compared_count}</td>
+                    <td>{d.purchased_count}</td>
+                    <td>{d.marketing_effectiveness_score}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -313,11 +345,24 @@ function VideoAnalysis() {
 
             <h3>Attention Heatmaps</h3>
             <div className="video-heatmaps-grid">
-              <img src={`http://127.0.0.1:8000/heatmaps/heatmap_1_store.png?t=${Date.now()}`} alt="Store heatmap" />
-              <img src={`http://127.0.0.1:8000/heatmaps/heatmap_2_shelves.png?t=${Date.now()}`} alt="Shelf heatmap" />
-              <img src={`http://127.0.0.1:8000/heatmaps/heatmap_3_product_attention.png?t=${Date.now()}`} alt="Product attention heatmap" />
-              <img src={`http://127.0.0.1:8000/heatmaps/heatmap_4_traffic.png?t=${Date.now()}`} alt="Traffic heatmap" />
+              <img
+                src={`${api.defaults.baseURL}/heatmaps/heatmap_1_store.png?t=${Date.now()}`}
+                alt="Store heatmap"
+              />
+              <img
+                src={`${api.defaults.baseURL}/heatmaps/heatmap_2_shelves.png?t=${Date.now()}`}
+                alt="Shelf heatmap"
+              />
+              <img
+                src={`${api.defaults.baseURL}/heatmaps/heatmap_3_product_attention.png?t=${Date.now()}`}
+                alt="Product attention heatmap"
+              />
+              <img
+                src={`${api.defaults.baseURL}/heatmaps/heatmap_4_traffic.png?t=${Date.now()}`}
+                alt="Traffic heatmap"
+              />
             </div>
+
             <h3>Recommendations</h3>
             <div className="rec-visual-grid">
               {results.recommendations.map((rec, i) => (
@@ -328,6 +373,7 @@ function VideoAnalysis() {
                       {rec.attractiveness_score}
                     </span>
                   </div>
+
                   <div className="rec-visual-list">
                     {rec.recommendations.map((r, j) => {
                       const icons = {
@@ -337,6 +383,7 @@ function VideoAnalysis() {
                         'Consumer Engagement': '🤝',
                         'Layout Improvement': '🏬'
                       };
+
                       return (
                         <div key={j} className="rec-visual-item">
                           <span className="rec-visual-icon">{icons[r.type] || '•'}</span>
@@ -351,6 +398,7 @@ function VideoAnalysis() {
                 </div>
               ))}
             </div>
+
           </div>
         )}
       </main>

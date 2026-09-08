@@ -74,7 +74,7 @@ function Heatmaps() {
             <div key={h.file} className="heatmap-explained-card" style={{ borderTopColor: h.color }}>
               <div className="heatmap-explained-image">
                 <img
-                  src={`http://127.0.0.1:8000/heatmaps/${h.file}?t=${refreshKey}`}
+                  src={`${api.defaults.baseURL}/heatmaps/${h.file}?t=${refreshKey}`}
                   alt={h.title}
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
