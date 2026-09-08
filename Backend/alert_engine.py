@@ -3,7 +3,7 @@ import models
 from scoring_engine import calculate_shelf_scores
 import cv2
 from database import engine, Base
-Base.metadata.create_all(bind=engine)
+
 
 def check_shelf_performance_alerts(db):
     """1. Shelf performance alerts - flag shelves with very low scores"""
