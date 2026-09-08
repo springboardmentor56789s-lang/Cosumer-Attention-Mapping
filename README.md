@@ -17,13 +17,7 @@
 - [Key Features](#key-features)
 - [Architecture](#architecture)
 - [5 Role-Based Dashboards](#5-role-based-dashboards)
-- [Shopper DNA Behavioral Segments](#shopper-dna-behavioral-segments)
-- [Product Attractiveness Scoring](#product-attractiveness-scoring)
 - [Technology Stack](#technology-stack)
-- [Quickstart and Setup](#quickstart-and-setup)
-- [Demo Credentials and Role Detection](#demo-credentials-and-role-detection)
-- [Export and Reporting](#export-and-reporting)
-- [Docker Deployment](#docker-deployment)
 - [Contributing](#contributing)
 - [Authors](#authors)
 
@@ -124,29 +118,6 @@ The system uses **Email Keyword Role Detection** to automatically navigate users
 
 ---
 
-## Shopper DNA Behavioral Segments
-
-Shoppers are classified in real time based on tracking velocity, dwell duration, and interaction frequency:
-
-| # | Segment | Share | Behavior Pattern |
-|---|---|---|---|
-| 1 | **Explorer** | 26% | Broad navigation across multiple aisles; high visual curiosity; discovers new products |
-| 2 | **Quick Buyer** | 31% | High-velocity direct transit to target shelf; immediate pickup; highest revenue efficiency |
-| 3 | **Comparison Shopper** | 21% | Extended dwell; inspects labels and prices; multiple pickup-return events before deciding |
-| 4 | **Impulse Buyer** | 14% | Strong fixation on Eye-Level Golden Zone displays and endcaps; high bundle conversion |
-| 5 | **Brand Loyal** | 8% | Habitual navigation to known product positions; minimal deliberation; highest retention |
-
----
-
-## Product Attractiveness Scoring
-
-A weighted multi-metric model compliant with standard retail merchandising evaluation standards:
-
-`
-Attractiveness Score = 35%(Attention) + 25%(Interaction) + 20%(Pickup) + 15%(Conversion) + 5%(Repeat)
-`
-
----
 
 ## Technology Stack
 
@@ -163,96 +134,6 @@ Attractiveness Score = 35%(Attention) + 25%(Interaction) + 20%(Pickup) + 15%(Con
 
 ---
 
-## Quickstart and Setup
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/springboardmentor56789s-lang/Cosumer-Attention-Mapping.git
-cd Cosumer-Attention-Mapping
-```
-
-### 2. Database Setup (PostgreSQL)
-
-Ensure PostgreSQL is running locally on port 5432 with a database named attention_mapping:
-
-```bash
-# Using Docker (recommended):
-cd infra
-docker compose up -d postgres
-```
-
-Connection string: `postgresql://postgres:infy_springboard@localhost:5432/attention_mapping`
-
-### 3. Backend Setup (FastAPI)
-
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # macOS/Linux
-
-pip install -r requirements.txt
-
-# Run database migrations and seed demo data
-python -m app.create_tables
-python -m app.seed_milestone4
-
-# Start the FastAPI server
-uvicorn app.main:app --reload --port 8000
-```
-
-API docs available at: http://localhost:8000/docs
-
-### 4. Frontend Setup (Next.js)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:3000 in your browser.
-
----
-
-## Demo Credentials and Role Detection
-
-Register or log in at http://localhost:3000/login. The system auto-detects your role from your email:
-
-| Email Keyword | Example Email | Auto-Assigned Role | Dashboard Route |
-|---|---|---|---|
-| admin | kushalini.admin@corp.com | Administrator | /dashboard/admin |
-| exec / ceo / coo | kushalini.exec@corp.com | Executive C-Suite | /dashboard/executive |
-| store / manager | kushalini.manager@corp.com | Store Manager | /dashboard/store-manager |
-| analyst | kushalini.analyst@corp.com | Retail Analyst | /dashboard/retail-analyst |
-| marketing / mktg | kushalini.marketing@corp.com | Marketing Manager | /dashboard/marketing-manager |
-
----
-
-## Export and Reporting
-
-- **CSV Data Export** - Store analytics, 5-stage funnel conversion, shopper personas, campaign ROI, and executive summaries
-- **Executive PDF Dossier** - Pre-formatted for board presentations; available on all reporting modules via the Export as PDF / Print Report button
-
----
-
-## Docker Deployment
-
-Launch the complete unified stack with Docker Compose:
-
-```bash
-cd infra
-docker compose up --build
-```
-
-This deploys:
-- **PostgreSQL** on port 5432
-- **FastAPI backend** on port 8000
-- **Next.js frontend** on port 3000
-
----
-
 ## Contributing
 
 Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for branch naming conventions, commit message format, and the pull request process.
@@ -261,4 +142,4 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for branch naming conventions, 
 
 ## Authors
 
-**Kushalini and Sreeja** - Infosys Springboard AI Retail Analytics Project
+**Kushalini Sreeja** - Infosys Springboard AI Retail Analytics Project
