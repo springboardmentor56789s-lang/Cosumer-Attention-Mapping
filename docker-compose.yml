@@ -1,0 +1,40 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: consumer-postgres
+    environment:
+      POSTGRES_DB: Consumer_Attention_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./Backend
+    container_name: consumer-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:admin123@postgres:5432/Consumer_Attention_db
+    volumes:
+      - ./Backend/uploaded_images:/app/uploaded_images
+      - ./Backend/uploaded_videos:/app/uploaded_videos
+      - ./Backend/generated_reports:/app/generated_reports
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: consumer-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

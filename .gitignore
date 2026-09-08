@@ -36,3 +36,5 @@ Backend/heatmap_4_traffic.png
 
 # Unrelated Salesforce CLI metadata cache (not part of this project)
 .sf/
+# Local database backup
+old_consumer_attention.backup
