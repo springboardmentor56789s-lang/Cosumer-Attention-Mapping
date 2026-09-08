@@ -13,22 +13,41 @@ import MarketingVisibility from '../components/dashboard/MarketingVisibility';
 import SystemStatus from '../components/dashboard/SystemStatus';
 import DashboardFilters from '../components/dashboard/DashboardFilters';
 
+import {
+  generateStoreManagerReport,
+  generateRetailAnalystReport,
+  generateMarketingManagerReport,
+  generateAdminReport,
+} from '../utils/executiveReportGenerator';
+
+import {
+  exportStoreManagerCsv,
+  exportRetailAnalystCsv,
+  exportMarketingManagerCsv,
+  exportAdminCsv,
+} from '../utils/csvExporter';
+
 function ExecutiveDashboard() {
   const token = localStorage.getItem('token');
   const userPayload = token ? parseJwt(token) : null;
   const userRole = userPayload?.role || 'Store Manager';
 
-  // Available Role Tabs
-  const roleTabs = [
-    { id: 'store-manager', label: '🏪 Store Manager' },
-    { id: 'retail-analyst', label: '🔬 Retail Analyst' },
-    { id: 'marketing-manager', label: '📢 Marketing Manager' },
-    { id: 'admin', label: '⚙️ Administrator' }
+  // All possible role tabs
+  const allRoleTabs = [
+    { id: 'store-manager', label: '🏪 Store Manager', roles: ['Store Manager', 'Admin'] },
+    { id: 'retail-analyst', label: '🔬 Retail Analyst', roles: ['Retail Analyst', 'Admin'] },
+    { id: 'marketing-manager', label: '📢 Marketing Manager', roles: ['Marketing Manager', 'Admin'] },
+    { id: 'admin', label: '⚙️ Administrator', roles: ['Admin'] }
   ];
 
-  // Initial tab matches user's role if possible
+  // Filter tabs: Admin sees all, others see only their role's tab
+  const roleTabs = allRoleTabs.filter(tab =>
+    tab.roles.some(r => r.toLowerCase() === userRole.toLowerCase())
+  );
+
+  // Initial tab matches user's role
   const getInitialTab = () => {
-    if (userRole.toLowerCase().includes('admin')) return 'admin';
+    if (userRole.toLowerCase().includes('admin')) return 'store-manager';
     if (userRole.toLowerCase().includes('analyst')) return 'retail-analyst';
     if (userRole.toLowerCase().includes('market')) return 'marketing-manager';
     return 'store-manager';
@@ -181,10 +200,46 @@ function ExecutiveDashboard() {
     ];
   };
 
+  // ── Export Handlers ──
+  const handleDownloadPdf = () => {
+    const exportMap = {
+      'store-manager': () => generateStoreManagerReport(storeManagerData || {}),
+      'retail-analyst': () => generateRetailAnalystReport(retailAnalystData || {}),
+      'marketing-manager': () => generateMarketingManagerReport(marketingManagerData || {}),
+      'admin': () => generateAdminReport(adminData || {}),
+    };
+    const fn = exportMap[activeTab];
+    if (fn) fn();
+  };
+
+  const handleExportCsv = () => {
+    const exportMap = {
+      'store-manager': () => exportStoreManagerCsv(storeManagerData || {}),
+      'retail-analyst': () => exportRetailAnalystCsv(retailAnalystData || {}),
+      'marketing-manager': () => exportMarketingManagerCsv(marketingManagerData || {}),
+      'admin': () => exportAdminCsv(adminData || {}),
+    };
+    const fn = exportMap[activeTab];
+    if (fn) fn();
+  };
+
+  const exportBtnStyle = {
+    padding: '7px 14px',
+    borderRadius: '8px',
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    transition: 'all 0.2s ease',
+  };
+
   return (
     <div className="dashboard-content" style={{ color: '#f8fafc', paddingBottom: '40px' }}>
       {/* Header & Subtitle */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ fontSize: '1.45rem', margin: 0, color: '#f8fafc', fontWeight: '700' }}>
             👔 Executive Intelligence Hub
@@ -195,7 +250,41 @@ function ExecutiveDashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Current User Role:</span>
+          {/* PDF Download Button */}
+          <button
+            onClick={handleDownloadPdf}
+            disabled={loading}
+            style={{
+              ...exportBtnStyle,
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              opacity: loading ? 0.5 : 1,
+            }}
+            onMouseEnter={e => { e.target.style.background = 'rgba(239, 68, 68, 0.3)'; }}
+            onMouseLeave={e => { e.target.style.background = 'rgba(239, 68, 68, 0.15)'; }}
+          >
+            📄 PDF Report
+          </button>
+
+          {/* CSV Export Button */}
+          <button
+            onClick={handleExportCsv}
+            disabled={loading}
+            style={{
+              ...exportBtnStyle,
+              background: 'rgba(34, 197, 94, 0.15)',
+              color: '#4ade80',
+              border: '1px solid rgba(34, 197, 94, 0.3)',
+              opacity: loading ? 0.5 : 1,
+            }}
+            onMouseEnter={e => { e.target.style.background = 'rgba(34, 197, 94, 0.3)'; }}
+            onMouseLeave={e => { e.target.style.background = 'rgba(34, 197, 94, 0.15)'; }}
+          >
+            📊 CSV Export
+          </button>
+
+          {/* Role Badge */}
           <span style={{
             background: 'rgba(56, 189, 248, 0.15)',
             color: '#38bdf8',
