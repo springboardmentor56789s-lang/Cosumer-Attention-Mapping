@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
+import time
 
 from ..database import get_db
 from ..models import Store, Zone, Shelf, Camera
@@ -171,59 +172,162 @@ def delete_shelf(shelf_id: int, db: Session = Depends(get_db), user=Depends(get_
 # ---------- CAMERA CRUD ----------
 
 class CameraCreate(BaseModel):
-    store_id: int
-    zone_id: int
-    camera_code: str
+    store_id: Optional[int] = None
+    zone_id: Optional[int] = None
+    camera_code: Optional[str] = None
+    name: Optional[str] = None
+    store: Optional[str] = None
+    zone: Optional[str] = None
+    resolution: Optional[str] = "4K (3840x2160)"
+    fps: Optional[int] = 30
+    ip: Optional[str] = None
     ip_address: Optional[str] = None
-    status: Optional[str] = "active"
+    status: Optional[str] = "Online"
 
 class CameraUpdate(BaseModel):
     camera_code: Optional[str] = None
+    name: Optional[str] = None
+    store: Optional[str] = None
+    zone: Optional[str] = None
+    resolution: Optional[str] = None
+    fps: Optional[int] = None
+    ip: Optional[str] = None
     ip_address: Optional[str] = None
     status: Optional[str] = None
+    store_id: Optional[int] = None
     zone_id: Optional[int] = None
 
 @router.post("/cameras")
 def create_camera(payload: CameraCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    store = db.query(Store).filter(Store.id == payload.store_id).first()
-    if not store:
-        raise HTTPException(status_code=404, detail="Store not found")
+    store_id = payload.store_id
+    if not store_id and payload.store:
+        st = db.query(Store).filter(Store.name == payload.store).first()
+        if st:
+            store_id = st.id
+        else:
+            first_store = db.query(Store).first()
+            if first_store:
+                store_id = first_store.id
 
-    zone = db.query(Zone).filter(Zone.id == payload.zone_id).first()
-    if not zone:
-        raise HTTPException(status_code=404, detail="Zone not found")
+    zone_id = payload.zone_id
+    if not zone_id and payload.zone and store_id:
+        zn = db.query(Zone).filter(Zone.zone_name == payload.zone, Zone.store_id == store_id).first()
+        if zn:
+            zone_id = zn.id
 
-    existing = db.query(Camera).filter(Camera.camera_code == payload.camera_code).first()
+    cam_code = payload.camera_code
+    if not cam_code:
+        cam_count = db.query(Camera).count()
+        cam_code = f"CAM-{str(cam_count + 1).zfill(2)}"
+
+    existing = db.query(Camera).filter(Camera.camera_code == cam_code).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Camera code already exists")
+        cam_code = f"CAM-{str(int(time.time()))[-4:]}"
 
-    camera = Camera(**payload.dict())
+    cam_name = payload.name or cam_code
+    cam_ip = payload.ip or payload.ip_address or "192.168.1.101"
+    cam_zone = payload.zone or "Entrance"
+    cam_status = payload.status or "Online"
+    cam_res = payload.resolution or "4K (3840x2160)"
+    cam_fps = payload.fps if payload.fps is not None else 30
+
+    camera = Camera(
+        store_id=store_id,
+        zone_id=zone_id,
+        camera_code=cam_code,
+        name=cam_name,
+        zone_name=cam_zone,
+        resolution=cam_res,
+        fps=cam_fps,
+        ip_address=cam_ip,
+        status=cam_status
+    )
     db.add(camera)
     db.commit()
     db.refresh(camera)
-    return camera
+    return {
+        "id": camera.camera_code,
+        "db_id": camera.id,
+        "name": camera.name or camera.camera_code,
+        "store": camera.store_rel.name if camera.store_rel else (payload.store or "Downtown Flagship"),
+        "zone": camera.zone_name or "Entrance",
+        "resolution": camera.resolution or "4K (3840x2160)",
+        "fps": camera.fps or 30,
+        "ip": camera.ip_address or "192.168.1.101",
+        "status": camera.status or "Online"
+    }
 
 @router.get("/cameras")
 def list_cameras(store_id: Optional[int] = None, db: Session = Depends(get_db), user=Depends(get_current_user)):
     query = db.query(Camera)
     if store_id:
         query = query.filter(Camera.store_id == store_id)
-    return query.all()
+    cams = query.all()
+    results = []
+    for c in cams:
+        results.append({
+            "id": c.camera_code or f"CAM-{c.id}",
+            "db_id": c.id,
+            "name": c.name or c.camera_code or f"Camera {c.id}",
+            "store": c.store_rel.name if c.store_rel else "Downtown Flagship",
+            "zone": c.zone_name or "Entrance",
+            "resolution": c.resolution or "4K (3840x2160)",
+            "fps": c.fps or 30,
+            "ip": c.ip_address or "192.168.1.100",
+            "status": c.status or "Online"
+        })
+    return results
 
 @router.put("/cameras/{camera_id}")
-def update_camera(camera_id: int, payload: CameraUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    camera = db.query(Camera).filter(Camera.id == camera_id).first()
+def update_camera(camera_id: str, payload: CameraUpdate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    camera = None
+    if camera_id.isdigit():
+        camera = db.query(Camera).filter(Camera.id == int(camera_id)).first()
+    if not camera:
+        camera = db.query(Camera).filter(Camera.camera_code == camera_id).first()
     if not camera:
         raise HTTPException(status_code=404, detail="Camera not found")
-    for key, val in payload.dict(exclude_unset=True).items():
-        setattr(camera, key, val)
+
+    if payload.name is not None:
+        camera.name = payload.name
+    if payload.status is not None:
+        camera.status = payload.status
+    if payload.zone is not None:
+        camera.zone_name = payload.zone
+    if payload.resolution is not None:
+        camera.resolution = payload.resolution
+    if payload.fps is not None:
+        camera.fps = payload.fps
+    if payload.ip is not None:
+        camera.ip_address = payload.ip
+    elif payload.ip_address is not None:
+        camera.ip_address = payload.ip_address
+    if payload.store is not None:
+        st = db.query(Store).filter(Store.name == payload.store).first()
+        if st:
+            camera.store_id = st.id
+
     db.commit()
     db.refresh(camera)
-    return camera
+    return {
+        "id": camera.camera_code,
+        "db_id": camera.id,
+        "name": camera.name or camera.camera_code,
+        "store": camera.store_rel.name if camera.store_rel else (payload.store or "Downtown Flagship"),
+        "zone": camera.zone_name or "Entrance",
+        "resolution": camera.resolution or "4K (3840x2160)",
+        "fps": camera.fps or 30,
+        "ip": camera.ip_address or "192.168.1.100",
+        "status": camera.status or "Online"
+    }
 
 @router.delete("/cameras/{camera_id}")
-def delete_camera(camera_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    camera = db.query(Camera).filter(Camera.id == camera_id).first()
+def delete_camera(camera_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    camera = None
+    if camera_id.isdigit():
+        camera = db.query(Camera).filter(Camera.id == int(camera_id)).first()
+    if not camera:
+        camera = db.query(Camera).filter(Camera.camera_code == camera_id).first()
     if not camera:
         raise HTTPException(status_code=404, detail="Camera not found")
     db.delete(camera)

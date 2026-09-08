@@ -1,297 +1,187 @@
-# 🏗️ System Architecture
+# ?? AI Consumer Attention Mapping System
 
-## Overview
-
-The **AI Consumer Attention Mapping System** is a role-based intelligent retail analytics platform that leverages **Artificial Intelligence (AI)** and **Computer Vision** to analyze customer behavior inside retail stores. The system captures live video feeds from surveillance cameras, processes them using AI models, stores analytical insights in a centralized database, and presents actionable information through role-specific dashboards.
-
-The architecture follows a modular multi-tier design consisting of five major layers:
-
-- **Presentation Layer**
-- **Backend API Layer**
-- **AI Processing Layer**
-- **Database Layer**
-- **External Devices Layer**
+An enterprise-grade, role-based intelligent retail analytics platform powered by **Computer Vision (YOLOv8, MediaPipe, OpenCV)**, **FastAPI**, **PostgreSQL**, and **Next.js**. The platform analyzes in-store shopper movement, gaze fixation, dwell times, and product engagement to optimize shelf planograms, measure golden zone attractiveness, and drive retail conversion.
 
 ---
 
-## 🏛️ System Architecture
+## ??? System Architecture
 
-```text
-                              ┌────────────────────────────┐
-                              │      Retail Cameras        │
-                              │     (IP/Web Cameras)       │
-                              └─────────────┬──────────────┘
-                                            │
-                                            ▼
-                    ┌────────────────────────────────────────────┐
-                    │          AI Processing Layer               │
-                    │────────────────────────────────────────────│
-                    │ • Video Frame Extraction                  │
-                    │ • Consumer Detection                      │
-                    │ • Consumer Tracking                       │
-                    │ • Attention Analysis                      │
-                    │ • Heatmap Generation                      │
-                    │ • Behaviour Analytics                     │
-                    └──────────────┬─────────────────────────────┘
-                                   │
-                                   ▼
-                    ┌────────────────────────────────────────────┐
-                    │          Backend API Layer                 │
-                    │────────────────────────────────────────────│
-                    │ • Authentication                          │
-                    │ • Authorization                           │
-                    │ • User Management                         │
-                    │ • Store Management                        │
-                    │ • Camera Management                       │
-                    │ • Analytics APIs                          │
-                    │ • Reports & Notifications                 │
-                    └──────────────┬─────────────────────────────┘
-                                   │
-                                   ▼
-                    ┌────────────────────────────────────────────┐
-                    │            Database Layer                  │
-                    │────────────────────────────────────────────│
-                    │ • Users                                   │
-                    │ • Roles                                   │
-                    │ • Stores                                  │
-                    │ • Cameras                                 │
-                    │ • Analytics                               │
-                    │ • Reports                                 │
-                    │ • Notifications                           │
-                    │ • System Logs                             │
-                    └──────────────┬─────────────────────────────┘
-                                   │
-                                   ▼
-                    ┌────────────────────────────────────────────┐
-                    │          Presentation Layer                │
-                    │────────────────────────────────────────────│
-                    │ • Admin Dashboard                         │
-                    │ • Store Manager Dashboard                 │
-                    │ • Retail Analyst Dashboard                │
-                    │ • Marketing Manager Dashboard             │
-                    └────────────────────────────────────────────┘
-```
+`	ext
+                               +----------------------------+
+                               �       Retail Cameras       �
+                               �   (RTSP / IP / Webcams)    �
+                               +----------------------------+
+                                             �
+                                             ?
+                     +--------------------------------------------+
+                     �          AI Processing Layer               �
+                     �--------------------------------------------�
+                     � � YOLOv8 Person Detection                  �
+                     � � DeepSORT / ByteTrack Movement Tracking   �
+                     � � MediaPipe Gaze & Head-Pose Estimation    �
+                     � � Shelf Planogram Gaze Intersection        �
+                     � � Multi-Zone Heatmap Generation            �
+                     � � Shopper DNA Behavioral Clustering        �
+                     +--------------------------------------------+
+                                    �
+                                    ?
+                     +--------------------------------------------+
+                     �          Backend API Layer (FastAPI)       �
+                     �--------------------------------------------�
+                     � � JWT Authentication & Email Auto-RBAC     �
+                     � � Store, Zone & Camera PostgreSQL CRUD     �
+                     � � Real-Time Stream Manager (MJPEG/Webcam)  �
+                     � � Product SKU Attractiveness Engine        �
+                     � � Out-of-Stock (OOS) Task Automation       �
+                     � � Marketing Campaigns & ROI Engine         �
+                     � � Behavioral & Funnel Analytics APIs       �
+                     +--------------------------------------------+
+                                    �
+                                    ?
+                     +--------------------------------------------+
+                     �            Database Layer                  �
+                     �--------------------------------------------�
+                     � � PostgreSQL (Stores, Shelves, SKUs,       �
+                     �   Cameras, Users, Campaigns, Restock Tasks)�
+                     +--------------------------------------------+
+                                    �
+                                    ?
+                     +--------------------------------------------+
+                     �       Presentation Layer (Next.js 16)      �
+                     �--------------------------------------------�
+                     � � ?? Executive C-Suite Dashboard           �
+                     � � ??? Admin Command Center                  �
+                     � � ?? Store Manager Operations Dashboard    �
+                     � � ?? Retail Analyst Intelligence Studio    �
+                     � � ?? Marketing Manager ROI Dashboard       �
+                     +--------------------------------------------+
+`
 
 ---
 
-# 📋 Architecture Components
+## ?? 5 Role-Based Dashboards
 
-## 1️⃣ Presentation Layer
+The application implements an intelligent **Email Keyword Role Detection** and **Role-Based Access Control (RBAC)** architecture that automatically navigates users to their dedicated dashboard with route protection and session isolation:
 
-The Presentation Layer provides a responsive, user-friendly interface developed using **Next.js**, **React**, and **Tailwind CSS**. Users are redirected to role-specific dashboards after authentication.
-
-### Admin Dashboard
-
-- User Management
-- Store Management
-- Camera Management
-- System Monitoring
-- Platform Analytics
-- Reports
-- Activity Logs
-- Notifications
-
-### Store Manager Dashboard
-
-- Store Overview
-- Shelf Performance
-- Camera Monitoring
-- Heatmap Analysis
-- Consumer Attention Metrics
-- Daily Reports
-
-### Retail Analyst Dashboard
-
-- Consumer Behaviour Analysis
-- Attention Heatmaps
-- Product Engagement
-- Customer Journey Analysis
-- Zone Performance
-- AI Insights
-
-### Marketing Manager Dashboard
-
-- Campaign Performance
-- Product Visibility
-- Customer Engagement
-- Product Rankings
-- Promotional Effectiveness
-- Marketing Reports
+| Role | Dedicated Route | Primary Features |
+|------|-----------------|------------------|
+| **Executive (C-Suite)** | /dashboard/executive | Multi-Store Benchmarking, Portfolio Attention Index, Network Footfall Leaderboards, Golden Zone Monetization, Board of Directors Reports. |
+| **Administrator** | /dashboard/admin | Full PostgreSQL CRUD for Stores, Cameras & Users, Real-Time System Monitoring, Platform Activity Logs, Alert Notifications. |
+| **Store Manager** | /dashboard/store-manager | Real-Time Store Occupancy Gauge, AI Action Commander, Zone Congestion Monitor, Out-of-Stock (OOS) Void Gap Task Board, Live Camera Streams. |
+| **Retail Analyst** | /dashboard/retail-analyst | 5-Stage Purchase Funnel (Passersby ? Gaze ? Touch ? Cart ? Sale), 5 Shopper DNA Behavioral Profiles, Weighted Product Attractiveness Scoring, Gaze Heatmaps. |
+| **Marketing Manager** | /dashboard/marketing-manager | Campaign Performance & ROI Tracker, Merchandising Revenue Leakage Analyzer, Eye-Level Golden Zone Impression Share, Promotion Scheduler. |
 
 ---
 
-## 2️⃣ Backend API Layer
+## ?? 5 Shopper DNA Behavioral Segments
 
-The backend acts as the communication bridge between the frontend, AI engine, and database.
+Categorized based on tracking velocity, dwell duration, and interaction frequencies:
 
-### Responsibilities
-
-- JWT Authentication
-- Role-Based Authorization
-- CRUD Operations
-- REST APIs
-- Report Generation
-- Notification Services
-- Analytics APIs
+1. ?? **Explorers (26%)**: Broad navigation across multiple aisles with high visual curiosity; discovers new products; high exposure to promotional displays.
+2. ? **Quick Buyers (31%)**: High-velocity transit directly to target shelf coordinates with immediate pickup and rapid checkout; highest revenue efficiency per minute.
+3. ?? **Comparison Shoppers (21%)**: Extended dwell inspecting packaging, ingredient labels, and price tags; multiple pickup and return events before deciding.
+4. ?? **Impulse Buyers (14%)**: Strong attention fixation on Eye-Level Golden Zone displays and endcaps; high conversion on bundle promotions and discounts.
+5. ?? **Brand Loyal Customers (8%)**: Direct, habitual navigation to known product positions; minimal comparison deliberation; highest repeat engagement and retention.
 
 ---
 
-## 3️⃣ AI Processing Layer
+## ?? Weighted Product Attractiveness Scoring Model
 
-The AI layer processes surveillance video to generate customer analytics.
+Compliant with standard retail merchandising evaluation standards:
 
-### Workflow
-
-1. Capture live video stream
-2. Extract video frames
-3. Detect customers
-4. Track customer movement
-5. Calculate attention duration
-6. Generate heatmaps
-7. Analyze consumer behaviour
-8. Store analytics in the database
-
-### AI Outputs
-
-- Consumer Detection
-- Consumer Tracking
-- Attention Score
-- Dwell Time
-- Heatmaps
-- Product Interaction
-- Behaviour Analytics
-- AI Recommendations
+\text{Product Attractiveness Score} = 35\%(\text{Attention}) + 25\%(\text{Interaction}) + 20\%(\text{Pickup}) + 15\%(\text{Conversion}) + 5\%(\text{Repeat})
 
 ---
 
-## 4️⃣ Database Layer
-
-Stores both operational and analytical data.
-
-### Database Tables
-
-- Users
-- Roles
-- Stores
-- Cameras
-- Analytics
-- Reports
-- Notifications
-- System Logs
-
----
-
-## 5️⃣ External Devices Layer
-
-Retail surveillance cameras capture live video streams used for AI processing.
-
-### Responsibilities
-
-- Video Capture
-- Customer Monitoring
-- Real-time Data Collection
-- AI Input Source
-
----
-
-# 🔐 Authentication Flow
-
-```text
-User Login
-     │
-     ▼
-Authentication
-     │
-     ▼
-JWT Token Generated
-     │
-     ▼
-Role Validation
-     │
-     ▼
-Role-Based Dashboard
-```
-
----
-
-# 🔄 Data Flow
-
-```text
-Retail Cameras
-      │
-      ▼
-Video Frames
-      │
-      ▼
-AI Processing
-      │
-      ▼
-Analytics Generation
-      │
-      ▼
-Database
-      │
-      ▼
-Backend APIs
-      │
-      ▼
-Role-Based Dashboards
-```
-
----
-
-# 💻 Technology Stack
+## ?? Technology Stack
 
 | Layer | Technology |
-|--------|------------|
-| Frontend | Next.js, React, Tailwind CSS |
-| Backend | Node.js, Express.js |
-| Database | PostgreSQL |
-| Authentication | JWT |
-| AI & Computer Vision | Python, OpenCV, YOLO |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Deployment | Vercel (Frontend), Render/Railway (Backend) |
+|---|---|
+| **Frontend Framework** | Next.js 16 (App Router, Turbopack), React 19 |
+| **Styling & Icons** | Tailwind CSS, Lucide React, JetBrains Mono |
+| **Backend Framework** | Python 3.12, FastAPI, Uvicorn, Pydantic |
+| **Database & ORM** | PostgreSQL 16, SQLAlchemy 2.0 |
+| **Authentication** | JWT (JSON Web Tokens), Passlib Bcrypt, RBAC |
+| **Computer Vision & AI** | YOLOv8 (Ultralytics), MediaPipe, OpenCV, NumPy |
+| **Tracking & Gaze** | DeepSORT / ByteTrack, Perspective Homography |
+| **DevOps & Containers** | Docker, Docker Compose |
 
 ---
 
-# ✨ Key Features
+## ?? Quickstart & Setup Guide
 
-- Secure JWT Authentication
-- Role-Based Access Control (RBAC)
-- Multi-Store Management
-- Camera Monitoring
-- AI Consumer Attention Analysis
-- Heatmap Visualization
-- Behaviour Analytics
-- Interactive Dashboards
-- Exportable Reports
-- Notifications & Activity Logs
-- Responsive Enterprise UI
+### 1?? Clone the Repository
+`ash
+git clone https://github.com/springboardmentor56789s-lang/Cosumer-Attention-Mapping.git
+cd Cosumer-Attention-Mapping
+`
+
+### 2?? Database Setup (PostgreSQL)
+Ensure PostgreSQL is running locally on port 5432 with a database named ttention_mapping:
+`ash
+# Using Docker (optional):
+cd infra
+docker compose up -d postgres
+`
+Connection string: postgresql://postgres:infy_springboard@localhost:5432/attention_mapping
+
+### 3?? Backend Setup (FastAPI)
+`ash
+cd backend
+python -m venv venv
+venv\Scripts\activate          # On Windows
+# source venv/bin/activate     # On macOS/Linux
+
+pip install -r requirements.txt
+
+# Run database migrations and seed milestone data
+python -m app.create_tables
+python -m app.seed_milestone4
+
+# Start FastAPI server
+uvicorn app.main:app --reload --port 8000
+`
+Backend API docs available at: http://localhost:8000/docs
+
+### 4?? Frontend Setup (Next.js)
+`ash
+cd ../frontend
+npm install
+npm run dev
+`
+Open http://localhost:3000 in your browser.
 
 ---
 
-# 📈 Scalability
+## ?? Demo Credentials & Automatic Role Detection
 
-The modular architecture enables:
+When registering or logging in at http://localhost:3000/login, the system dynamically detects your role based on keywords in your email:
 
-- Multiple retail stores
-- Multiple surveillance cameras
-- Future AI model integration
-- Cloud deployment
-- Additional analytics modules
-- Business Intelligence integration
+| Email Keyword Pattern | Example Email | Auto-Assigned Role | Destination Route |
+|---|---|---|---|
+| dmin | kushalini.admin@corp.com | Administrator | /dashboard/admin |
+| exec / ceo / coo | kushalini.exec@corp.com | Executive C-Suite | /dashboard/executive |
+| store / manager | kushalini.manager@corp.com | Store Manager | /dashboard/store-manager |
+| nalyst | kushalini.analyst@corp.com | Retail Analyst | /dashboard/retail-analyst |
+| marketing / mktg | kushalini.marketing@corp.com | Marketing Manager | /dashboard/marketing-manager |
+
+---
+
+## ?? Export & Reporting Features
+- **CSV Data Export**: High-level store analytics, 5-stage funnel conversion drop-offs, clustered shopper personas, campaign ROI, and board executive summaries.
+- **Executive PDF Dossier**: Integrated **"?? Export as PDF / Print Report"** functionality on all reporting modules pre-formatted for executive presentations.
 
 ---
 
-# 🔒 Security
-
-- JWT Authentication
-- Protected API Routes
-- Role-Based Authorization
-- Secure Password Hashing
-- Input Validation
-- Audit Logging
-- Session Management
+## ?? Docker Deployment
+To launch the complete unified stack with Docker Compose:
+`ash
+cd infra
+docker compose up --build
+`
+This deploys PostgreSQL on port 5432, the FastAPI API on port 8000, and the Next.js frontend on port 3000.
 
 ---
+
+## ?? Authors & Contributors
+- **Kushalini & Sreeja** � *Infosys Springboard AI Retail Analytics Project*

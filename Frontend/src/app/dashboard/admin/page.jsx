@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import LiveCameraStream from "../../components/LiveCameraStream";
 import LiveFloorplanRadar from "../../components/LiveFloorplanRadar";
 import ShelfGazeHeatmap from "../../components/ShelfGazeHeatmap";
@@ -126,6 +127,57 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedStore, setSelectedStore] = useState("All Stores");
   const [toast, setToast] = useState(null);
+  const [userName, setUserName] = useState("Kushalini");
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const saved = localStorage.getItem("user_name");
+      if (saved && saved.trim()) setUserName(saved.trim());
+    } catch (e) {}
+
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    // Fetch Stores from DB
+    axios
+      .get("http://localhost:8000/stores", { headers: authHeaders })
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setStores(res.data.map(s => ({
+            id: s.id,
+            name: s.name,
+            location: s.location || "Visakhapatnam",
+            camerasCount: s.cameras ? s.cameras.length : (s.camerasCount || 0)
+          })));
+        }
+      })
+      .catch(() => {});
+
+    // Fetch Cameras from DB
+    axios
+      .get("http://localhost:8000/cameras", { headers: authHeaders })
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setCameras(res.data);
+        }
+      })
+      .catch(() => {});
+
+    // Fetch Users from DB
+    axios
+      .get("http://localhost:8000/users", { headers: authHeaders })
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setUsers(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -135,13 +187,15 @@ export default function AdminDashboard() {
   const handleLogout = () => {
     try {
       localStorage.removeItem("token");
+      localStorage.removeItem("user_name");
+      localStorage.removeItem("user_email");
     } catch (e) {
       console.error(e);
     }
     showToast("🚪 Logging out... Returning to login.");
     setTimeout(() => {
-      router.push("/login");
-    }, 500);
+      window.location.href = "/login";
+    }, 400);
   };
 
   // NOTIFICATIONS
@@ -185,30 +239,61 @@ export default function AdminDashboard() {
     setIsStoreModalOpen(true);
   };
 
-  const handleSaveStore = (e) => {
+  const handleSaveStore = async (e) => {
     e.preventDefault();
     if (!storeForm.name.trim()) return;
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     if (editingStore) {
       setStores(prev => prev.map(s => s.id === editingStore.id ? { ...s, name: storeForm.name, location: storeForm.location } : s));
+      try {
+        await axios.put(`http://localhost:8000/stores/${editingStore.id}`, {
+          name: storeForm.name,
+          location: storeForm.location,
+        }, { headers: authHeaders });
+      } catch (err) {
+        console.error("Failed to update store in DB:", err);
+      }
       showToast(`Store "${storeForm.name}" updated successfully!`);
     } else {
-      const newStore = { id: Date.now(), name: storeForm.name, location: storeForm.location || "Hyderabad", camerasCount: 0 };
+      const tempId = Date.now();
+      const newStore = { id: tempId, name: storeForm.name, location: storeForm.location || "Hyderabad", camerasCount: 0 };
       setStores(prev => [...prev, newStore]);
+      try {
+        const res = await axios.post("http://localhost:8000/stores", {
+          name: storeForm.name,
+          location: storeForm.location || "Hyderabad",
+        }, { headers: authHeaders });
+        if (res.data && res.data.id) {
+          setStores(prev => prev.map(s => s.id === tempId ? { ...s, id: res.data.id } : s));
+        }
+      } catch (err) {
+        console.error("Failed to save store to DB:", err);
+      }
       showToast(`New store "${storeForm.name}" created!`);
     }
     setIsStoreModalOpen(false);
   };
 
-  const handleDeleteStore = (storeId, storeName) => {
+  const handleDeleteStore = async (storeId, storeName) => {
     if (confirm(`Are you sure you want to delete store "${storeName}"?`)) {
       setStores(prev => prev.filter(s => s.id !== storeId));
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      try {
+        await axios.delete(`http://localhost:8000/stores/${storeId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      } catch (err) {
+        console.error("Failed to delete store from DB:", err);
+      }
       showToast(`Store "${storeName}" removed.`);
     }
   };
 
   // ==========================================
-  // CAMERA CRUD HANDLERS
+  // CAMERA CRUD HANDLERS (PERSISTED TO POSTGRESQL)
   // ==========================================
   const handleOpenCamModal = (cam = null) => {
     if (cam) {
@@ -221,29 +306,70 @@ export default function AdminDashboard() {
     setIsCamModalOpen(true);
   };
 
-  const handleSaveCamera = (e) => {
+  const handleSaveCamera = async (e) => {
     e.preventDefault();
     if (!camForm.name.trim()) return;
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     if (editingCam) {
       setCameras(prev => prev.map(c => c.id === editingCam.id ? { ...camForm } : c));
+      try {
+        await axios.put(`http://localhost:8000/cameras/${editingCam.id}`, {
+          name: camForm.name,
+          store: camForm.store,
+          zone: camForm.zone,
+          resolution: camForm.resolution,
+          ip: camForm.ip,
+          status: camForm.status,
+        }, { headers: authHeaders });
+      } catch (err) {
+        console.error("Failed to update camera in DB:", err);
+      }
       showToast(`Camera ${camForm.id} updated!`);
     } else {
-      setCameras(prev => [...prev, { ...camForm, fps: 30 }]);
+      const tempCam = { ...camForm, fps: 30 };
+      setCameras(prev => [...prev, tempCam]);
+      try {
+        const res = await axios.post("http://localhost:8000/cameras", {
+          camera_code: camForm.id,
+          name: camForm.name,
+          store: camForm.store,
+          zone: camForm.zone,
+          resolution: camForm.resolution,
+          fps: 30,
+          ip: camForm.ip,
+          status: camForm.status,
+        }, { headers: authHeaders });
+        if (res.data && res.data.id) {
+          setCameras(prev => prev.map(c => c.id === camForm.id ? { ...c, ...res.data } : c));
+        }
+      } catch (err) {
+        console.error("Failed to save camera to DB:", err);
+      }
       showToast(`Camera ${camForm.id} added!`);
     }
     setIsCamModalOpen(false);
   };
 
-  const handleDeleteCamera = (camId) => {
+  const handleDeleteCamera = async (camId) => {
     if (confirm(`Delete camera ${camId}?`)) {
       setCameras(prev => prev.filter(c => c.id !== camId));
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      try {
+        await axios.delete(`http://localhost:8000/cameras/${camId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      } catch (err) {
+        console.error("Failed to delete camera from DB:", err);
+      }
       showToast(`Camera ${camId} deleted.`);
     }
   };
 
   // ==========================================
-  // USER CRUD HANDLERS
+  // USER CRUD HANDLERS (PERSISTED TO POSTGRESQL)
   // ==========================================
   const handleOpenUserModal = (user = null) => {
     if (user) {
@@ -256,24 +382,61 @@ export default function AdminDashboard() {
     setIsUserModalOpen(true);
   };
 
-  const handleSaveUser = (e) => {
+  const handleSaveUser = async (e) => {
     e.preventDefault();
     if (!userForm.name.trim() || !userForm.email.trim()) return;
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     if (editingUser) {
       setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...userForm } : u));
+      try {
+        await axios.put(`http://localhost:8000/users/${editingUser.id}`, {
+          name: userForm.name,
+          email: userForm.email,
+          role: userForm.role,
+          store: userForm.store,
+          status: userForm.status,
+        }, { headers: authHeaders });
+      } catch (err) {
+        console.error("Failed to update user in DB:", err);
+      }
       showToast(`User ${userForm.name} updated!`);
     } else {
-      const newUser = { id: `USR-00${users.length + 1}`, ...userForm };
+      const tempId = Date.now();
+      const newUser = { id: tempId, uid: `USR-${users.length + 1}`, ...userForm };
       setUsers(prev => [...prev, newUser]);
+      try {
+        const res = await axios.post("http://localhost:8000/users", {
+          name: userForm.name,
+          email: userForm.email,
+          role: userForm.role,
+          store: userForm.store,
+          status: userForm.status,
+        }, { headers: authHeaders });
+        if (res.data && res.data.id) {
+          setUsers(prev => prev.map(u => u.id === tempId ? { ...u, ...res.data } : u));
+        }
+      } catch (err) {
+        console.error("Failed to save user to DB:", err);
+      }
       showToast(`User ${userForm.name} created!`);
     }
     setIsUserModalOpen(false);
   };
 
-  const handleDeleteUser = (userId, userName) => {
+  const handleDeleteUser = async (userId, userName) => {
     if (confirm(`Remove user ${userName}?`)) {
       setUsers(prev => prev.filter(u => u.id !== userId));
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      try {
+        await axios.delete(`http://localhost:8000/users/${userId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      } catch (err) {
+        console.error("Failed to delete user from DB:", err);
+      }
       showToast(`User ${userName} removed.`);
     }
   };
@@ -387,11 +550,11 @@ export default function AdminDashboard() {
           <div style={{ borderTop: `1px solid ${TOKENS.cardBorder}`, paddingTop: "14px", marginTop: "14px", display: "flex", flexDirection: "column", gap: "10px", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 4px" }}>
               <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "rgba(232,163,61,0.2)", border: `1px solid ${TOKENS.accent}`, color: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 800 }}>
-                K
+                {userName.charAt(0).toUpperCase()}
               </div>
               <div style={{ overflow: "hidden" }}>
                 <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.text, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                  Kushalini
+                  {userName}
                 </div>
                 <div style={{ fontSize: "10px", color: TOKENS.success, fontWeight: 600 }}>
                   ● Administrator

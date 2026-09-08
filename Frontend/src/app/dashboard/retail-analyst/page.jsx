@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
+import axios from "axios";
 
 // ==========================================
 // DESIGN TOKENS — matches the Login page palette
@@ -319,6 +320,7 @@ function Modal({ title, onClose, children }) {
 // ==========================================
 export default function RetailAnalystDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [storeList, setStoreList] = useState(STORES);
   const [selectedStore, setSelectedStore] = useState(STORES[0]);
   const [selectedRange, setSelectedRange] = useState("week");
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
@@ -326,6 +328,7 @@ export default function RetailAnalystDashboard() {
   const [time, setTime] = useState(new Date());
   const [toast, setToast] = useState(null);
   const [isLoggedOut, setIsLoggedOut] = useState(false);
+  const [userName, setUserName] = useState("Kushalini");
 
   // Login Form state
   const [loginEmail, setLoginEmail] = useState("analyst@retail.com");
@@ -342,6 +345,31 @@ export default function RetailAnalystDashboard() {
   const [productForm, setProductForm] = useState({ name: "", store: STORES_REAL[0], category: "", score: "" });
 
   const [hoveredZoneId, setHoveredZoneId] = useState(null);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const saved = localStorage.getItem("user_name");
+      if (saved && saved.trim()) setUserName(saved.trim());
+    } catch (e) {}
+
+    axios
+      .get("http://localhost:8000/stores", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          const names = res.data.map((s) => s.name);
+          setStoreList(["All Stores", ...names]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -383,9 +411,15 @@ export default function RetailAnalystDashboard() {
   };
 
   const handleLogout = () => {
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user_name");
+      localStorage.removeItem("user_email");
+    } catch (e) {}
     if (!window.confirm("Log out of Retail Analyst?")) return;
     setIsAlertsOpen(false);
     setIsLoggedOut(true);
+    window.location.href = "/login";
   };
 
   const handleLoginSubmit = (e) => {
@@ -670,7 +704,7 @@ export default function RetailAnalystDashboard() {
   }
 
   return (
-    <div style={{ backgroundColor: TOKENS.bg, color: TOKENS.text, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ backgroundColor: TOKENS.bg, color: TOKENS.text, height: "100vh", width: "100vw", overflow: "hidden", fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
       <style>{`
         @keyframes heatPulse {
           0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
@@ -726,7 +760,7 @@ export default function RetailAnalystDashboard() {
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ fontSize: "11px", color: TOKENS.muted }}>🏬</span>
             <select style={selectStyle} value={selectedStore} onChange={(e) => setSelectedStore(e.target.value)}>
-              {STORES.map((s) => (
+              {storeList.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -829,13 +863,15 @@ export default function RetailAnalystDashboard() {
         </div>
       )}
 
-      <div style={{ display: "flex", flex: 1 }}>
+      <div style={{ display: "flex", flex: 1, height: "calc(100vh - 64px)", overflow: "hidden", width: "100%" }}>
         {/* SIDEBAR */}
-        <aside style={{ width: "220px", backgroundColor: TOKENS.sidebarBg, borderRight: `1px solid ${TOKENS.cardBorder}`, padding: "20px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <nav style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <aside style={{ width: "240px", backgroundColor: TOKENS.sidebarBg, borderRight: `1px solid ${TOKENS.cardBorder}`, padding: "20px 12px", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+          <nav style={{ display: "flex", flexDirection: "column", gap: "6px", overflowY: "auto" }}>
             {[
               { id: "overview", label: "Analytics Overview", icon: "📊" },
-              { id: "heatmap", label: "Zone Heatmaps & Peak Hours", icon: "🔥" },
+              { id: "funnel", label: "Purchase Funnel", icon: "🔻" },
+              { id: "persona", label: "Shopper Personas", icon: "🧬" },
+              { id: "heatmap", label: "Zone Heatmaps & Peak", icon: "🔥" },
               { id: "reports", label: "Reports & Export", icon: "📄" },
             ].map((tab) => (
               <button
@@ -852,7 +888,7 @@ export default function RetailAnalystDashboard() {
                   color: activeTab === tab.id ? "#1A1200" : TOKENS.muted,
                   cursor: "pointer",
                   fontSize: "13px",
-                  fontWeight: "500",
+                  fontWeight: activeTab === tab.id ? "700" : "500",
                   textAlign: "left",
                   transition: "all 0.2s",
                 }}
@@ -863,16 +899,62 @@ export default function RetailAnalystDashboard() {
             ))}
           </nav>
 
-          <button
-            onClick={handleResetDemoData}
-            style={{ background: "none", border: "none", color: TOKENS.muted, fontSize: "11px", cursor: "pointer", textDecoration: "underline", textAlign: "left" }}
-          >
-            Reset demo data
-          </button>
+          <div style={{ borderTop: `1px solid ${TOKENS.cardBorder}`, paddingTop: "14px", display: "flex", flexDirection: "column", gap: "10px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 4px" }}>
+              <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "rgba(232,163,61,0.2)", border: `1px solid ${TOKENS.accent}`, color: TOKENS.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 800 }}>
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ overflow: "hidden" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.text, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                  {userName}
+                </div>
+                <div style={{ fontSize: "10px", color: TOKENS.success, fontWeight: 600 }}>
+                  ● Retail Analyst
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("user_name");
+                  localStorage.removeItem("user_email");
+                } catch (e) {}
+                window.location.href = "/login";
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid rgba(232,101,79,0.35)",
+                backgroundColor: "rgba(232,101,79,0.12)",
+                color: TOKENS.danger,
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 700,
+                transition: "all 0.2s",
+              }}
+            >
+              <span>🚪</span>
+              <span>Log out</span>
+            </button>
+
+            <button
+              onClick={handleResetDemoData}
+              style={{ background: "none", border: "none", color: TOKENS.muted, fontSize: "10px", cursor: "pointer", textDecoration: "underline", textAlign: "center", marginTop: "2px" }}
+            >
+              Reset demo data
+            </button>
+          </div>
         </aside>
 
         {/* MAIN */}
-        <main style={{ flex: 1, padding: "24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+        <main style={{ flex: 1, height: "100%", padding: "24px 28px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px", boxSizing: "border-box" }}>
           <div>
             <h1 style={{ fontSize: "24px", fontWeight: 700, margin: 0, color: COLORS.textPrimary }}>Consumer Behavior & Attention Intelligence</h1>
             <p style={{ color: COLORS.textSecondary, margin: "4px 0 0 0", fontSize: "13px" }}>
@@ -1237,22 +1319,247 @@ export default function RetailAnalystDashboard() {
             </>
           )}
 
+          {/* ================= TAB: PURCHASE FUNNEL ================= */}
+          {activeTab === "funnel" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+                <StatCard label="Entry-to-Sale Conversion" value="10.9%" trend="1.2%" isPositive subtext="162 of 1,480 shoppers" />
+                <StatCard label="Critical Friction Drop" value="-38.0%" accentColor={TOKENS.danger} subtext="Gaze to Physical Touch" />
+                <StatCard label="Touch-to-Cart Rate" value="51.9%" trend="3.4%" isPositive subtext="High physical intent" />
+                <StatCard label="Cart Abandonment" value="9.0%" trend="-0.8%" isPositive subtext="Industry low" />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "24px" }}>
+                <Card title="🔻 5-Stage Shopper Conversion Funnel" subtitle="Sequential progression from store walk-by to completed register purchase">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "14px" }}>
+                    {[
+                      { stage: "1. Passersby & Footfall", count: 1480, pct: "100%", width: "100%", color: TOKENS.accent, drop: "-577 shoppers (-39.0%)" },
+                      { stage: "2. Gaze Fixation (>2s)", count: 903, pct: "61.0%", width: "78%", color: "#E8A33D", drop: "-560 shoppers (-38.0%)" },
+                      { stage: "3. Physical Touch & Handling", count: 343, pct: "23.2%", width: "55%", color: TOKENS.info, drop: "-165 shoppers (-11.2%)" },
+                      { stage: "4. Cart / Basket Placement", count: 178, pct: "12.0%", width: "38%", color: "#5FAE86", drop: "-16 shoppers (-1.1%)" },
+                      { stage: "5. Checkout & POS Purchase", count: 162, pct: "10.9%", width: "26%", color: TOKENS.success, drop: "Final Sale Completed" },
+                    ].map((step, idx) => (
+                      <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                          <span style={{ fontWeight: 700 }}>{step.stage}</span>
+                          <span style={{ fontFamily: "monospace", color: TOKENS.muted }}>{step.count.toLocaleString()} shoppers ({step.pct})</span>
+                        </div>
+                        <div style={{ width: "100%", backgroundColor: TOKENS.cardBorder, height: "24px", borderRadius: "6px", overflow: "hidden" }}>
+                          <div style={{ width: step.width, height: "100%", backgroundColor: step.color, borderRadius: "6px", transition: "width 0.5s ease" }} />
+                        </div>
+                        {idx < 4 && (
+                          <div style={{ fontSize: "10px", color: TOKENS.danger, fontFamily: "monospace", alignSelf: "flex-end" }}>
+                            ▼ Drop-off: {step.drop}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card title="💡 Funnel Conversion Insights" subtitle="AI-driven merchandising friction diagnostics">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
+                    {[
+                      { icon: "🚨", title: "High Gaze to Low Touch Drop-off", desc: "61% look at Eye-Level displays but only 23.2% touch products. Primary cause: Price label opacity and lack of bundle signage." },
+                      { icon: "⚡", title: "Touch-to-Cart Efficiency is Strong", desc: "Over 51.9% of shoppers who physically handle items place them into their basket. Merchandising tactile samples will yield immediate +14% lift." },
+                      { icon: "🛒", title: "Low Checkout Abandonment", desc: "91% of customers who add items to cart finalize checkout, confirming minimal checkout queue frustration." },
+                    ].map((ins, i) => (
+                      <div key={i} style={{ padding: "12px", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)", border: `1px solid ${TOKENS.cardBorder}` }}>
+                        <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.accent, display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span>{ins.icon}</span>
+                          <span>{ins.title}</span>
+                        </div>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: TOKENS.muted, lineHeight: 1.5 }}>
+                          {ins.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* ================= TAB: SHOPPER PERSONAS ================= */}
+          {activeTab === "persona" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div>
+                <h2 style={{ fontSize: "18px", fontWeight: 700, margin: 0 }}>🧬 Shopper DNA Behavioral Profile Engine</h2>
+                <p style={{ color: TOKENS.muted, margin: "4px 0 0 0", fontSize: "12px" }}>
+                  Automated computer vision clustering of customer pathway speeds, interaction frequencies, and dwell patterns.
+                </p>
+              </div>
+
+              {/* 5 Consumer Segments (Page 5 Specification) */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+                {[
+                  { title: "🧭 Explorers", share: "26%", dwell: "9.4m", conv: "28%", count: "385", color: TOKENS.info, desc: "Broad browsing across multiple categories. High curiosity, discovers new products. Highest exposure to promotional endcaps and new SKUs." },
+                  { title: "⚡ Quick Buyers", share: "31%", dwell: "2.8m", conv: "82%", count: "459", color: TOKENS.success, desc: "Direct path to target shelf with immediate pickup. High movement velocity and swift checkout. Highest revenue efficiency per minute." },
+                  { title: "🔍 Comparison Shoppers", share: "21%", dwell: "13.2m", conv: "74%", count: "311", color: TOKENS.accent, desc: "Extended dwell inspecting packages, price tags, and shelf tiers. Multiple pickup and return events before purchase." },
+                  { title: "🛒 Impulse Buyers", share: "14%", dwell: "5.6m", conv: "64%", count: "207", color: "#A78BFA", desc: "High attention capture by Eye-Level Golden Zone displays. Easily converts with visible promotional signage and bundled discounts." },
+                  { title: "💎 Brand Loyal Customers", share: "8%", dwell: "4.1m", conv: "91%", count: "118", color: "#38BDF8", desc: "Direct, habitual navigation to known product positions. Minimal deliberation. Highest repeat engagement and brand retention." },
+                ].map((p, idx) => (
+                  <div key={idx} style={{ padding: "18px", borderRadius: "12px", border: `1.5px solid ${p.color}`, backgroundColor: TOKENS.sidebarBg, display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "15px", fontWeight: 700, color: TOKENS.text }}>{p.title}</span>
+                      <span style={{ fontSize: "11px", fontWeight: 800, padding: "3px 8px", borderRadius: "6px", backgroundColor: "rgba(255,255,255,0.08)", color: p.color }}>{p.share}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "11.5px", color: TOKENS.muted, lineHeight: 1.5 }}>
+                      {p.desc}
+                    </p>
+                    <div style={{ display: "flex", gap: "14px", borderTop: `1px solid ${TOKENS.cardBorder}`, paddingTop: "8px", marginTop: "4px", fontSize: "11px" }}>
+                      <div>Dwell: <strong style={{ color: TOKENS.text }}>{p.dwell}</strong></div>
+                      <div>Conv: <strong style={{ color: p.color }}>{p.conv}</strong></div>
+                      <div>Shoppers: <strong style={{ color: TOKENS.text }}>{p.count}</strong></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Weighted Attractiveness Scoring Table */}
+              <Card title="📊 Weighted Product Attractiveness Scoring (Page 6 Standard)" subtitle="Formula: Score = 35%(Attention) + 25%(Interaction) + 20%(Pickup) + 15%(Conversion) + 5%(Repeat)">
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", marginTop: "12px" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.muted, textAlign: "left", fontSize: "11px" }}>
+                      <th style={{ padding: "10px 8px" }}>SKU Code</th>
+                      <th style={{ padding: "10px 8px" }}>Product Name</th>
+                      <th style={{ padding: "10px 8px" }}>Tier</th>
+                      <th style={{ padding: "10px 8px" }}>Attn (35%)</th>
+                      <th style={{ padding: "10px 8px" }}>Touch (25%)</th>
+                      <th style={{ padding: "10px 8px" }}>Pickup (20%)</th>
+                      <th style={{ padding: "10px 8px" }}>Conv (15%)</th>
+                      <th style={{ padding: "10px 8px" }}>Score</th>
+                      <th style={{ padding: "10px 8px" }}>Status Badge</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { code: "SKU-BEV-001", name: "Sparkling Citrus Energy Drink", tier: "Golden Zone", attn: 94, touch: 88, pick: 72, conv: 68, score: 86.6, badge: "Star Product", color: TOKENS.success },
+                      { code: "SKU-ELE-042", name: "Wireless Noise-Cancel Headphones", tier: "Golden Zone", attn: 88, touch: 76, pick: 55, conv: 72, score: 74.6, badge: "Steady Performer", color: TOKENS.accent },
+                      { code: "SKU-SNK-108", name: "Roasted Almonds Mix 500g", tier: "Golden Zone", attn: 80, touch: 74, pick: 60, conv: 58, score: 72.3, badge: "Steady Performer", color: TOKENS.accent },
+                      { code: "SKU-TEA-003", name: "Organic Green Tea 200g", tier: "Top Shelf", attn: 58, touch: 42, pick: 38, conv: 30, score: 47.9, badge: "Underperforming", color: TOKENS.danger },
+                      { code: "SKU-BAR-021", name: "Gluten-Free Granola Bar", tier: "Bottom Shelf", attn: 32, touch: 28, pick: 22, conv: 18, score: 27.1, badge: "Underperforming", color: TOKENS.danger },
+                    ].map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: `1px solid ${TOKENS.cardBorder}` }}>
+                        <td style={{ padding: "10px 8px", fontFamily: "monospace", color: TOKENS.muted }}>{item.code}</td>
+                        <td style={{ padding: "10px 8px", fontWeight: 700 }}>{item.name}</td>
+                        <td style={{ padding: "10px 8px", color: item.tier.includes("Golden") ? TOKENS.accent : TOKENS.muted }}>{item.tier}</td>
+                        <td style={{ padding: "10px 8px" }}>{item.attn}</td>
+                        <td style={{ padding: "10px 8px" }}>{item.touch}</td>
+                        <td style={{ padding: "10px 8px" }}>{item.pick}</td>
+                        <td style={{ padding: "10px 8px" }}>{item.conv}</td>
+                        <td style={{ padding: "10px 8px", fontWeight: 800, color: item.color }}>{item.score}</td>
+                        <td style={{ padding: "10px 8px" }}>
+                          <span style={{ padding: "3px 8px", borderRadius: "4px", backgroundColor: "rgba(255,255,255,0.05)", border: `1px solid ${item.color}`, color: item.color, fontSize: "10px", fontWeight: 700 }}>
+                            {item.badge}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            </div>
+          )}
+
           {/* ================= TAB: REPORTS & EXPORT ================= */}
           {activeTab === "reports" && (
-            <Card title="📄 Reports & Export" subtitle="Download the current analytics view as a CSV report">
-              <p style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "16px" }}>
-                Exports KPIs, zone attention scores, and product rankings for{" "}
-                <strong style={{ color: TOKENS.text }}>{selectedStore}</strong> over{" "}
-                <strong style={{ color: TOKENS.text }}>{DATE_RANGES.find((r) => r.id === selectedRange)?.label.toLowerCase()}</strong>. Changing the
-                store or date range at the top updates exactly what gets exported.
-              </p>
-              <button
-                onClick={handleExportReport}
-                style={{ padding: "10px 18px", backgroundColor: TOKENS.accent, color: "#1A1200", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}
-              >
-                ⬇ Export Analytics Report (CSV)
-              </button>
-            </Card>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h2 style={{ fontSize: "18px", fontWeight: 700, margin: 0 }}>📑 Intelligence Reports & Data Export Center</h2>
+                  <p style={{ color: TOKENS.muted, margin: "4px 0 0 0", fontSize: "12px" }}>
+                    Export formatted analytical reports as CSV or print/save as Executive PDF dossier.
+                  </p>
+                </div>
+                <button
+                  onClick={() => window.print()}
+                  style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 18px", backgroundColor: "rgba(232,163,61,0.15)", border: `1px solid ${TOKENS.accent}`, color: TOKENS.accent, borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+                >
+                  📄 Export / Print as PDF
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+                <Card title="📊 Full Analytics Report" subtitle="KPIs, Zone Scores & Product Rankings">
+                  <p style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "16px" }}>
+                    Export high-level store performance for <strong>{selectedStore}</strong>.
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <button
+                      onClick={handleExportReport}
+                      style={{ padding: "10px 14px", backgroundColor: TOKENS.accent, color: "#1A1200", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "12px", cursor: "pointer", width: "100%" }}
+                    >
+                      ⬇ Export Analytics CSV
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      style={{ padding: "8px 14px", backgroundColor: "transparent", border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "11px", cursor: "pointer", width: "100%" }}
+                    >
+                      📄 Save as PDF
+                    </button>
+                  </div>
+                </Card>
+
+                <Card title="🔻 Purchase Funnel Report" subtitle="Drop-off data across all 5 stages">
+                  <p style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "16px" }}>
+                    Detailed conversion drop-off counts from Entrance to Checkout.
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <button
+                      onClick={() => {
+                        const csvContent = "Stage,Visitors,Percentage,DropOff\nPassersby,1480,100%,0\nGaze Fixation,903,61.0%,-577\nTouch & Handling,343,23.2%,-560\nCart Addition,178,12.0%,-165\nCheckout Sale,162,10.9%,-16";
+                        const blob = new Blob([csvContent], { type: "text/csv" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `funnel_conversion_${Date.now()}.csv`;
+                        a.click();
+                        setToast("Funnel report downloaded");
+                      }}
+                      style={{ padding: "10px 14px", backgroundColor: TOKENS.info, color: "#FFF", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "12px", cursor: "pointer", width: "100%" }}
+                    >
+                      ⬇ Export Funnel CSV
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      style={{ padding: "8px 14px", backgroundColor: "transparent", border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "11px", cursor: "pointer", width: "100%" }}
+                    >
+                      📄 Save as PDF
+                    </button>
+                  </div>
+                </Card>
+
+                <Card title="🧬 Shopper Persona Report" subtitle="Clustered behavioral archetypes">
+                  <p style={{ fontSize: "12px", color: TOKENS.muted, marginBottom: "16px" }}>
+                    Dwell time and conversion metrics grouped by behavioral segment.
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <button
+                      onClick={() => {
+                        const csvContent = "Persona,SharePct,AvgDwell,Conversion,EstimatedShoppers\nExplorers,26%,9.4m,28%,385\nQuick Buyers,31%,2.8m,82%,459\nComparison Shoppers,21%,13.2m,74%,311\nImpulse Buyers,14%,5.6m,64%,207\nBrand Loyal Customers,8%,4.1m,91%,118";
+                        const blob = new Blob([csvContent], { type: "text/csv" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `shopper_personas_${Date.now()}.csv`;
+                        a.click();
+                        setToast("Persona report downloaded");
+                      }}
+                      style={{ padding: "10px 14px", backgroundColor: TOKENS.success, color: "#1A1200", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "12px", cursor: "pointer", width: "100%" }}
+                    >
+                      ⬇ Export Persona CSV
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      style={{ padding: "8px 14px", backgroundColor: "transparent", border: `1px solid ${TOKENS.cardBorder}`, color: TOKENS.text, borderRadius: "8px", fontWeight: "600", fontSize: "11px", cursor: "pointer", width: "100%" }}
+                    >
+                      📄 Save as PDF
+                    </button>
+                  </div>
+                </Card>
+              </div>
+            </div>
           )}
         </main>
       </div>
