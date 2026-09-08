@@ -40,13 +40,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://consumer-attention-frontend.onrender.com",
+        "https://consumer-attention-frontend-sneha.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ============================================================
 # VIDEO ANALYSIS JOB STORAGE
