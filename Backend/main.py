@@ -18,6 +18,20 @@ import shutil
 import os
 import detection
 
+# ============================================================
+# RENDER VIDEO OPTIMIZATION
+# ============================================================
+# IMPORTANT:
+# These settings affect ONLY Render.
+# Localhost keeps the original processing settings.
+# ============================================================
+
+IS_RENDER = (
+    os.getenv("RENDER_VIDEO_OPTIMIZED", "").lower() == "true"
+    or
+    os.getenv("RENDER", "").lower() == "true"
+)
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -46,6 +60,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ============================================================
 # VIDEO ANALYSIS JOB STORAGE
@@ -1220,7 +1235,6 @@ def delete_camera(
 # ============================================================
 # ============================================================
 
-
 def process_video_job(
     job_id,
     file_path,
@@ -1237,6 +1251,95 @@ def process_video_job(
 
         print(
             f"[VIDEO JOB {job_id}] Starting processing...",
+            flush=True
+        )
+
+        # ====================================================
+        # RENDER-ONLY CPU OPTIMIZATION
+        # ====================================================
+
+        if IS_RENDER:
+
+            try:
+                cv2.setNumThreads(1)
+            except Exception:
+                pass
+
+            try:
+                import torch
+
+                torch.set_num_threads(1)
+
+                try:
+                    torch.set_num_interop_threads(1)
+                except Exception:
+                    pass
+
+            except Exception:
+                pass
+
+        # ====================================================
+        # RENDER-ONLY PROCESSING SETTINGS
+        # ====================================================
+        #
+        # LOCALHOST:
+        #   frame skip      = 4
+        #   target width    = 640
+        #   attention check = every 20 processed frames
+        #   DB position     = 1000
+        #   DB records      = 50
+        #
+        # RENDER:
+        #   frame skip      = 12
+        #   target width    = 416
+        #   attention check = every 60 processed frames
+        #   DB position     = 500
+        #   DB records      = 25
+        #
+        # This keeps localhost behavior unchanged.
+        # ====================================================
+
+        FRAME_SKIP = (
+            12
+            if IS_RENDER
+            else 4
+        )
+
+        TARGET_WIDTH = (
+            416
+            if IS_RENDER
+            else 640
+        )
+
+        ATTENTION_INTERVAL = (
+            60
+            if IS_RENDER
+            else 20
+        )
+
+        POSITION_BATCH_SIZE = (
+            500
+            if IS_RENDER
+            else 1000
+        )
+
+        DB_BATCH_SIZE = (
+            25
+            if IS_RENDER
+            else 50
+        )
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Render optimization: {IS_RENDER}",
+            flush=True
+        )
+
+        print(
+            f"[VIDEO JOB {job_id}] "
+            f"Frame skip: {FRAME_SKIP}, "
+            f"Target width: {TARGET_WIDTH}, "
+            f"Attention interval: {ATTENTION_INTERVAL}",
             flush=True
         )
 
@@ -1411,13 +1514,9 @@ def process_video_job(
 
         all_positions = []
 
-        POSITION_BATCH_SIZE = 1000
-
         pending_attention_records = []
 
         pending_interactions = []
-
-        DB_BATCH_SIZE = 50
 
         # ====================================================
         # 7. PROCESS VIDEO
@@ -1433,19 +1532,22 @@ def process_video_job(
             frame_num += 1
 
             # ------------------------------------------------
-            # RENDER OPTIMIZATION
+            # FRAME SKIP
             # ------------------------------------------------
-            # Process every 4th frame.
+            #
+            # LOCALHOST = every 4th frame
+            # RENDER    = every 12th frame
+            #
             # ------------------------------------------------
 
-            if frame_num % 4 != 0:
+            if frame_num % FRAME_SKIP != 0:
                 continue
 
             # ------------------------------------------------
             # RESIZE VIDEO
             # ------------------------------------------------
 
-            target_width = 640
+            target_width = TARGET_WIDTH
 
             target_height = int(
                 target_width
@@ -1475,20 +1577,43 @@ def process_video_job(
             # YOLO + BYTE TRACK
             # ------------------------------------------------
 
-            results = yolo_model.track(
-                frame_small,
-                persist=True,
-                verbose=False,
-                classes=[0],
-                tracker="bytetrack.yaml"
-            )
+            if IS_RENDER:
+
+                results = yolo_model.track(
+                    frame_small,
+                    persist=True,
+                    verbose=False,
+                    classes=[0],
+                    tracker="bytetrack.yaml",
+                    imgsz=416,
+                    conf=0.35,
+                    max_det=20,
+                    device="cpu"
+                )
+
+            else:
+
+                # ORIGINAL LOCALHOST YOLO SETTINGS
+                results = yolo_model.track(
+                    frame_small,
+                    persist=True,
+                    verbose=False,
+                    classes=[0],
+                    tracker="bytetrack.yaml"
+                )
 
             # ------------------------------------------------
             # ATTENTION DETECTION
             # ------------------------------------------------
 
+            processed_frame_number = (
+                frame_num // FRAME_SKIP
+            )
+
             run_attention_check = (
-                (frame_num // 4) % 20 == 0
+                processed_frame_number
+                % ATTENTION_INTERVAL
+                == 0
             )
 
             gray_full = (
@@ -1535,6 +1660,42 @@ def process_video_job(
                         y2s * scale_y
                     )
 
+                    # ------------------------------------------------
+                    # SAFELY CLAMP COORDINATES
+                    # ------------------------------------------------
+
+                    x1 = max(
+                        0,
+                        min(
+                            x1,
+                            frame.shape[1] - 1
+                        )
+                    )
+
+                    y1 = max(
+                        0,
+                        min(
+                            y1,
+                            frame.shape[0] - 1
+                        )
+                    )
+
+                    x2 = max(
+                        x1 + 1,
+                        min(
+                            x2,
+                            frame.shape[1]
+                        )
+                    )
+
+                    y2 = max(
+                        y1 + 1,
+                        min(
+                            y2,
+                            frame.shape[0]
+                        )
+                    )
+
                     center_x = (
                         x1 + x2
                     ) / 2
@@ -1567,8 +1728,8 @@ def process_video_job(
 
                         person_region = (
                             gray_full[
-                                max(0, y1):y2,
-                                max(0, x1):x2
+                                y1:y2,
+                                x1:x2
                             ]
                         )
 
