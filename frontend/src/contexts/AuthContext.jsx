@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authenticateUser, authenticateGoogleWorker, registerUser, requestOTP, verifyOTP, authenticateUserOTP } from '../services/authService';
+import { authenticateUser, authenticateGoogleWorker, authenticateSocialUser, registerUser, requestOTP, verifyOTP, authenticateUserOTP } from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -109,6 +109,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithOAuth = async (provider, role) => {
+    setLoading(true);
+    try {
+      const res = await authenticateSocialUser(provider, role);
+      setUser(res.user);
+      setToken(res.access_token);
+      localStorage.setItem('access_token', res.access_token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      return { success: true, user: res.user };
+    } catch (err) {
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const registerNewUser = async (formData) => {
     setLoading(true);
     try {
@@ -143,6 +159,7 @@ export const AuthProvider = ({ children }) => {
         sendOTPCode,
         verifyOTPCode,
         loginWorkerGoogle,
+        loginWithOAuth,
         registerNewUser,
         logout,
         loading,

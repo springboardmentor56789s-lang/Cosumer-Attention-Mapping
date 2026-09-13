@@ -3,6 +3,7 @@ import { Store, MapPin, Camera, Layers, Users, Plus, Search, Edit3, Trash2, BarC
 import { Link } from 'react-router-dom';
 import { getStores, createStore, updateStore, deleteStore } from '../../services/dataService';
 import StoreBlueprintCanvas from '../../components/canvas/StoreBlueprintCanvas';
+import ShopperJourneyVideoGenerator from '../../components/video/ShopperJourneyVideoGenerator';
 
 
 export default function StoresPage() {
@@ -228,6 +229,9 @@ export default function StoresPage() {
 
       {/* D-Mart Architectural CAD Blueprint Visualizer */}
       <StoreBlueprintCanvas showCameras={true} showHeatmap={true} showPaths={true} />
+
+      {/* Shopper Journey Video Simulation placed below Blueprint */}
+      <ShopperJourneyVideoGenerator />
 
 
 

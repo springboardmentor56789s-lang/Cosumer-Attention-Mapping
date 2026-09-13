@@ -233,6 +233,69 @@ export const authenticateUser = async (email, password, expectedRole) => {
   });
 };
 
+// Social OAuth Login & Registration (Google, Microsoft, GitHub)
+const SOCIAL_PROFILES = {
+  google: {
+    name: 'Sarah Connor',
+    email: 'sarah.connor@gmail.com',
+    providerName: 'Google',
+    empPrefix: 'G'
+  },
+  microsoft: {
+    name: 'Alex Vance',
+    email: 'alex.vance@microsoft.com',
+    providerName: 'Microsoft',
+    empPrefix: 'MS'
+  },
+  github: {
+    name: 'Devin K. Miller',
+    email: 'devin.miller@github.com',
+    providerName: 'GitHub',
+    empPrefix: 'GH'
+  }
+};
+
+export const authenticateSocialUser = async (provider = 'google', targetRole = 'Manager') => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const profile = SOCIAL_PROFILES[provider.toLowerCase()] || SOCIAL_PROFILES.google;
+      const users = getRegisteredUsers();
+      let user = users.find(
+        (u) => u.email.toLowerCase() === profile.email.trim().toLowerCase()
+      );
+
+      if (!user) {
+        user = {
+          id: `usr_${provider.slice(0, 4)}_${Date.now().toString().slice(-6)}`,
+          full_name: profile.name,
+          employee_id: `EMP-${profile.empPrefix}-${Math.floor(1000 + Math.random() * 9000)}`,
+          email: profile.email,
+          phone: '+1 (555) 019-2834',
+          password_hash: '',
+          role: targetRole || 'Manager',
+          auth_provider: profile.providerName,
+          assigned_store: 'Store #101 (Flagship Seattle)',
+          account_status: 'Active',
+          created_at: new Date().toISOString(),
+          last_login: new Date().toISOString(),
+        };
+        users.push(user);
+        try {
+          localStorage.setItem(REGISTRY_STORAGE_KEY, JSON.stringify(users));
+        } catch (e) {}
+      } else {
+        user.last_login = new Date().toISOString();
+        try {
+          localStorage.setItem(REGISTRY_STORAGE_KEY, JSON.stringify(users));
+        } catch (e) {}
+      }
+
+      const accessToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${provider}_${user.id}_${Date.now()}`;
+      resolve({ success: true, user, access_token: accessToken });
+    }, 600);
+  });
+};
+
 // Google OAuth Login for Workers
 export const authenticateGoogleWorker = async (googleProfile) => {
   return new Promise((resolve, reject) => {
@@ -281,6 +344,7 @@ export const authenticateGoogleWorker = async (googleProfile) => {
     }, 600);
   });
 };
+
 
 // OTP Storage simulation
 const otpStore = {};

@@ -8,6 +8,7 @@ import WorkerDashboardPage from './pages/Dashboard/WorkerDashboardPage';
 
 // Auth Pages (PRD V2.0 Compliance)
 import LandingPage from './pages/Landing/LandingPage';
+import LoginPage from './pages/Auth/LoginPage';
 import ManagerLogin from './auth/manager/ManagerLogin';
 import ManagerRegister from './auth/manager/ManagerRegister';
 import WorkerLogin from './auth/worker/WorkerLogin';
@@ -68,6 +69,8 @@ export default function App() {
     <Routes>
       {/* Unauthenticated Entry Point */}
       <Route path="/auth" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/login" element={<LoginPage />} />
       <Route path="/auth/manager/login" element={<ManagerLogin />} />
       <Route path="/auth/manager/register" element={<ManagerRegister />} />
       <Route path="/auth/worker/login" element={<WorkerLogin />} />

@@ -43,30 +43,47 @@ export default function OTPVerificationInput({
 
     if (res.success) {
       setOtpSent(true);
+      setOtpCode(res.demo_otp || '123456');
       setCountdown(60);
-      setSuccessMsg(`OTP sent to ${target}`);
+      setSuccessMsg(`OTP code (123456) dispatched to ${target}`);
     } else {
-
       setError(res.error || 'Failed to send OTP code.');
+    }
+  };
+
+  const handleQuickVerify = async (codeToUse = '123456') => {
+    setError('');
+    setLoading(true);
+    const targetValue = target || (channel === 'email' ? 'user@retailstore.com' : '+1 (555) 019-2834');
+    const res = await verifyOTPCode(targetValue, codeToUse);
+    setLoading(false);
+
+    if (res.success) {
+      setIsVerified(true);
+      setSuccessMsg('Verified successfully!');
+      if (onVerified) onVerified(targetValue, codeToUse);
+    } else {
+      setError(res.error || 'Invalid OTP verification code.');
     }
   };
 
   const handleVerify = async (e) => {
     if (e) e.preventDefault();
-    if (!otpCode || otpCode.length !== 6) {
+    const code = otpCode || '123456';
+    if (!code || code.length !== 6) {
       setError('Please enter a valid 6-digit OTP code.');
       return;
     }
 
     setError('');
     setLoading(true);
-    const res = await verifyOTPCode(target, otpCode);
+    const res = await verifyOTPCode(target, code);
     setLoading(false);
 
     if (res.success) {
       setIsVerified(true);
       setSuccessMsg('Verified successfully!');
-      if (onVerified) onVerified(target, otpCode);
+      if (onVerified) onVerified(target, code);
     } else {
       setError(res.error || 'Invalid OTP verification code.');
     }
@@ -94,17 +111,29 @@ export default function OTPVerificationInput({
         <label className="block font-semibold text-slate-300">
           {label || (channel === 'email' ? 'Email Verification OTP' : 'Phone Verification OTP')}
         </label>
-        {!otpSent && (
-          <button
-            type="button"
-            onClick={handleSendOTP}
-            disabled={loading || disabled || !target}
-            className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 disabled:opacity-50 flex items-center gap-1 transition"
-          >
-            <Send className="w-3 h-3" />
-            <span>{loading ? 'Sending...' : buttonText}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isVerified && (
+            <button
+              type="button"
+              onClick={() => handleQuickVerify('123456')}
+              className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 flex items-center gap-1 transition"
+            >
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>Instant Verify (123456)</span>
+            </button>
+          )}
+          {!otpSent && (
+            <button
+              type="button"
+              onClick={handleSendOTP}
+              disabled={loading || disabled || !target}
+              className="text-[11px] font-semibold text-purple-400 hover:text-purple-300 disabled:opacity-50 flex items-center gap-1 transition"
+            >
+              <Send className="w-3 h-3" />
+              <span>{loading ? 'Sending...' : buttonText}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {otpSent && (
@@ -117,7 +146,7 @@ export default function OTPVerificationInput({
                 maxLength={6}
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="Enter 6-digit OTP"
+                placeholder="6-digit OTP (Demo: 123456)"
                 className="w-full pl-9 pr-3 py-2 bg-black border border-slate-700 rounded-lg text-slate-100 font-mono tracking-widest text-center text-xs focus:outline-none focus:border-purple-500"
               />
             </div>
@@ -127,13 +156,13 @@ export default function OTPVerificationInput({
               disabled={loading || otpCode.length !== 6}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-semibold rounded-lg text-xs transition shrink-0"
             >
-              {loading ? 'Verifying...' : 'Verify'}
+              {loading ? 'Verifying...' : 'Verify OTP'}
             </button>
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-400">
             <span>
-              Code sent to <strong className="text-slate-200">{target}</strong>
+              Demo Code: <strong className="text-emerald-400 font-mono">123456</strong> sent to <strong className="text-slate-200">{target}</strong>
             </span>
             {countdown > 0 ? (
               <span className="text-slate-500 font-mono">Resend in {countdown}s</span>

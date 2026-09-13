@@ -49,7 +49,7 @@ const PROVIDER_CONFIGS = {
 };
 
 
-export default function OAuthModal({ provider, isOpen, onClose }) {
+export default function OAuthModal({ provider, isOpen, onClose, role = 'Manager' }) {
   const { loginWithOAuth } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState('prompt'); // 'prompt' | 'authorizing' | 'success'
@@ -63,16 +63,21 @@ export default function OAuthModal({ provider, isOpen, onClose }) {
   if (!isOpen || !provider) return null;
 
   const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.google;
+  const displayRole = role || config.role || 'Manager';
 
   const handleAuthorize = async () => {
     setStep('authorizing');
     setTimeout(async () => {
       setStep('success');
       setTimeout(async () => {
-        const res = await loginWithOAuth(provider);
+        const res = await loginWithOAuth(provider, role);
         if (res.success) {
           onClose();
-          navigate('/');
+          if (res.user?.role === 'Worker') {
+            navigate('/worker-dashboard');
+          } else {
+            navigate('/manager-dashboard');
+          }
         }
       }, 800);
     }, 1200);
@@ -114,7 +119,7 @@ export default function OAuthModal({ provider, isOpen, onClose }) {
                   <div className="text-[11px] text-slate-400">{config.accountEmail}</div>
 
                   <div className="inline-block px-2 py-0.5 mt-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] rounded font-medium">
-                    Role: {config.role}
+                    Role: {displayRole}
                   </div>
                 </div>
               </div>

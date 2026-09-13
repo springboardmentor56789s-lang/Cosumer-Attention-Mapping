@@ -272,38 +272,40 @@ export default function ShopperJourneyVideoGenerator({ onApplyToReport }) {
               <div className="text-[10px] text-slate-400">Current Zone</div>
               <div className="text-xs font-bold text-indigo-300">{currentPos.currentZone}</div>
             </div>
+          </div>
 
-            {/* Bottom Playhead Controls */}
-            <div className="absolute bottom-4 left-4 right-4 bg-slate-950/90 backdrop-blur-md border border-slate-800 p-3 rounded-2xl flex items-center gap-4">
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow transition shrink-0"
-              >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
-              </button>
+          {/* Dedicated Play / Pause & Seek Controls Panel Below Video Player */}
+          <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl flex items-center gap-4 shadow-xl font-mono">
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="p-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl shadow-lg shadow-indigo-600/30 transition shrink-0 flex items-center gap-1.5 font-bold text-xs"
+            >
+              {isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white" />}
+              <span>{isPlaying ? 'Pause' : 'Play Video'}</span>
+            </button>
 
-              <button
-                onClick={() => setCurrentTime(0)}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition shrink-0"
-                title="Restart Video"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
+            <button
+              onClick={() => setCurrentTime(0)}
+              className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-xl transition shrink-0 flex items-center gap-1 text-xs font-semibold"
+              title="Restart Video"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restart</span>
+            </button>
 
-              <div className="flex-1 space-y-1">
-                <input
-                  type="range"
-                  min="0"
-                  max={DURATION}
-                  value={currentTime}
-                  onChange={(e) => setCurrentTime(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-                <div className="flex justify-between font-mono text-[10px] text-slate-400">
-                  <span>{formatTime(currentTime)}</span>
-                  <span className="text-emerald-400 font-bold">{currentPos.currentAction}</span>
-                  <span>02:30</span>
-                </div>
+            <div className="flex-1 space-y-1">
+              <input
+                type="range"
+                min="0"
+                max={DURATION}
+                value={currentTime}
+                onChange={(e) => setCurrentTime(Number(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+              <div className="flex justify-between text-[11px] text-slate-400">
+                <span className="font-bold text-indigo-300">{formatTime(currentTime)}</span>
+                <span className="text-emerald-400 font-bold">{currentPos.currentAction}</span>
+                <span className="text-slate-400 font-bold">02:30</span>
               </div>
             </div>
           </div>
