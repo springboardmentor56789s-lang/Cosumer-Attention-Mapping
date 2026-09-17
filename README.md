@@ -205,3 +205,6 @@ Supports deployment on cloud infrastructure (AWS EC2 / GCP Compute Engine / Azur
 ## 20. Future Improvements
 - Multi-camera 3D re-identification across overlapping surveillance angles.
 - Direct POS sales integration to measure true gaze-to-purchase ROI.
+- 
+## 21. Deployed Link
+- https://infosys-007.vercel.app/auth
