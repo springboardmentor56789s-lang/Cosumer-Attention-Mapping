@@ -1,0 +1,30 @@
+[
+  {
+    "id": "usr_mgr_1001",
+    "full_name": "Eleanor Vance",
+    "employee_id": "MGR-1001",
+    "email": "eleanor@retail.com",
+    "phone": "+1 (555) 019-2834",
+    "password_hash": "bcrypt_sim_53ab39b7_salt_11",
+    "role": "Manager",
+    "auth_provider": "Email",
+    "assigned_store": "Store #101 (Flagship Seattle)",
+    "account_status": "Active",
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "last_login": "2026-08-04T14:00:00.000Z"
+  },
+  {
+    "id": "usr_wrk_5001",
+    "full_name": "Sarah Connor",
+    "employee_id": "EMP-5001",
+    "email": "sarah.worker@retailstore.com",
+    "phone": "+1 (555) 019-9988",
+    "password_hash": "bcrypt_sim_53ab39b7_salt_11",
+    "role": "Worker",
+    "auth_provider": "Email",
+    "assigned_store": "Store #101 (Flagship Seattle)",
+    "account_status": "Active",
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "last_login": "2026-08-04T14:00:00.000Z"
+  }
+]
