@@ -1,0 +1,22 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+
+# Environment
+.env
+
+# ML datasets
+ml/dataset/
+
+# Large videos
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Generated files
+runs/

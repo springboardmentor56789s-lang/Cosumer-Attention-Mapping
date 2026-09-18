@@ -1,0 +1,426 @@
+/* =====================================================
+   SIDEBAR
+===================================================== */
+
+.sidebar {
+
+  position: fixed;
+
+  top: 0;
+
+  left: 0;
+
+  bottom: 0;
+
+  width: 250px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  padding: 25px 17px 17px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #07111f 0%,
+      #060e1a 100%
+    );
+
+  border-right:
+    1px solid
+    rgba(148, 163, 184, 0.08);
+
+  z-index: 100;
+
+}
+
+
+/* =====================================================
+   BRAND
+===================================================== */
+
+.sidebar-brand {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 0 8px;
+
+}
+
+
+.brand-logo {
+
+  width: 38px;
+
+  height: 38px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #06b6d4
+    );
+
+  color: white;
+
+  font-size: 12px;
+
+  font-weight: 800;
+
+  box-shadow:
+    0 6px 18px
+    rgba(37, 99, 235, 0.22);
+
+}
+
+
+.brand-text {
+
+  min-width: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 3px;
+
+}
+
+
+.brand-text strong {
+
+  color: #f1f5f9;
+
+  font-size: 13px;
+
+  font-weight: 750;
+
+}
+
+
+.brand-text span {
+
+  color: #52647d;
+
+  font-size: 8px;
+
+  letter-spacing: 0.2px;
+
+}
+
+
+/* =====================================================
+   DIVIDER
+===================================================== */
+
+.sidebar-divider {
+
+  height: 1px;
+
+  margin: 24px 7px 25px;
+
+  background:
+    rgba(148, 163, 184, 0.07);
+
+}
+
+
+/* =====================================================
+   SECTION TITLE
+===================================================== */
+
+.sidebar-section-title {
+
+  padding: 0 11px;
+
+  margin-bottom: 9px;
+
+  color: #40526a;
+
+  font-size: 8px;
+
+  font-weight: 750;
+
+  letter-spacing: 1.5px;
+
+  text-transform: uppercase;
+
+}
+
+
+/* =====================================================
+   NAVIGATION
+===================================================== */
+
+.sidebar-nav {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+
+}
+
+
+.sidebar-link {
+
+  position: relative;
+
+  height: 39px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 0 12px;
+
+  border-radius: 7px;
+
+  color: #718198;
+
+  font-size: 10px;
+
+  font-weight: 550;
+
+  text-decoration: none;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+
+}
+
+
+.sidebar-link:hover {
+
+  color: #cbd5e1;
+
+  background:
+    rgba(255, 255, 255, 0.035);
+
+}
+
+
+.sidebar-link.active {
+
+  color: #f1f5f9;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(14, 165, 233, 0.16),
+      rgba(14, 165, 233, 0.05)
+    );
+
+}
+
+
+.sidebar-link.active::before {
+
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+
+  top: 8px;
+
+  bottom: 8px;
+
+  width: 3px;
+
+  border-radius:
+    0 3px 3px 0;
+
+  background: #22d3ee;
+
+}
+
+
+/* =====================================================
+   ICON
+===================================================== */
+
+.sidebar-icon {
+
+  width: 17px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #53677f;
+
+  font-size: 11px;
+
+  flex-shrink: 0;
+
+}
+
+
+.sidebar-link.active .sidebar-icon {
+
+  color: #22d3ee;
+
+}
+
+
+/* =====================================================
+   LABEL
+===================================================== */
+
+.sidebar-label {
+
+  flex: 1;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+}
+
+
+/* =====================================================
+   NOTIFICATION BADGE
+===================================================== */
+
+.notification-badge {
+
+  min-width: 17px;
+
+  height: 17px;
+
+  padding: 0 5px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 20px;
+
+  background: #ef4444;
+
+  color: white;
+
+  font-size: 8px;
+
+  font-weight: 700;
+
+  line-height: 1;
+
+  box-shadow:
+    0 3px 10px
+    rgba(239, 68, 68, 0.25);
+
+}
+
+
+/* =====================================================
+   SYSTEM
+===================================================== */
+
+.sidebar-system {
+
+  margin-top: 28px;
+
+}
+
+
+/* =====================================================
+   LOGOUT
+===================================================== */
+
+.sidebar-bottom {
+
+  margin-top: auto;
+
+  padding-top: 17px;
+
+  border-top:
+    1px solid
+    rgba(148, 163, 184, 0.07);
+
+}
+
+
+.sidebar-logout {
+
+  width: 100%;
+
+  height: 38px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  border: none;
+
+  border-radius: 7px;
+
+  background:
+    rgba(148, 163, 184, 0.05);
+
+  color: #718198;
+
+  font-size: 10px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+
+}
+
+
+.sidebar-logout:hover {
+
+  background:
+    rgba(239, 68, 68, 0.08);
+
+  color: #f87171;
+
+}
+
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media (max-width: 900px) {
+
+  .sidebar {
+
+    display: none;
+
+  }
+
+}

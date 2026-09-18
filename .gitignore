@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node
+node_modules/
+
+# Generated AI files
+backend/app/ai/frames/
+backend/app/ai/outputs/
+backend/app/ai/heatmap-output/
+backend/app/heatmap-output/
+backend/heatmap-output/
+
+# Uploaded videos
+backend/uploads/
+backend/app/uploads/
+
+# Generated outputs
+backend/outputs/
+backend/runs/
+runs/
+
+# ML dataset
+ml/dataset/
+
+# ML model files
+*.pt
+*.pth

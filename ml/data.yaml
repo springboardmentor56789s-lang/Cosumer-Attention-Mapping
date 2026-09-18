@@ -1,0 +1,8 @@
+path: C:/Users/shaik/consumer-attention-mapping-system/ml/dataset/SKU110K_fixed
+
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: product

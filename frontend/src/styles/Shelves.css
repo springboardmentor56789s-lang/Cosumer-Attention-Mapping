@@ -1,0 +1,1110 @@
+/* =====================================================
+   SHELVES PAGE
+===================================================== */
+
+.shelves-page {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+
+  color: #e2e8f0;
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.shelves-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  margin-bottom: 25px;
+}
+
+.shelves-eyebrow {
+  color: #2dd4bf;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+.shelves-header h1 {
+  margin: 7px 0 6px;
+
+  color: #f8fafc;
+
+  font-size: 34px;
+  font-weight: 750;
+
+  letter-spacing: -1px;
+}
+
+.shelves-header p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+/* =====================================================
+   ADD BUTTON
+===================================================== */
+
+.add-shelf-button {
+  height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 9px;
+
+  padding: 0 20px;
+
+  border: none;
+  border-radius: 10px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2dd4bf,
+      #14b8a6
+    );
+
+  color: #042f2e;
+
+  font-size: 13px;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.add-shelf-button:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 8px 25px
+    rgba(45, 212, 191, 0.18);
+}
+
+
+/* =====================================================
+   ALERTS
+===================================================== */
+
+.shelves-alert {
+  min-height: 48px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-bottom: 20px;
+
+  padding: 0 15px;
+
+  border-radius: 9px;
+
+  font-size: 12px;
+}
+
+.shelves-alert button {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+
+  background: transparent;
+
+  color: inherit;
+
+  cursor: pointer;
+
+  font-size: 13px;
+}
+
+.shelves-alert.success {
+  color: #86efac;
+
+  background:
+    rgba(34, 197, 94, 0.06);
+
+  border:
+    1px solid
+    rgba(34, 197, 94, 0.14);
+}
+
+.shelves-alert.error {
+  color: #fca5a5;
+
+  background:
+    rgba(239, 68, 68, 0.06);
+
+  border:
+    1px solid
+    rgba(239, 68, 68, 0.15);
+}
+
+
+/* =====================================================
+   SUMMARY
+===================================================== */
+
+.shelves-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 16px;
+
+  margin-bottom: 20px;
+}
+
+.shelf-summary-card {
+  min-height: 105px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 15px;
+
+  padding: 20px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(15, 23, 42, 0.94),
+      rgba(9, 15, 28, 0.92)
+    );
+}
+
+.shelf-summary-icon {
+  width: 46px;
+  height: 46px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  font-size: 17px;
+}
+
+.shelf-summary-icon.cyan {
+  color: #2dd4bf;
+
+  background:
+    rgba(45, 212, 191, 0.09);
+}
+
+.shelf-summary-icon.purple {
+  color: #a78bfa;
+
+  background:
+    rgba(167, 139, 250, 0.09);
+}
+
+.shelf-summary-icon.green {
+  color: #4ade80;
+
+  background:
+    rgba(74, 222, 128, 0.09);
+}
+
+.shelf-summary-card span {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.shelf-summary-card strong {
+  color: #f8fafc;
+
+  font-size: 23px;
+  font-weight: 700;
+}
+
+
+/* =====================================================
+   MAIN PANEL
+===================================================== */
+
+.shelves-panel {
+  overflow: hidden;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(15, 23, 42, 0.95),
+      rgba(8, 15, 28, 0.96)
+    );
+}
+
+
+/* =====================================================
+   PANEL HEADER
+===================================================== */
+
+.shelves-panel-header {
+  min-height: 98px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 20px 22px;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.06);
+}
+
+.shelves-panel-eyebrow {
+  margin-bottom: 5px;
+
+  color: #2dd4bf;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.6px;
+}
+
+.shelves-panel-header h2 {
+  margin: 0;
+
+  color: #f1f5f9;
+
+  font-size: 19px;
+}
+
+.shelves-panel-header p {
+  margin: 5px 0 0;
+
+  color: #475569;
+
+  font-size: 10px;
+}
+
+
+/* =====================================================
+   SEARCH
+===================================================== */
+
+.shelf-search {
+  width: 285px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 13px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+
+  border-radius: 9px;
+
+  background:
+    rgba(2, 6, 23, 0.55);
+
+  color: #475569;
+}
+
+.shelf-search input {
+  width: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #cbd5e1;
+
+  font-size: 11px;
+}
+
+.shelf-search input::placeholder {
+  color: #475569;
+}
+
+
+/* =====================================================
+   TABLE
+===================================================== */
+
+.shelves-table-wrapper {
+  width: 100%;
+
+  overflow-x: auto;
+}
+
+.shelves-table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  min-width: 850px;
+}
+
+.shelves-table thead {
+  background:
+    rgba(2, 6, 23, 0.28);
+}
+
+.shelves-table th {
+  padding: 14px 20px;
+
+  text-align: left;
+
+  color: #475569;
+
+  font-size: 9px;
+  font-weight: 750;
+
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.05);
+}
+
+.shelves-table td {
+  padding: 16px 20px;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.045);
+
+  color: #94a3b8;
+
+  font-size: 11px;
+}
+
+.shelves-table tbody tr {
+  transition:
+    background 0.2s;
+}
+
+.shelves-table tbody tr:hover {
+  background:
+    rgba(45, 212, 191, 0.025);
+}
+
+.shelves-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* =====================================================
+   SHELF NAME
+===================================================== */
+
+.shelf-name-cell {
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+}
+
+.shelf-avatar {
+  width: 38px;
+  height: 38px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  color: #2dd4bf;
+
+  background:
+    rgba(45, 212, 191, 0.08);
+}
+
+.shelf-name-cell strong {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #e2e8f0;
+
+  font-size: 12px;
+}
+
+.shelf-name-cell small {
+  color: #475569;
+
+  font-size: 9px;
+}
+
+
+/* =====================================================
+   SECTION
+===================================================== */
+
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 6px 9px;
+
+  border-radius: 6px;
+
+  color: #c4b5fd;
+
+  background:
+    rgba(139, 92, 246, 0.08);
+
+  font-size: 9px;
+}
+
+
+/* =====================================================
+   STORE
+===================================================== */
+
+.shelf-store-cell,
+.shelf-location-cell {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+}
+
+.shelf-store-cell svg {
+  color: #a78bfa;
+}
+
+.shelf-location-cell svg {
+  color: #2dd4bf;
+}
+
+.shelf-store-cell span,
+.shelf-location-cell span {
+  color: #94a3b8;
+}
+
+
+/* =====================================================
+   CAPACITY
+===================================================== */
+
+.capacity-cell {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+}
+
+.capacity-cell svg {
+  color: #4ade80;
+
+  font-size: 11px;
+}
+
+.capacity-cell strong {
+  color: #e2e8f0;
+
+  font-size: 12px;
+}
+
+.capacity-cell span {
+  color: #475569;
+
+  font-size: 9px;
+}
+
+
+/* =====================================================
+   DELETE
+===================================================== */
+
+.delete-shelf-button {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border:
+    1px solid
+    rgba(239, 68, 68, 0.12);
+
+  border-radius: 7px;
+
+  background:
+    rgba(239, 68, 68, 0.04);
+
+  color: #f87171;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.delete-shelf-button:hover {
+  background:
+    rgba(239, 68, 68, 0.09);
+
+  border-color:
+    rgba(239, 68, 68, 0.22);
+}
+
+.delete-shelf-button:disabled {
+  opacity: 0.5;
+
+  cursor: not-allowed;
+}
+
+
+/* =====================================================
+   EMPTY
+===================================================== */
+
+.shelves-empty {
+  min-height: 390px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+}
+
+.shelves-empty-icon {
+  width: 58px;
+  height: 58px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 14px;
+
+  border-radius: 13px;
+
+  color: #2dd4bf;
+
+  background:
+    rgba(45, 212, 191, 0.08);
+
+  font-size: 20px;
+}
+
+.shelves-empty h3 {
+  margin: 0 0 7px;
+
+  color: #e2e8f0;
+
+  font-size: 15px;
+}
+
+.shelves-empty p {
+  max-width: 350px;
+
+  margin: 0 0 18px;
+
+  color: #475569;
+
+  font-size: 10px;
+}
+
+.empty-add-shelf-button {
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 0 14px;
+
+  border:
+    1px solid
+    rgba(45, 212, 191, 0.12);
+
+  border-radius: 7px;
+
+  background:
+    rgba(45, 212, 191, 0.06);
+
+  color: #5eead4;
+
+  font-size: 10px;
+
+  cursor: pointer;
+}
+
+
+/* =====================================================
+   LOADING
+===================================================== */
+
+.shelves-loading {
+  min-height: 390px;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  color: #475569;
+
+  font-size: 10px;
+}
+
+.shelf-loading-spinner,
+.shelf-button-spinner {
+  border-radius: 50%;
+
+  border:
+    2px solid
+    rgba(255, 255, 255, 0.12);
+
+  border-top-color: #2dd4bf;
+
+  animation:
+    shelf-spin 0.8s linear infinite;
+}
+
+.shelf-loading-spinner {
+  width: 28px;
+  height: 28px;
+}
+
+.shelf-button-spinner {
+  width: 13px;
+  height: 13px;
+}
+
+@keyframes shelf-spin {
+
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+
+}
+
+
+/* =====================================================
+   MODAL OVERLAY
+===================================================== */
+
+.shelf-modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background:
+    rgba(2, 6, 23, 0.78);
+
+  backdrop-filter:
+    blur(6px);
+}
+
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+.shelf-modal {
+  width: 100%;
+  max-width: 520px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.08);
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #0f172a,
+      #080f1d
+    );
+
+  box-shadow:
+    0 25px 70px
+    rgba(0, 0, 0, 0.5);
+}
+
+
+/* =====================================================
+   MODAL HEADER
+===================================================== */
+
+.shelf-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  padding: 22px;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.06);
+}
+
+.shelf-modal-header span {
+  color: #2dd4bf;
+
+  font-size: 8px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+.shelf-modal-header h2 {
+  margin: 6px 0 5px;
+
+  color: #f8fafc;
+
+  font-size: 20px;
+}
+
+.shelf-modal-header p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 10px;
+}
+
+.shelf-modal-close {
+  width: 32px;
+  height: 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+
+  border-radius: 7px;
+
+  background:
+    rgba(255, 255, 255, 0.04);
+
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+.shelf-modal-close:hover {
+  color: #e2e8f0;
+
+  background:
+    rgba(255, 255, 255, 0.07);
+}
+
+
+/* =====================================================
+   FORM
+===================================================== */
+
+.shelf-form {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 17px;
+
+  padding: 22px;
+}
+
+.shelf-form-field {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.shelf-form-field label {
+  color: #94a3b8;
+
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.shelf-form-input {
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 0 11px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+
+  border-radius: 8px;
+
+  background:
+    rgba(2, 6, 23, 0.5);
+
+  color: #475569;
+}
+
+.shelf-form-input:focus-within {
+  border-color:
+    rgba(45, 212, 191, 0.35);
+}
+
+.shelf-form-input svg {
+  flex-shrink: 0;
+
+  color: #2dd4bf;
+
+  font-size: 12px;
+}
+
+.shelf-form-input input,
+.shelf-form-input select {
+  width: 100%;
+
+  height: 100%;
+
+  outline: none;
+
+  border: none;
+
+  background: transparent;
+
+  color: #e2e8f0;
+
+  font-size: 10px;
+}
+
+.shelf-form-input input::placeholder {
+  color: #475569;
+}
+
+.shelf-form-input select {
+  cursor: pointer;
+}
+
+.shelf-form-input select option {
+  background: #0f172a;
+
+  color: #e2e8f0;
+}
+
+
+/* =====================================================
+   MODAL ACTIONS
+===================================================== */
+
+.shelf-modal-actions {
+  grid-column: 1 / -1;
+
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 9px;
+
+  margin-top: 5px;
+
+  padding-top: 18px;
+
+  border-top:
+    1px solid
+    rgba(255, 255, 255, 0.05);
+}
+
+.shelf-cancel-button,
+.save-shelf-button {
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  padding: 0 15px;
+
+  border-radius: 7px;
+
+  font-size: 10px;
+
+  font-weight: 650;
+
+  cursor: pointer;
+}
+
+.shelf-cancel-button {
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+
+  background:
+    rgba(255, 255, 255, 0.03);
+
+  color: #94a3b8;
+}
+
+.save-shelf-button {
+  border: none;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2dd4bf,
+      #14b8a6
+    );
+
+  color: #042f2e;
+}
+
+.save-shelf-button:disabled,
+.shelf-cancel-button:disabled {
+  opacity: 0.55;
+
+  cursor: not-allowed;
+}
+
+
+/* =====================================================
+   FOOTER
+===================================================== */
+
+.shelves-footer {
+  display: flex;
+  justify-content: space-between;
+
+  margin-top: 25px;
+
+  padding: 15px 2px;
+
+  border-top:
+    1px solid
+    rgba(255, 255, 255, 0.05);
+
+  color: #334155;
+
+  font-size: 8px;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 1000px) {
+
+  .shelves-summary {
+    grid-template-columns:
+      1fr;
+  }
+
+  .shelves-panel-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .shelf-search {
+    width: 100%;
+  }
+
+}
+
+
+@media (max-width: 700px) {
+
+  .shelves-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 16px;
+  }
+
+  .add-shelf-button {
+    width: 100%;
+  }
+
+  .shelf-form {
+    grid-template-columns:
+      1fr;
+  }
+
+  .shelf-modal-actions {
+    grid-column: auto;
+  }
+
+  .shelves-footer {
+    flex-direction: column;
+
+    gap: 7px;
+  }
+
+}

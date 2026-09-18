@@ -1,0 +1,605 @@
+/* =========================================================
+   REPORTS PAGE
+========================================================= */
+
+.reports-page {
+  min-height: 100vh;
+  padding: 30px 36px;
+  box-sizing: border-box;
+
+  background:
+    radial-gradient(
+      circle at 85% 10%,
+      rgba(0, 255, 200, 0.055),
+      transparent 30%
+    ),
+    #030911;
+
+  color: #f3f7fb;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.reports-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: flex-start;
+
+  margin-bottom: 26px;
+}
+
+.page-label,
+.section-label {
+  display: block;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.5px;
+
+  color: #20d8c0;
+}
+
+.reports-header h1 {
+  margin: 7px 0 5px;
+
+  font-size: 30px;
+
+  color: #f4f7fb;
+}
+
+.reports-header p {
+  margin: 0;
+
+  color: #71809a;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   REFRESH BUTTON
+========================================================= */
+
+.refresh-report-btn {
+  border: none;
+
+  border-radius: 9px;
+
+  padding: 11px 18px;
+
+  background: #35d8c4;
+
+  color: #03100f;
+
+  font-size: 13px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.refresh-report-btn:hover {
+  background: #4de7d3;
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 6px 18px
+    rgba(35, 221, 193, 0.15);
+}
+
+
+/* =========================================================
+   SUMMARY CARD
+========================================================= */
+
+.report-summary-card {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  padding: 20px 24px;
+
+  margin-bottom: 20px;
+
+  background: #0b1423;
+
+  border:
+    1px solid #172337;
+
+  border-radius: 14px;
+}
+
+.report-summary-card span {
+  display: block;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 1px;
+
+  color: #20d8c0;
+}
+
+.report-summary-card h3 {
+  margin: 8px 0 0;
+
+  font-size: 17px;
+
+  color: #eef4f8;
+}
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+.report-status {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 9px 13px;
+
+  background: #09111e;
+
+  border:
+    1px solid #172337;
+
+  border-radius: 9px;
+
+  font-size: 11px;
+
+  color: #7d91aa;
+}
+
+.status-dot {
+  width: 8px;
+
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #35d8c4;
+
+  box-shadow:
+    0 0 10px
+    rgba(53, 216, 196, 0.5);
+}
+
+
+/* =========================================================
+   DOWNLOAD GRID
+========================================================= */
+
+.download-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 18px;
+
+  margin-bottom: 20px;
+}
+
+
+/* =========================================================
+   DOWNLOAD CARD
+========================================================= */
+
+.download-card {
+  padding: 26px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #0c1626,
+      #09111e
+    );
+
+  border:
+    1px solid #172337;
+
+  border-radius: 14px;
+
+  transition:
+    transform 0.2s,
+    border-color 0.2s;
+}
+
+.download-card:hover {
+  transform:
+    translateY(-2px);
+
+  border-color:
+    rgba(32, 216, 192, 0.35);
+}
+
+.download-icon {
+  width: 50px;
+
+  height: 50px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background:
+    rgba(23, 214, 191, 0.09);
+
+  font-size: 22px;
+
+  margin-bottom: 15px;
+}
+
+.download-card h2 {
+  margin: 0 0 8px;
+
+  font-size: 18px;
+
+  color: #eef4f8;
+}
+
+.download-card p {
+  margin: 0 0 20px;
+
+  color: #71809a;
+
+  font-size: 12px;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   DOWNLOAD BUTTONS
+========================================================= */
+
+.csv-button,
+.excel-button {
+  width: 100%;
+
+  padding: 12px;
+
+  border: none;
+
+  border-radius: 9px;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.csv-button {
+  background: #15313a;
+
+  color: #43d8c5;
+
+  border:
+    1px solid
+    rgba(32, 216, 192, 0.25);
+}
+
+.csv-button:hover {
+  background: #1b414b;
+}
+
+.excel-button {
+  background: #35d8c4;
+
+  color: #03100f;
+}
+
+.excel-button:hover {
+  background: #4de7d3;
+
+  box-shadow:
+    0 6px 18px
+    rgba(35, 221, 193, 0.15);
+}
+
+
+/* =========================================================
+   TABLE CARD
+========================================================= */
+
+.report-table-card {
+  padding: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #0c1626,
+      #09111e
+    );
+
+  border:
+    1px solid #172337;
+
+  border-radius: 14px;
+}
+
+
+/* =========================================================
+   TABLE HEADER
+========================================================= */
+
+.table-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 20px;
+}
+
+.table-header h2 {
+  margin: 5px 0 0;
+
+  font-size: 18px;
+
+  color: #eef4f8;
+}
+
+.records-count {
+  font-size: 11px;
+
+  color: #71809a;
+
+  background: #101b2b;
+
+  border:
+    1px solid #18263a;
+
+  padding: 7px 10px;
+
+  border-radius: 8px;
+}
+
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+.report-table-wrapper {
+  overflow-x: auto;
+}
+
+.report-table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  min-width: 650px;
+}
+
+.report-table th {
+  padding: 13px;
+
+  text-align: left;
+
+  font-size: 10px;
+
+  letter-spacing: 0.8px;
+
+  color: #61708a;
+
+  border-bottom:
+    1px solid #1a273a;
+}
+
+.report-table td {
+  padding: 14px 13px;
+
+  font-size: 12px;
+
+  color: #8290a6;
+
+  border-bottom:
+    1px solid #121e2e;
+}
+
+.report-table tbody tr:hover {
+  background:
+    rgba(27, 211, 187, 0.03);
+}
+
+.report-table td strong {
+  color: #e4edf3;
+}
+
+
+/* =========================================================
+   CATEGORY BADGE
+========================================================= */
+
+.category-badge {
+  display: inline-block;
+
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  background:
+    rgba(32, 216, 192, 0.08);
+
+  border:
+    1px solid
+    rgba(32, 216, 192, 0.15);
+
+  color: #3bdcc7;
+
+  font-size: 10px;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   EMPTY REPORT
+========================================================= */
+
+.empty-report {
+  min-height: 60vh;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+
+  margin-bottom: 12px;
+}
+
+.empty-report h2 {
+  margin: 0 0 8px;
+
+  color: #eef4f8;
+}
+
+.empty-report p {
+  color: #71809a;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+.reports-loading {
+  min-height: 70vh;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #71809a;
+}
+
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+.reports-error {
+  max-width: 450px;
+
+  margin: 100px auto;
+
+  padding: 35px;
+
+  text-align: center;
+
+  background: #0c1626;
+
+  border:
+    1px solid #172337;
+
+  border-radius: 14px;
+}
+
+.reports-error h2 {
+  color: #eef4f8;
+}
+
+.reports-error p {
+  color: #71809a;
+}
+
+.reports-error button {
+  padding: 10px 16px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: #35d8c4;
+
+  color: #03100f;
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 800px) {
+
+  .reports-page {
+    padding: 20px;
+  }
+
+  .reports-header {
+    flex-direction: column;
+
+    gap: 15px;
+  }
+
+  .download-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-summary-card {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 15px;
+  }
+
+}
+
+
+@media (max-width: 500px) {
+
+  .reports-page {
+    padding: 15px;
+  }
+
+  .reports-header h1 {
+    font-size: 25px;
+  }
+
+  .report-table-card {
+    padding: 15px;
+  }
+
+}
